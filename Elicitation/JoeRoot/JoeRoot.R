@@ -1,12 +1,9 @@
-library(readxl)
-library(xlsx)
-library(tidyverse)
-library(ggplot2)
+
 library(zoo)
 library(tidyverse)
 
 #Import dataset
-JoeRootData <- readRDS("Elicitation/Joe_Root_Test_Batting_Stats.rds")
+JoeRootData <- readRDS("Elicitation/JoeRoot/Joe_Root_Test_Batting_Stats.rds")
 
 mean(JoeRootData$Runs)
 #Mean of 46.39
