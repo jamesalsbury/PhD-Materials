@@ -1,6 +1,5 @@
-
-library(zoo)
 library(tidyverse)
+#Original data set can be found: https://stats.espncricinfo.com/ci/engine/player/303669.html?class=1;template=results;type=allround;view=match
 
 #Import dataset
 JoeRootData <- readRDS("Elicitation/JoeRoot/Joe_Root_Test_Batting_Stats.rds")
@@ -12,6 +11,7 @@ median(JoeRootData$Runs)
 #Median is lower at 29.5
 
 #Plotting the number of runs as a bar chart - blue = out, yellow = not out
+#Also rolling career average is plotted as a red line
 p<-ggplot() +
   geom_bar(data = JoeRootData, aes(x=`Test no`, y=Runs),stat="identity", fill =JoeRootData$OutColour)  + 
   geom_line(data = JoeRootData,aes(x=`Test no`, y =RollingCareerAverage), col="red")
@@ -86,7 +86,40 @@ library(SHELF)
 
 SHELF::elicit()
 
-#PDF and CDF plots are found in the folder
-#Think 400 may be a little high, gives 0.9 quantile of being 265, which is very high for 1 in 10 chance
-#But needs to be high as is still plausible (just)
+
+#We need to choose a distribution that only takes non-negative real values
+#Possibly Gamma, log-Normal
+#Can look at quantiles to determine whether suitable
+
+#For gamma(0.657, 0.0153) the 0.1 quantile is 1.7 which seems low
+#The 0.9 quantile is 109 which seems plausible
+
+#For log-Normal(3.09, 1.46) the 0.1 quantile is 3.41 which again is low but a bit more plausible
+#(he scored 2 in 2013 in Brisbane)
+#The 0.9 quantile is 143 which seems plausible (just)
+
+#I would choose the log-Normal(3.09, 1.46) distribution here
+
+
+x <- seq(0,400, by=0.01)
+y <- dlnorm(x,3.09,1.46)
+plot(x,y, type="l")
+
+#Perhaps a truncated Normal/student-t distribution could be a better choice?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
