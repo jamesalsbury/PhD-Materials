@@ -4,6 +4,8 @@ library(tidyverse)
 #Import dataset
 JoeRootData <- readRDS("Elicitation/JoeRoot/Joe_Root_Test_Batting_Stats.rds")
 
+
+
 mean(JoeRootData$Runs)
 #Mean of 46.39
 
@@ -106,19 +108,6 @@ y <- dlnorm(x,3.09,1.46)
 plot(x,y, type="l")
 
 #Perhaps a truncated Normal/student-t distribution could be a better choice?
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
