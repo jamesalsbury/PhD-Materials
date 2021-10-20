@@ -12,12 +12,13 @@ estBetaParams(0.45, 0.1^2)
 
 x = seq(0,1,by=0.01)
 theta1 = dbeta(x, 10.7, 13)
-plot(x,theta1, type="l")
+plot(x,theta1, type="l", ylab="density", col="blue")
 
 estBetaParams(0.5985, 0.2^2)
 theta2 = dbeta(x, 3, 2)
 
-lines(x, theta2, type="l", lty=2)
+lines(x, theta2, type="l", lty=2, col="red")
+legend(0, 3.5, legend=c("theta1", "theta2"), lty=1:2, col=c("blue", "red"))
 
 library(rjags)
 data = list(n1=180, n2=180, zsig=1.96)
