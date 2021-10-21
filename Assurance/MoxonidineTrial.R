@@ -68,5 +68,3 @@ output = coda.samples(model=model, variable.names = c("ass"), n.iter = 1000000)
 mean(output[[1]])
 
 
-
-  
