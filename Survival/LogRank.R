@@ -3,7 +3,6 @@ library(survival)
 
 survdiff(Surv(time, status) ~ sex, data = lung)
 
-
 #Need to only include the event times where it is not censored
 
 uniquedead = unique(sort(lung$time[lung$status==2]))
@@ -32,3 +31,5 @@ LogRank$V = (((LogRank$n1*LogRank$n2)*(LogRank$n-LogRank$d))*LogRank$d)/((LogRan
 
 T = sum((LogRank$d1minuse1))^2/sum(LogRank$V)
 T
+pchisq(T, df=1, lower.tail = F)
+

@@ -64,7 +64,6 @@ model{
 "
 model = jags.model(textConnection(modelstring), data = data)
 update(model, n.iter = 1000)
-output = coda.samples(model=model, variable.names = c("ass"), n.iter = 1000000)
+output = coda.samples(model=model, variable.names = c("ass"), n.iter = 10000000)
 mean(output[[1]])
-
 
