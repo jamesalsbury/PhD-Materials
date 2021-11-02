@@ -1,4 +1,6 @@
 
+#Exponential example
+
 
 ###Power calculation
 N1vec <- seq(1:500)
@@ -82,6 +84,37 @@ lines(ass3, lty = 5, col = "red")
 
 legend("bottomright", legend = c("Power", "Assurance: scenario 1", "Assurance: scenario 2", "Assurance: scenario 3"),
        col = c("black", "blue", "purple", "red"), lty = 2:5, cex = 0.8)
+
+
+###Weibull example
+
+kappa1 <- log(log(0.1)/log(0.2))/(log(2/1))
+kappa2 <- log(log(0.2)/log(0.3))/(log(2/1))
+lambda1 <- -log(0.2)/(1^kappa1)
+lambda2 <- -log(0.3)/(1^kappa1)
+mu1 <- gamma(1+1/kappa1)/(lambda1^(1/kappa1))
+mu2 <- gamma(1+1/kappa2)/(lambda2^(1/kappa2))
+sigma1 <- (gamma(1+2/kappa1)-(gamma(1+1/kappa1))^2)/lambda1^(2/kappa1)
+sigma2 <- (gamma(1+2/kappa2)-(gamma(1+1/kappa2))^2)/lambda2^(2/kappa2)
+alpha <- 0.05
+N1vec <- seq(1:1000)
+N2vec <- seq(1:1000)
+alpha <- 0.05
+
+
+powerfunc <- function(N1, N2){
+  pnorm((mu2-mu1)/(sqrt(sigma1/N1+sigma2/N2))-qnorm(alpha/2), lower.tail = F)+pnorm(-(mu2-mu1)/(sqrt(sigma1/N1+sigma2/N2))-qnorm(alpha/2), lower.tail = F)
+}
+power <- vector(length = 1000)
+for (i in 1:1000){
+  power[i] <- powerfunc(N1vec[i], N2vec[i])  
+}
+plot(power, type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size", ylab = "Power/Assurance", lty=2)
+axis(1, at = seq(0, 1000,by = 250), labels = seq(0, 2000, by = 500))
+
+
+
+
 
 
 
