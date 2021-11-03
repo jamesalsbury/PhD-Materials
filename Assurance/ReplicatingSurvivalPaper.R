@@ -87,37 +87,79 @@ legend("bottomright", legend = c("Power", "Assurance: scenario 1", "Assurance: s
 
 
 ###Weibull example
-
-kappa1 <- log(log(0.1)/log(0.2))/(log(2/1))
-kappa2 <- log(log(0.2)/log(0.3))/(log(2/1))
-lambda1 <- -log(0.2)/(1^kappa1)
-lambda2 <- -log(0.3)/(1^kappa1)
-mu1 <- gamma(1+1/kappa1)/(lambda1^(1/kappa1))
-mu2 <- gamma(1+1/kappa2)/(lambda2^(1/kappa2))
-sigma1 <- (gamma(1+2/kappa1)-(gamma(1+1/kappa1))^2)/lambda1^(2/kappa1)
-sigma2 <- (gamma(1+2/kappa2)-(gamma(1+1/kappa2))^2)/lambda2^(2/kappa2)
-alpha <- 0.05
 N1vec <- seq(1:1000)
 N2vec <- seq(1:1000)
 alpha <- 0.05
 
-
+#Function to calculate the power for two user-specified sample sizes
 powerfunc <- function(N1, N2){
+  kappa1 <- log(log(0.1)/log(0.2))/(log(2/1))
+  kappa2 <- log(log(0.2)/log(0.3))/(log(2/1))
+  lambda1 <- -log(0.2)/(1^kappa1)
+  lambda2 <- -log(0.3)/(1^kappa1)
+  mu1 <- gamma(1+1/kappa1)/(lambda1^(1/kappa1))
+  mu2 <- gamma(1+1/kappa2)/(lambda2^(1/kappa2))
+  sigma1 <- (gamma(1+2/kappa1)-(gamma(1+1/kappa1))^2)/lambda1^(2/kappa1)
+  sigma2 <- (gamma(1+2/kappa2)-(gamma(1+1/kappa2))^2)/lambda2^(2/kappa2)
+  alpha <- 0.05
   pnorm((mu2-mu1)/(sqrt(sigma1/N1+sigma2/N2))-qnorm(alpha/2), lower.tail = F)+pnorm(-(mu2-mu1)/(sqrt(sigma1/N1+sigma2/N2))-qnorm(alpha/2), lower.tail = F)
 }
+
+#Calculating power for different values of the sample sizes
 power <- vector(length = 1000)
 for (i in 1:1000){
   power[i] <- powerfunc(N1vec[i], N2vec[i])  
 }
+
+#Plotting the power calculations
 plot(power, type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size", ylab = "Power/Assurance", lty=2)
 axis(1, at = seq(0, 1000,by = 250), labels = seq(0, 2000, by = 500))
 
 
+#Assurance calculations now
 
 
+assurancefunc <- function(N1, N2){
+  M = 500
+  assurance <- vector(length = M)
+  for (j in 1:M){
+    S1t0 <- rbeta(1, 8.10, 32.81)
+    Delta11 <- rbeta(1, 4.36, 32.61)
+    Delta12 <- rnorm(1, 0.097, sqrt(0.004))
+    Delta22 <- rbeta(1, 2.23, 20.10)
+    S1t0prime <- S1t0 - Delta11
+    S2t0 <- S1t0 + Delta12
+    S2t0prime <- S2t0 - Delta22
+    kappa1 <- log(log(S1t0prime)/log(S1t0))/(log(2/1))
+    kappa2 <- log(log(S2t0prime)/log(S2t0))/(log(2/1))
+    lambda1 <- -log(S1t0)
+    lambda2 <- -log(S2t0)
+    if (is.na(kappa1)|is.na(kappa2)){
+      assurance[j] = NA
+    } else{
+      Survtimes1 <- rweibull(N1, scale = lambda1, shape = kappa1)
+      Survtimes2 <- rweibull(N2, scale = lambda2, shape = kappa2)
+      X2bar = mean(Survtimes2)
+      X1bar = mean(Survtimes1)
+      sigma1 = var(Survtimes1)
+      sigma2 = var(Survtimes2)
+      assurance[j]   =  (X2bar - X1bar)/(sqrt(sigma1/N1+sigma2/N2))>qt(0.975 , df = N1+N2-1)
+    }
+  }
+  assurance <- na.omit(assurance)
+  mean(assurance)  
+}
 
 
+N1vec <- seq(1,1000)
+N2vec <- seq(1,1000)
 
+ass <- vector(length = 1000)
+for (i in 1:1000){
+  ass[i] <- assurancefunc(N1vec[i], N2vec[i])  
+}
+
+lines(ass, lty=3, col="blue")
 
 
 
