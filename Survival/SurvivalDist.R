@@ -28,6 +28,7 @@ WeibullCP <- function(cp, max){
          cex=0.8, lty=1)
 }
 
+
 #We can try a range of values that cp and max might take
 
 WeibullCP(50, 500)
@@ -35,7 +36,7 @@ WeibullCP(100, 500)
 WeibullCP(200, 500)
 WeibullCP(300, 500)
 
-#We see that it does not seem to be flexible enough to deal with the issues we want: curves to track each other and then separate at the changepoint
+#We see that it does not seem to be flexible enough to deal with the issues we want: for the curves to track each other and then separate at the changepoint
 #When the changepoint is low (1/5) of the maximum then it does an okay job
 #But as the changepoint gets larger the curves do not capture the changepoint very well at all
 
