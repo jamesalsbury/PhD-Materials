@@ -161,6 +161,10 @@ for (i in 1:1000){
 
 lines(ass, lty=3, col="blue")
 
+##Nonparametric example
 
-
+Standard = data.frame(Time = c(0.8, 1.0, 2.7, 3.1, 5.4, 7.0, 9.2, 12.1), Cens = c(1, 0, 0, 1, 1, 0, 1, 0))
+fit = survfit(Surv(Time, Cens)~1, data = Standard)
+plot(fit, conf.int = F)
+summary(fit)
 
