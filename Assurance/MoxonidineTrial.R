@@ -98,3 +98,33 @@ for (i in 1:m){
 
 mean(zvec>1.96)
 
+
+
+#Using the same method for our moxonidine trial
+
+m = 10e3
+zvec = vector(length=m)
+for (i in 1:m){
+  n1 <- 180 #Control
+  n2 <- 180 #Treatment
+  theta1 <- rbeta(1, 10.7, 13.1) #Control
+  rho <- rnorm(1, 0.15, sd = sqrt(0.01))
+  theta2 <- theta1 - rho #Treatment
+  if (theta2<0){
+    zvec[i] = NA
+  } else{
+    control <- rbinom(1, n1, theta1)
+    treatment <- rbinom(1, n2, theta2)
+    MoxonidineData = data.frame(RaisedcTni = c(control, treatment), NotRaisedcTni = c(n1 - control, n2 - treatment), row.names = c("Control", "Treatment"))
+    test = chisq.test(MoxonidineData, correct = F)
+    zvec[i] = test$p.value<0.05
+  }
+}
+
+zvec = na.omit(zvec)
+mean(zvec)
+
+
+power = power.prop.test(n=300,p1=0.45,p2=0.3)
+power$power
+

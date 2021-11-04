@@ -128,7 +128,7 @@ estBetaParams(0.45, 0.1^2)
 
 ```
 
-So we can see that these beliefs can be approximately captured by a Be(10.7, 13) distribution. 
+So we can see that these beliefs can be approximately captured by a Be(10.7, 13.1) distribution. 
 
 To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_2 - \theta_1$. We prefer to think about the differences because $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%. This indicates that $E[\rho]$ = 0.3. We can model $\rho$ as coming from a Normal distribution with mean 0.3. Again, the trial investigators will be able to choose a more appropriate value for the variance, so we will calculate the assurance under 3 different scenarios:
 

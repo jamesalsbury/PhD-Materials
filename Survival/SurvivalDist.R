@@ -10,8 +10,8 @@ WeibullCP <- function(cp, max){
   treatment <- data.frame(time = c(runif(100, 0, cp),runif(100, cp, max)), cens = rep(1, 100))
   
   #Fitting a weibull model to both control/treatment groups
-  fitcontrol <- survreg(Surv(time)~1, dist="weibull", data = control)
-  fittreatment <- survreg(Surv(time)~1, dist="weibull", data = treatment)
+  fitcontrol <- survreg(Surv(time, cens)~1, dist="weibull", data = control)
+  fittreatment <- survreg(Surv(time, cens)~1, dist="weibull", data = treatment)
   
   #Plotting the distribtions found
   plot(x = predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,],
