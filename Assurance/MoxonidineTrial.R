@@ -2,6 +2,13 @@
 
 #####Analsyis for this clinical trial: https://pubmed.ncbi.nlm.nih.gov/17968979/
 
+
+
+##Chi square test for the data
+
+MoxonidineData = data.frame(RaisedcTni = c(23, 31), NotRaisedcTni = c(40, 47), row.names = c("Control", "Treatment"))
+chisq.test(moxonidine, correct = F)
+
 estBetaParams <- function(mu, var) {
   alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
   beta <- alpha * (1 / mu - 1)
@@ -64,6 +71,30 @@ model{
 "
 model = jags.model(textConnection(modelstring), data = data)
 update(model, n.iter = 1000)
-output = coda.samples(model=model, variable.names = c("ass"), n.iter = 10000000)
+output = coda.samples(model=model, variable.names = c("ass"), n.iter = 1000000)
 mean(output[[1]])
+
+
+
+#Same example but not using RJags
+m = 10e5
+zvec = vector(length=m)
+for (i in 1:m){
+  n1 <- 200 #Control
+  n2 <- 400 #Treatment
+  theta1 <- rbeta(1, 5, 20) #Control
+  eff <- rbinom(1,1, 0.85)
+  theff <- rbeta(1, 3, 4.5)
+  thneff <- rbeta(1, 2, 23)
+  theta2 <- (eff * theff)+((1-eff)*thneff) #Treatment
+  control <- rbinom(1, n1, theta1)
+  treatment <- rbinom(1, n2, theta2)
+  control/n1
+  p1 <-  control/n1
+  p2 <-treatment/n2
+  se <-  sqrt((p1*(1-p1)/n1)+(p2*(1-p2)/n2))
+  zvec[i] <-  (p2-p1)/se
+}
+
+mean(zvec>1.96)
 

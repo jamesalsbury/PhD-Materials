@@ -1,33 +1,40 @@
 ---
 title: "Moxonidine Trial"
+header-includes:
+- \usepackage{caption}
+always_allow_html: true
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(RColorBrewer)
 ```
 
 ## Introduction
 
-This report outlines a clinical trial which can be found here: <https://pubmed.ncbi.nlm.nih.gov/17968979/>. The trial compared the drug moxonidine against a placebo in a double-blind trial. 
+This report outlines a clinical trial which can be found here: <https://pubmed.ncbi.nlm.nih.gov/17968979/>. The trial compared the drug moxonidine against a placebo in a double-blind trial. We will discuss the trial; how the sample size was calculated, how the trial was conducted and the results of the trial. We will also retrospectively compute assurance for this trial, both before and during (in the interim analysis). (#Comment about how using assurance would have benefited them here)
 
 
 ## Background
 
-Myocardial ischaemia is the leading cause of morbidity and mortality after surgery on patients with coronary artery disease. Patients were to be randomly assigned the drug moxonidine or a placebo to be taken the morning before surgery and on days 1 to 4 after surgery. Study medication was administered by a member of the team blinded to treatment allocation. Levels of cTnI were measured the day before surgery, immediately after surgery and on days 1, 2, 3 and 7 after surgery. Based on historical data, an increase of cTnI of 2$\mu$g/l was interpreted as being clinically significant (an increase of cTnI is related to a lower incidence of myocardial ischaemia). 
+Myocardial ischaemia is the leading cause of morbidity and mortality after surgery on patients with coronary artery disease. Patients were randomly assigned the drug moxonidine or a placebo (with ratio 1:1) to be taken the morning before surgery and on days 1 to 4 after surgery. Study medication was administered by a member of the team blinded to treatment allocation. The endpoint of the trial was measuring the difference in levels of cTnI before surgery and 7 days post surgery, an increase of 2$\mu$g/l of cTnI was interpreted as being clinically significant in increasing the probability of myocardial ischaemia. 
+
 
 ## Trial Design
 
 Based on an incidence of myocardial ischaemia of 45\% found in a previous investigation, an estimated effect size of 33\% and the trial being performed at 80\% power, the necessary sample size was calculated to be 180 patients per group. We can use equation 9.18 in Julious (2009) to show why the trial chose 180 patients in each arm. $$n_A = \frac{4}{(\pi_A-\pi_B)^2},$$
 
-Here, we have $\pi_A = 0.45$ and $\pi_B = 0.5985$. If we substitute these values into the equation we obtain:
+Here, we have $\pi_A = 0.45$ and $\pi_B = 0.30$. If we substitute these values into the equation we obtain:
 \begin{align*}
     n_A &= \frac{4}{(\pi_A-\pi_B)^2} \\
-     &= \frac{4}{(0.45-0.5985)^2} \\
-     &= \frac{4}{0.022} \\
-    &\approx 181.8,     
+     &= \frac{4}{(0.45-0.3)^2} \\
+     &= \frac{4}{0.0225} \\
+    &\approx 177.8,     
 \end{align*}
 so we can see why the value of 180 patients in each arm was chosen.
 
@@ -35,13 +42,69 @@ A blinded interim analysis was prospectively planned after one-third of the calc
 
 ## Results
 
-At the interim analysis, 141 patients had been recruited into the trial. There were 78 patients in the treatment group and 63 patients in the placebo group. The incidence of raised perioperative cTnI levels in each groups were as follows: 31 in treatment, 23 in placebo. This corresponds to a proportion of 40\% in the treatment group and 37\% in the placebo group. We can see that the levels of cTnI in the treatment group are slightly higher, but only 3\%. This was analysed with a $\chi^2$ test and the $p$-value calculated is 0.694, which clearly is not significant at all. Therefore, the trial was stopped due to futility (the treatment is clearly not clinically better so there is no advantage to continuing the trial until the end). 
+At the interim analysis, 141 patients had been recruited into the trial. There were 78 patients in the treatment group and 63 patients in the placebo group. We can see the results below in the Table.
+
+```{=html}
+<center>
+<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;}
+.tg td{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+  overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg th{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+  font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
+.tg .tg-baqh{text-align:center;vertical-align:top}
+.tg .tg-c3ow{border-color:inherit;text-align:center;vertical-align:top}
+.tg .tg-7btt{border-color:inherit;font-weight:bold;text-align:center;vertical-align:top}
+.tg .tg-amwm{font-weight:bold;text-align:center;vertical-align:top}
+</style>
+<table class="tg">
+<thead>
+  <tr>
+    <th class="tg-c3ow"></th>
+    <th class="tg-7btt">Raised cTnI Levels</th>
+    <th class="tg-7btt">Not raised cTnI Levels</th>
+    <th class="tg-amwm">Total</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td class="tg-7btt">Treatment</td>
+    <td class="tg-c3ow">31</td>
+    <td class="tg-c3ow">47</td>
+    <td class="tg-baqh">78</td>
+  </tr>
+  <tr>
+    <td class="tg-7btt">Control</td>
+    <td class="tg-c3ow">23</td>
+    <td class="tg-c3ow">40</td>
+    <td class="tg-baqh">63</td>
+  </tr>
+  <tr>
+    <td class="tg-amwm">Total</td>
+    <td class="tg-baqh">54</td>
+    <td class="tg-baqh">87</td>
+    <td class="tg-baqh">141</td>
+  </tr>
+</tbody>
+</table>
+</center>
+```
+
+
+We see that $\approx 40\%$ patients in the treatment group have higher levels of cTnI (higher levels indicate higher levels of myocardial ischaemia), compared to $\approx 37\%$ of patients in the control group. We see that the levels of increased cTnI is actually more in the treatment group than the control group, which is clearly not desirable. 
+
+This was analysed with a $\chi^2$ test, as seen below.
+```{r chisquare}
+MoxonidineData = data.frame(RaisedcTni = c(23, 31), NotRaisedcTni = c(40, 47), row.names = c("Control", "Treatment"))
+chisq.test(MoxonidineData, correct = F)
+```
+We can see that the $p$-value calculated is 0.694, which clearly is not significant at all. Therefore, the trial was stopped due to futility (the treatment is clearly not clinically better so there is no advantage to continuing the trial until the end). 
 
 ## Assurance for this trial
 
 The design of this trial is very traditional, very frequentist. We have a placebo (for which we have a point-estimate), a treatment (for which we have an estimate of its effects in comparison to the placebo), we have the type I error rate ($\alpha = 0.05$) and we have some power that we wish to perform the trial at (here, $1-\beta = 0.8$). As a result, we saw how when we substitute these values into the equations, we obtain 180 patients in both of the two arms.  
 
-However, this method is sub-optimal for a number of reasons. The first reason is that this calculation assumes that the treatment is in fact better than the placebo - which we cannot possibly know as we would not be doing a trial otherwise. Therefore, the power of the test (80\%) is the conditional probability that we will find an effect, if such an effect exists. In reality, there will be times where the treatment is no better than the placebo (as was the case in this trial) so the power is a misrepresentation of how effective a trial actually is. 
+However, this method is sub-optimal for a number of reasons. The first reason is that this calculation assumes that the treatment is in fact better than the placebo - which we cannot possibly know as we would not be doing the trial otherwise. Therefore, the power of the test (80\%) is the conditional probability that we will find an effect, if such an effect exists. In reality, there will be times where the treatment is no better than the placebo (as was the case in this trial) so the power is a misrepresentation of how effective a trial actually is. 
 
 The second reason is that we only have point-estimates for the placebo and the treatment effect. From historical data, we should be able to construct a distribution for the effectiveness of the placebo, and from possible phase II trials, pilot studies and in collaboration with clinical investigators, we should be able to construct a distribution for the effectiveness of the treatment.  Even if we are not very confident about our estimates in the effectiveness of the treatment, these prior beliefs can be incorporated into the distribution. 
 
@@ -65,32 +128,43 @@ estBetaParams(0.45, 0.1^2)
 
 ```
 
-So we can see that these beliefs can be approximately captured by a Be(10.7, 13) distribution. We can repeat this process for $\theta_2$. From the trial setup, we know that the investigators believe $E[\theta_2$] = 0.5985. Again, the investigators will know more, but we can choose sd[$\theta_2$] = 0.2.
+So we can see that these beliefs can be approximately captured by a Be(10.7, 13) distribution. 
 
-```{r estBeta2}
+To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_2 - \theta_1$. We prefer to think about the differences because $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%. This indicates that $E[\rho]$ = 0.3. We can model $\rho$ as coming from a Normal distribution with mean 0.3. Again, the trial investigators will be able to choose a more appropriate value for the variance, so we will calculate the assurance under 3 different scenarios:
 
-estBetaParams(0.5985, 0.2^2)
 
+#Code to calculate assurance 
+
+As a result of the aside, we can modify the code above to be applicable in our trial. We have changed the sample sizes in both arms and the prior distributions on the $\theta_i$'s. The code is as follows:
+
+```{r Assurance}
+library(rjags)
+data = list(n1=180, n2=180, zsig=1.96)
+modelstring="
+model{
+  theta1~dbeta(10.7, 13)
+  theta2~dbeta(3, 2)
+  r1~dbin(theta1, n1)
+  r2~dbin(theta2, n2)
+  p1 <-  r1/n1
+  p2 <- r2/n2
+  se <-  sqrt((p1*(1-p1)/n1)+(p2*(1-p2)/n2))
+  z <-  (p2-p1)/se
+  ass <- step(z-zsig) # The mean of ass is the assurance
+}
+"
+model = jags.model(textConnection(modelstring), data = data)
+update(model, n.iter = 1000)
+output = coda.samples(model=model, variable.names = c("ass"), n.iter = 1000000)
+mean(output[[1]])
 ```
 
+We can see that assurance is 0.59 or 59% in this case. This seems fairly high for an assurance calculation, one reason for this could be the overestimation of how well the treatment actually works (the elicitation for $\theta_2$). We also chose the SD of the priors without any prior knowledge, whereas in practice the investigatory team would be able to give more accurate predictions for the SD's.
 
-As before, When we fit these parameters to a Beta distribution, we approximately obtain a Be(3, 2) distribution. 
 
-We can plot $\theta_1$ and $\theta_2$ to ensure the distributions capture our beliefs correctly.
 
-```{r thetaPlot, echo=F}
-x = seq(0,1,by=0.01)
-theta1 = dbeta(x, 10.7, 13)
-theta2 = dbeta(x, 3, 2)
-plot(x,theta1, type="l", ylab="density", col="blue")
-lines(x, theta2, type="l", lty=2, col="red")
-legend(0, 3.5, legend=c(expression(paste(theta[1])), expression(paste(theta[2]))), lty=1:2, col=c("blue", "red"))
 
-```
-
-From the plot we can see that the distributions seem to give a good fit to our intuition. We are more sure in our beliefs of $\theta_1$, this is reflected in more of the density being centred around 0.45 - which is what we believe to be our most likely value. For $\theta_2$, we are more unsure in our beliefs and this is reflected in the density. A much wider range of values are likely, but the median/mode is higher than $\theta_1$ which is what we require, as we believe that the treatment has some positive effect on outcomes. 
-
-##An Aside
+## An Aside
 
 We have looked at Example 4 in O'Hagan (2005): https://onlinelibrary.wiley.com/doi/epdf/10.1002/pst.175 and worked it through, using the Appendix. In the Appendix there is code given for the example, the code calculates assurance for the example. The code is as follows:
 
@@ -120,31 +194,3 @@ mean(output[[1]])
 ```
 
 The authors calculated assurance to be $\gamma$ = 0.635 and we can see that our code replicates this well (with MCMC error).
-
-#Code to calculate assurance 
-
-As a result of the aside, we can modify the code above to be applicable in our trial. We have changed the sample sizes in both arms and the prior distributions on the $\theta_i$'s. The code is as follows:
-
-```{r Assurance}
-library(rjags)
-data = list(n1=180, n2=180, zsig=1.96)
-modelstring="
-model{
-  theta1~dbeta(10.7, 13)
-  theta2~dbeta(3, 2)
-  r1~dbin(theta1, n1)
-  r2~dbin(theta2, n2)
-  p1 <-  r1/n1
-  p2 <- r2/n2
-  se <-  sqrt((p1*(1-p1)/n1)+(p2*(1-p2)/n2))
-  z <-  (p2-p1)/se
-  ass <- step(z-zsig) # The mean of ass is the assurance
-}
-"
-model = jags.model(textConnection(modelstring), data = data)
-update(model, n.iter = 1000)
-output = coda.samples(model=model, variable.names = c("ass"), n.iter = 1000000)
-mean(output[[1]])
-```
-
-We can see that assurance is 0.59 or 59% in this case. This seems fairly high for an assurance calculation, one reason for this could be the overestimation of how well the treatment actually works (the elicitation for $\theta_2$). We also chose the SD of the priors without any prior knowledge, whereas in practice the investigatory team would be able to give more accurate predictions for the SD's.
