@@ -42,7 +42,7 @@ A blinded interim analysis was prospectively planned after one-third of the calc
 
 ## Results
 
-At the interim analysis, 141 patients had been recruited into the trial. There were 78 patients in the treatment group and 63 patients in the placebo group. We can see the results below in the Table.
+At the interim analysis, 141 patients had been recruited into the trial. There were 78 patients in the treatment group and 63 patients in the placebo group, the results are given below:
 
 ```{=html}
 <center>
@@ -91,11 +91,11 @@ At the interim analysis, 141 patients had been recruited into the trial. There w
 ```
 
 
-We see that $\approx 40\%$ patients in the treatment group have higher levels of cTnI (higher levels indicate higher levels of myocardial ischaemia), compared to $\approx 37\%$ of patients in the control group. We see that the levels of increased cTnI is actually more in the treatment group than the control group, which is clearly not desirable. 
+We see that $\approx 40\%$ patients in the treatment group have higher levels of cTnI (higher levels indicate higher levels of myocardial ischaemia), compared to $\approx 37\%$ of patients in the control group. We see that the levels of increased cTnI is greater in the treatment group than the control group, which is clearly not desirable. 
 
 This was analysed with a $\chi^2$ test, as seen below.
 ```{r chisquare}
-MoxonidineData = data.frame(RaisedcTni = c(23, 31), NotRaisedcTni = c(40, 47), row.names = c("Control", "Treatment"))
+MoxonidineData <- data.frame(RaisedcTni = c(23, 31), NotRaisedcTni = c(40, 47), row.names = c("Control", "Treatment"))
 chisq.test(MoxonidineData, correct = F)
 ```
 We can see that the $p$-value calculated is 0.694, which clearly is not significant at all. Therefore, the trial was stopped due to futility (the treatment is clearly not clinically better so there is no advantage to continuing the trial until the end). 
@@ -130,67 +130,86 @@ estBetaParams(0.45, 0.1^2)
 
 So we can see that these beliefs can be approximately captured by a Be(10.7, 13.1) distribution. 
 
-To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_2 - \theta_1$. We prefer to think about the differences because $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%. This indicates that $E[\rho]$ = 0.3. We can model $\rho$ as coming from a Normal distribution with mean 0.3. Again, the trial investigators will be able to choose a more appropriate value for the variance, so we will calculate the assurance under 3 different scenarios:
+To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_2 - \theta_1$. We prefer to think about the difference because $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%, this indicates that $E[\theta_2] = 0.3$ and $E[\rho]= 0.15$ Therefore, we can model $\rho \sim N(0.15, \nu)$. Again, the trial investigators will be able to choose an appropriate value for $\nu$, so for illustration we will calculate the assurance under three different scenarios (note: the third scenario has different value for the mean):
 
+Scenario 1: $\rho \sim N(0.15, 0.0001)$
 
-#Code to calculate assurance 
+Scenario 2: $\rho \sim N(0.15, 0.01)$
 
-As a result of the aside, we can modify the code above to be applicable in our trial. We have changed the sample sizes in both arms and the prior distributions on the $\theta_i$'s. The code is as follows:
+Scenario 3: $\rho \sim N(0.10, 0.01)$
 
-```{r Assurance}
-library(rjags)
-data = list(n1=180, n2=180, zsig=1.96)
-modelstring="
-model{
-  theta1~dbeta(10.7, 13)
-  theta2~dbeta(3, 2)
-  r1~dbin(theta1, n1)
-  r2~dbin(theta2, n2)
-  p1 <-  r1/n1
-  p2 <- r2/n2
-  se <-  sqrt((p1*(1-p1)/n1)+(p2*(1-p2)/n2))
-  z <-  (p2-p1)/se
-  ass <- step(z-zsig) # The mean of ass is the assurance
+We can calculate assurance under the three scenarios. This can be seen in the Figure below - alongside the traditional power curve. 
+
+```{r power+ass, message=F, warning=F}
+
+N1vec <- seq(1,500)
+N2vec <- seq(1,500)
+powervec <- vector(length = 500)
+for (i in 1:500){
+  power <- power.prop.test(n=N1vec[i],p1=0.45,p2=0.3)
+  powervec[i] <- power$power
 }
-"
-model = jags.model(textConnection(modelstring), data = data)
-update(model, n.iter = 1000)
-output = coda.samples(model=model, variable.names = c("ass"), n.iter = 1000000)
-mean(output[[1]])
+
+plot(powervec, type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size", ylab = "Power/Assurance", lty=2)
+axis(1, at = seq(0, 500,by = 125), labels = seq(0, 1000, by = 250))
+
+assurancefunc <- function(n1, n2, m, v){
+  n <- 10e1
+  zvec <- vector(length=n)
+  for (i in 1:n){
+    theta1 <- rbeta(1, 10.7, 13.1) #Control
+    rho <- rnorm(1, m, sd = sqrt(v))
+    theta2 <- theta1 - rho #Treatment
+    if (theta2 <0 ){
+      zvec[i] <- NA
+    } else {
+      control <- rbinom(1, n1, theta1)
+      treatment <- rbinom(1, n2, theta2)
+      MoxonidineData <- data.frame(RaisedcTni = c(control, treatment),
+              NotRaisedcTni = c(n1 - control, n2 - treatment), row.names = c("Control", "Treatment"))
+      test <- chisq.test(MoxonidineData, correct = F)
+      zvec[i] <- test$p.value < 0.05
+    }
+  }
+  zvec <-  na.omit(zvec)
+  mean(zvec)
+}
+
+#Scenario 1
+ass1 <- vector(length = 500)
+for (i in 1:500){
+  ass1[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.0001)
+}
+lo1 = loess(ass1~N1vec)
+lines(predict(lo1), lty=3, col="blue")
+
+
+#Scenario 2
+ass2 <- vector(length = 500)
+for (i in 1:500){
+  ass2[i] = assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.01)
+}
+lo2 = loess(ass2~N1vec)
+lines(predict(lo2), lty=4, col="red")
+
+
+#Scenario 3
+ass3 <- vector(length = 500)
+for (i in 1:500){
+  ass3[i] = assurancefunc(N1vec[i], N2vec[i], m = 0.1, v  = 0.01)
+}
+
+lo3 = loess(ass3~N1vec)
+lines(predict(lo3), lty=5, col="green")
+
+legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 3"), 
+       col=c("black", "blue", "red", "green"), lty=2:5)
 ```
 
-We can see that assurance is 0.59 or 59% in this case. This seems fairly high for an assurance calculation, one reason for this could be the overestimation of how well the treatment actually works (the elicitation for $\theta_2$). We also chose the SD of the priors without any prior knowledge, whereas in practice the investigatory team would be able to give more accurate predictions for the SD's.
+In scenario 1, the prior distribution for $\rho$ indicates a strong belief that the treatment is 33% more effective than the control. This is shown by the assurance essentially being the power curve (where we assume the treatment is better). 
+
+In scenario 2, the prior for $\rho$ indicates that the beliefs are not quite as strong as in scenario 1. This is modelled through the value of $\nu$ being greater and shown in the plot by the assurance being lower (reaches a maximum of around 80%)
+
+In scenario 3, the prior for $\rho$ indicates that the treatment may not be as effective as 33%. This is shown in the plot as the assurance is lower than both scenarios 1 and 2.  
 
 
-
-
-## An Aside
-
-We have looked at Example 4 in O'Hagan (2005): https://onlinelibrary.wiley.com/doi/epdf/10.1002/pst.175 and worked it through, using the Appendix. In the Appendix there is code given for the example, the code calculates assurance for the example. The code is as follows:
-
-```{r Ohagan}
-library(rjags)
-data = list(n1=200, n2=400, zsig=1.96)
-modelstring="
-model{
-  theta1~dbeta(5,20)
-  theta2 <- (eff * theff)+((1-eff)*thneff) # These lines set out
-  eff~dbern(0.85) # the prior as in Example 4.
-  theff~dbeta(3,4.5) # They should be modified
-  thneff~dbeta(2, 23) # as appropriate for any real example.
-  r1~dbin(theta1, n1)
-  r2~dbin(theta2, n2)
-  p1 <-  r1/n1
-  p2 <- r2/n2
-  se <-  sqrt((p1*(1-p1)/n1)+(p2*(1-p2)/n2))
-  z <-  (p2-p1)/se
-  ass <- step(z-zsig) # The mean of ass is the assurance
-}
-"
-model = jags.model(textConnection(modelstring), data = data)
-update(model, n.iter = 1000)
-output = coda.samples(model=model, variable.names = c("ass"), n.iter = 1000000)
-mean(output[[1]])
-```
-
-The authors calculated assurance to be $\gamma$ = 0.635 and we can see that our code replicates this well (with MCMC error).
