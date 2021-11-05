@@ -77,7 +77,7 @@ mean(output[[1]])
 
 
 #Same example but not using RJags
-m = 10e5
+m = 10e4
 zvec = vector(length=m)
 for (i in 1:m){
   n1 <- 200 #Control
@@ -102,13 +102,12 @@ mean(zvec>1.96)
 
 #Using the same method for our moxonidine trial
 
-m = 10e3
-zvec = vector(length=m)
-for (i in 1:m){
-  n1 <- 180 #Control
-  n2 <- 180 #Treatment
+assurancefunc <- function(n1, n2, m, v){
+n = 10e1
+zvec = vector(length=n)
+for (i in 1:n){
   theta1 <- rbeta(1, 10.7, 13.1) #Control
-  rho <- rnorm(1, 0.15, sd = sqrt(0.01))
+  rho <- rnorm(1, m, sd = sqrt(v))
   theta2 <- theta1 - rho #Treatment
   if (theta2<0){
     zvec[i] = NA
@@ -123,8 +122,52 @@ for (i in 1:m){
 
 zvec = na.omit(zvec)
 mean(zvec)
+}
 
 
-power = power.prop.test(n=300,p1=0.45,p2=0.3)
-power$power
 
+
+N1vec <- seq(1,500)
+N2vec <- seq(1,500)
+powervec <- vector(length = 500)
+for (i in 1:500){
+  power = power.prop.test(n=N1vec[i],p1=0.45,p2=0.3)
+  powervec[i] = power$power
+   
+}
+plot(powervec, type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size", ylab = "Power/Assurance", lty=2)
+axis(1, at = seq(0, 500,by = 125), labels = seq(0, 1000, by = 250))
+
+
+
+N1vec <- seq(1,500)
+N2vec <- seq(1,500)
+ass1 <- vector(length = 500)
+for (i in 1:500){
+  ass1[i] = assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.0001)
+}
+lo1 = loess(ass1~N1vec)
+lines(predict(lo1), lty=3, col="blue")
+
+
+
+ass2 <- vector(length = 500)
+for (i in 1:500){
+  ass2[i] = assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.01)
+}
+
+lo2 = loess(ass2~N1vec)
+lines(predict(lo2), lty=4, col="red")
+
+ass3 <- vector(length = 500)
+for (i in 1:500){
+  ass3[i] = assurancefunc(N1vec[i], N2vec[i], m = 0.1, v  = 0.01)
+}
+
+lo3 = loess(ass3~N1vec)
+lines(predict(lo3), lty=5, col="green")
+
+
+
+legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 3"), 
+       col=c("black", "blue", "red", "green"), lty=2:5)
