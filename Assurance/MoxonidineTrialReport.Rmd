@@ -98,7 +98,7 @@ estBetaParams(0.45, 0.1^2)
 
 So we can see that these beliefs can be approximately captured by a Be(10.7, 13.1) distribution. 
 
-To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_2 - \theta_1$. We prefer to think about the difference because $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%, this indicates that $E[\theta_2] = 0.3$ and $E[\rho]= 0.15$ Therefore, we can model $\rho \sim N(0.15, \nu)$. Again, the trial investigators will be able to choose an appropriate value for $\nu$, so for illustration we will calculate the assurance under three different scenarios (note: the third scenario has different value for the mean):
+To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_1 - \theta_2$. We prefer to think about the difference because $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%, this indicates that $E[\theta_2] = 0.3$ and $E[\rho]= 0.15$ Therefore, we can model $\rho \sim N(0.15, \nu)$. Again, the trial investigators will be able to choose an appropriate value for $\nu$, so for illustration we will calculate the assurance under three different scenarios (note: the third scenario has different value for the mean):
 
 Scenario 1: $\rho \sim N(0.15, 0.0001)$
 
@@ -148,26 +148,26 @@ ass1 <- vector(length = 500)
 for (i in 1:500){
   ass1[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.0001)
 }
-lo1 = loess(ass1~N1vec)
+lo1 <- loess(ass1~N1vec)
 lines(predict(lo1), lty=3, col="blue")
 
 
 #Scenario 2
 ass2 <- vector(length = 500)
 for (i in 1:500){
-  ass2[i] = assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.01)
+  ass2[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.01)
 }
-lo2 = loess(ass2~N1vec)
+lo2 <- loess(ass2~N1vec)
 lines(predict(lo2), lty=4, col="red")
 
 
 #Scenario 3
 ass3 <- vector(length = 500)
 for (i in 1:500){
-  ass3[i] = assurancefunc(N1vec[i], N2vec[i], m = 0.1, v  = 0.01)
+  ass3[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.1, v  = 0.01)
 }
 
-lo3 = loess(ass3~N1vec)
+lo3 <- loess(ass3~N1vec)
 lines(predict(lo3), lty=5, col="green")
 
 legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 3"), 
