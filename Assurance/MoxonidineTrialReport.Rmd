@@ -70,6 +70,8 @@ We can see that the $p$-value calculated is 0.694, which clearly is not signific
 
 ## Assurance for this trial
 
+### Trial design stage
+
 The design of this trial is very traditional, very frequentist. We have a placebo (for which we have a point-estimate), a treatment (for which we have an estimate of its effects in comparison to the placebo), we have the type I error rate ($\alpha = 0.05$) and we have some power that we wish to perform the trial at (here, $1-\beta = 0.8$). As a result, we saw how when we substitute these values into the equations, we obtain 180 patients in both of the two arms.  
 
 However, this method is sub-optimal for a number of reasons. The first reason is that this calculation assumes that the treatment is in fact better than the placebo - which we cannot possibly know as we would not be doing the trial otherwise. Therefore, the power of the test (80\%) is the conditional probability that we will find an effect, if such an effect exists. In reality, there will be times where the treatment is no better than the placebo (as was the case in this trial) so the power is a misrepresentation of how effective a trial actually is. 
@@ -108,7 +110,7 @@ Scenario 3: $\rho \sim N(0.10, 0.01)$
 
 We can calculate assurance under the three scenarios. This can be seen in the Figure below - alongside the traditional power curve. 
 
-```{r power+ass, message=F, warning=F}
+```{r power+ass, message=F, warning=F, cache=T}
 
 N1vec <- seq(1,500)
 N2vec <- seq(1,500)
@@ -179,5 +181,24 @@ In scenario 1, the prior distribution for $\rho$ indicates a strong belief that 
 In scenario 2, the prior for $\rho$ indicates that the beliefs are not quite as strong as in scenario 1. This is modelled through the value of $\nu$ being larger and shown in the plot by the assurance being lower (reaches a maximum of around 80%)
 
 In scenario 3, the prior for $\rho$ indicates that the treatment may not be as effective as 33%. This is shown in the plot as the assurance is lower than both scenarios 1 and 2.  
+
+
+### Interim analysis stage
+
+We can also perform assurance calculations during the trial. This feels natural in a Bayesian paradigm; we have prior distributions (about $\theta_1$ and $\rho$) and some data, which we can combine together to obtain a posterior distribution. 
+
+We will use the three scenarios as above and compare the assurance before the trial starts and at the interim analysis stage. 
+
+Scenario 1: We have $\rho \sim N(0.15, 0.0001)$, which means that we are very confident that the experimental treatment truly is 33% more effective than the control treatment.
+
+
+
+
+
+
+
+
+
+
 
 
