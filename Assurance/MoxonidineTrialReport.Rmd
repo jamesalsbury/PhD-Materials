@@ -80,12 +80,12 @@ The second reason is that we only have point-estimates for the placebo and the t
 
 ### Trial setup
 
-The outcome is a binary variable, we have $r_i$ successes out of $n_i$ patients for both treatments ($i=1$ for the placebo, $i=2$ for the treatment). Therefore, the hypothesis test we conduct at the end of the trial is:
+The outcome is a binary variable, we have $r_i$ successes (note: a 'success' here is **not** a desirable outcome) out of $n_i$ patients for both treatments ($i=1$ for the placebo, $i=2$ for the treatment). Therefore, the hypothesis test we conduct at the end of the trial is:
 \begin{align*}
     H_0 = \theta_1 = \theta_2 \\
     H_1 = \theta_1 \neq \theta_2
 \end{align*}
-Therefore, to calculate assurance methods for this trial design, we require prior beliefs regarding $\theta_1$ and $\theta_2$. From the information in the trial, we know that $E[\theta_1] = 0.45$. The trial investigators will be able to calculate the SD of $\theta_1$ accurately, but just for illustration, we will choose sd[$\theta_1$] = 0.1. We can find a Beta distribution which captures these beliefs by: 
+Therefore, to calculate assurance methods for this trial design, we require prior beliefs regarding $\theta_1$ and $\theta_2$. From the information in the trial, we know that $E[\theta_1] = 0.45$. The trial investigators will be able to calculate the SD of $\theta_1$ accurately, but for illustration, we will choose sd[$\theta_1$] = 0.1. We can find a Beta distribution (we use a Beta distribution as it only takes values [0,1] which is desirable for a proportion) which captures these beliefs by: 
 
 ```{r estBeta1}
 estBetaParams <- function(mu, var) {
@@ -100,7 +100,7 @@ estBetaParams(0.45, 0.1^2)
 
 So we can see that these beliefs can be approximately captured by a Be(10.7, 13.1) distribution. 
 
-To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_1 - \theta_2$. We prefer to think about the difference because $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%, this indicates that $E[\theta_2] = 0.3$ and $E[\rho]= 0.15$ Therefore, we can model $\rho \sim N(0.15, \nu)$. Again, the trial investigators will be able to choose an appropriate value for $\nu$, so for illustration we will calculate the assurance under three different scenarios (note: the third scenario has different value for the mean):
+To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_1 - \theta_2$. We prefer to think about the difference as $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%, this indicates that $E[\theta_2] = 0.3$ and $E[\rho]= 0.15$. Therefore, we can model $\rho \sim N(0.15, \nu)$. Again, the trial investigators will be able to choose an appropriate value for $\nu$, so for illustration we will calculate the assurance under three different scenarios (note: the third scenario has different value for the mean):
 
 Scenario 1: $\rho \sim N(0.15, 0.0001)$
 
@@ -108,9 +108,9 @@ Scenario 2: $\rho \sim N(0.15, 0.01)$
 
 Scenario 3: $\rho \sim N(0.10, 0.01)$
 
-We can calculate assurance under the three scenarios. This can be seen in the Figure below - alongside the traditional power curve. 
+We can calculate assurance under the three scenarios. This can be seen in the figure below - alongside the traditional power curve. 
 
-```{r power+ass, message=F, warning=F, cache=T}
+```{r power+ass, message=F, warning=F, cache=T, echo=F}
 
 N1vec <- seq(1,500)
 N2vec <- seq(1,500)
@@ -120,7 +120,8 @@ for (i in 1:500){
   powervec[i] <- power$power
 }
 
-plot(powervec, type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size", ylab = "Power/Assurance", lty=2)
+plot(powervec, type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size",
+     ylab = "Power/Assurance", lty=2)
 axis(1, at = seq(0, 500,by = 125), labels = seq(0, 1000, by = 250))
 
 assurancefunc <- function(n1, n2, m, v){
@@ -136,7 +137,8 @@ assurancefunc <- function(n1, n2, m, v){
       control <- rbinom(1, n1, theta1)
       treatment <- rbinom(1, n2, theta2)
       MoxonidineData <- data.frame(RaisedcTni = c(control, treatment),
-              NotRaisedcTni = c(n1 - control, n2 - treatment), row.names = c("Control", "Treatment"))
+              NotRaisedcTni = c(n1 - control, n2 - treatment),
+              row.names = c("Control", "Treatment"))
       test <- chisq.test(MoxonidineData, correct = F)
       zvec[i] <- test$p.value < 0.05
     }
@@ -187,11 +189,146 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 
 We can also perform assurance calculations during the trial. This feels natural in a Bayesian paradigm; we have prior distributions (about $\theta_1$ and $\rho$) and some data, which we can combine together to obtain a posterior distribution. 
 
-We will use the three scenarios as above and compare the assurance before the trial starts and at the interim analysis stage. 
+The following three plots show the three different scenarios; in each plot we have the power, the assurance at the design stage and the assurance at the interim analysis stage.
 
-Scenario 1: We have $\rho \sim N(0.15, 0.0001)$, which means that we are very confident that the experimental treatment truly is 33% more effective than the control treatment.
+```{r interim, message=F, warning=F, cache=T, echo=F}
+
+powerfunc <- function(){
+  N1vec <- seq(1,500)
+  N2vec <- seq(1,500)
+  powervec <- vector(length = 500)
+  for (i in 1:500){
+    power = power.prop.test(n=N1vec[i],p1=0.45,p2=0.3)
+    powervec[i] = power$power
+  }
+  return(powervec)
+}
+
+#Assurance function for the moxonidine trial - at the design stage
+
+#We input mu and nu (the parameters for the rho distribution)
+DesignAssuranceFunc <- function(mu, nu){
+  
+  #We calculate the assurance for user-specified n1 and n2
+  assurancefunc <- function(n1, n2, mu, nu){
+    n = 10e1
+    zvec = vector(length=n)
+    for (i in 1:n){
+      theta1 <- rbeta(1, 10.7, 13.1) #Control
+      rho <- rnorm(1, mu, sd = sqrt(nu))
+      theta2 <- theta1 - rho #Treatment
+      if (theta2<0){
+        zvec[i] <- NA
+      } else{
+        control <- rbinom(1, n1, theta1)
+        treatment <- rbinom(1, n2, theta2)
+        MoxonidineData <- data.frame(RaisedcTni = c(control, treatment),
+                                     NotRaisedcTni = c(n1 - control, n2 - treatment), 
+                                     row.names = c("Control", "Treatment"))
+        test <- chisq.test(MoxonidineData, correct = F)
+        zvec[i] <- test$p.value<0.05
+      }
+    }
+    zvec <- na.omit(zvec)
+    mean(zvec)
+  }
+  
+  #We compute the assurance for a range of different n1, n2 values
+  assurance <- vector(length = 500)
+  N1vec = 1:500
+  N2vec = 1:500
+  for (i in 1:500){
+    assurance[i] <- assurancefunc(N1vec[i], N2vec[i], mu = mu, nu = nu)
+  }
+  
+  #Smooth the output
+  lo <- loess(assurance~N1vec)
+  return(lo)
+}
 
 
+#Assurance at the interim analysis
+
+
+InterimAssuranceFunc <- function(mu, nu){
+
+  #Find the posterior dist. for theta1 and theta2
+  library(rjags)
+  MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78)
+  data = list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
+              tE = MoxonidineData$tE, tN = MoxonidineData$tN, mu=mu, nu=nu)
+  modelstring="
+  model{
+    cE~dbin(theta1,cN)
+    theta1~dbeta(10.7, 13.1)
+    tE~dbin(theta2, tN)
+    rho~dnorm(mu,1/(nu))
+    theta2 <- theta1 - rho
+}
+"
+model <- jags.model(textConnection(modelstring), data = data, quiet=T)
+update(model, n.iter = 1000)
+output <- coda.samples(model=model, variable.names = c("theta1", "theta2"), n.iter = 1000)
+
+
+#For a given n1 and n2, compute the assurance
+interimassfunc <- function(n1, n2, output){
+  zvec <- vector(length=1000)
+  for (i in 1:1000){
+    control <- rbinom(1, n1, output[[1]][i,1])
+    treatment <- rbinom(1, n2, output[[1]][i,2])
+    MoxonidineData <- data.frame(RaisedcTni = c(control, treatment),
+                                 NotRaisedcTni = c(n1 - control, n2 - treatment), 
+                                 row.names = c("Control", "Treatment"))
+    test <- chisq.test(MoxonidineData, correct = F)
+    zvec[i] <- test$p.value < 0.05
+  }
+  mean(zvec)
+}
+
+#Compute the assurance for a range of n1 and n2 values
+N1vec <- seq(6,501, by=5)
+N2vec <- seq(6,501, by=5)
+interimass <- vector(length = 100)
+for (i in 1:100){
+  interimass[i] <- interimassfunc(N1vec[i], N2vec[i], output = output)
+}
+lo <- loess(interimass~N1vec)
+return(lo)
+}
+
+
+#Plotting power, assurance before trial and interim assurance for different scenarios
+MoxonidineTrialPowerAndAssurance <- function(mu, nu, scenario){
+  plot(powerfunc(), type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size",
+       ylab = "Power/Assurance", lty=2,
+       main = bquote(phantom(0)["Scenario "*.(scenario)* ":" ~ rho  ~ "~ N(" *.(mu)*","*.(nu)*")"~.]))
+  axis(1, at = seq(0, 500,by = 125), labels = seq(0, 1000, by = 250))
+  lines(predict(DesignAssuranceFunc(mu, nu)), col="blue", lty=3)
+  N1vec <- seq(6,496, by=5)
+  lines(N1vec, predict(InterimAssuranceFunc(mu, nu)), col='red', lty=4)
+  legend("bottomright", legend = c("Power", "Design assurance", "Interim assurance"), 
+         col=c("black", "blue", "red"), lty=2:4)
+}
+
+
+#Scenario 1
+MoxonidineTrialPowerAndAssurance(mu = 0.15, nu = 0.0001, scenario = 1)
+
+#Scenario 2
+MoxonidineTrialPowerAndAssurance(mu = 0.15, nu = 0.01, scenario = 2)
+
+#Scenario 3
+MoxonidineTrialPowerAndAssurance(mu = 0.10, nu = 0.01, scenario = 3)
+```
+
+Scenario 1: We have $\rho \sim N(0.15, 0.0001)$, which means that we are very confident that the experimental treatment truly is 33% more effective than the control treatment. This is evident in both the assurance at the design stage and at the interim analysis stage. The prior beliefs for $\rho$ are so strong that even the data (which shows that the treatment is no more effective than the placebo) does not change these beliefs.
+
+Scenario 2: We see that the assurance at the interim analysis stage is considerably lower than at the design stage. This indicates that the data has had an effect on the posterior distributions for $\theta_1$ and $\theta_2$ and we are not as confident that the experimental treatment is truly better than the placebo. The posterior captures this as the prior beliefs for $\rho$ is not as strong as in scenario 1 (potentially a more realistic situation).
+
+Scenario 3: We have results similar to scenario 2 here. This is because we are not as confident that the treatment is better in the first place ($\rho$ has mean 0.10) and the variance of $\rho$ is the same as in scenario 2. 
+
+As highlighted in scenarios 2 and 3, it is useful to calculate assurance at interim analyses, as well as in the design stage. The trial was stopped due to futility in the traditional way, but it is comforting to see that a Bayesian analysis of the data gives the same interpretation. The more informed the clinicians are about the results of the trial, the better-placed they are to make decisions about the continuation (or not) of a trial.
 
 
 
