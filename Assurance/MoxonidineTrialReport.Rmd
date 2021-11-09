@@ -198,8 +198,8 @@ powerfunc <- function(){
   N2vec <- seq(1,500)
   powervec <- vector(length = 500)
   for (i in 1:500){
-    power = power.prop.test(n=N1vec[i],p1=0.45,p2=0.3)
-    powervec[i] = power$power
+    power <- power.prop.test(n=N1vec[i],p1=0.45,p2=0.3)
+    powervec[i] <- power$power
   }
   return(powervec)
 }
@@ -211,8 +211,8 @@ DesignAssuranceFunc <- function(mu, nu){
   
   #We calculate the assurance for user-specified n1 and n2
   assurancefunc <- function(n1, n2, mu, nu){
-    n = 10e1
-    zvec = vector(length=n)
+    n <- 10e1
+    zvec <- vector(length=n)
     for (i in 1:n){
       theta1 <- rbeta(1, 10.7, 13.1) #Control
       rho <- rnorm(1, mu, sd = sqrt(nu))
@@ -235,8 +235,8 @@ DesignAssuranceFunc <- function(mu, nu){
   
   #We compute the assurance for a range of different n1, n2 values
   assurance <- vector(length = 500)
-  N1vec = 1:500
-  N2vec = 1:500
+  N1vec <- 1:500
+  N2vec <- 1:500
   for (i in 1:500){
     assurance[i] <- assurancefunc(N1vec[i], N2vec[i], mu = mu, nu = nu)
   }
