@@ -116,44 +116,159 @@ plot(fitc, conf.int = F, col=c("blue", "red"))
 
 
 
-####Assume we can calculate the change-point
+#############################################################
+#Go from here
+#############################################################
 
+library(survival)
 
-moxonidineData = GenerateData(150, 500)
-fitc = survfit(Surv(time, cens)~group, data = moxonidineData)
-plot(fitc, conf.int = F, col=c("blue", "red"))
+par(mfrow=c(1,2))
 
-
-#We have some data here, we would like to find the parameters for the distributions that best parameterise this data
-#We have historical data for the control so we can find parameters for this
-
-
-fitcontrol <- survreg(Surv(time, cens)~1, dist="weibull", data = moxonidineData[moxonidineData$group==1,])
-fittreatment <- survreg(Surv(time, cens)~1, dist="weibull", data = moxonidineData[moxonidineData$time>150&moxonidineData$group==2,])
-
-
-plot(x = predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,],
-     y = rev(seq(0.01, 0.99, by = 0.01)), type="l", xlab="Time", ylab="Survival",
-     col = "blue")
-
-
-x = predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,]
-for (i in 1:length(x)){
-  if ((x[i]<150)==F){
-    break
-  }
+GenerateData <- function(n, lambda){
+  control <- data.frame(time = cumsum(rexp(n, 1)), cens = rep(1,n))
+  treatment <- data.frame(time = c(cumsum(rexp(n/2,1)), (n/2)+cumsum(rexp(n/2, lambda))), cens=rep(1,n))
+  moxonidineData <- data.frame(time = c(control$time, treatment$time), cens = c(control$cens, treatment$cens), group = c(rep(1, n), rep(2, n)))
+  return(moxonidineData)
 }
-p = seq(0.01, 0.01*i, by=.01)
 
-lines(x = predict(fitcontrol, type = "quantile", p =p)[1,],
-      y = rev(seq(1-0.01*length(p), 0.99, by = 0.01)),
-      col = "green")
+  moxonidineData <- GenerateData(200, 0.5)
+  
+  
+  #Fit this data to a Kaplan-Meier estimate
+  fitkm <- survfit(Surv(time, cens)~group, data = moxonidineData)
+  plot(fitkm, conf.int = F, col=c("blue", "red"))
+  abline(v = 100, col="green")
+  
+  
+  #Fit a Weibull dist. to the control group 
+  fitcontrol <- survreg(Surv(time, cens)~1, dist="weibull", data = moxonidineData[moxonidineData$group==1,])
+  
+  
+  #Plot this Weibull dist. for the control group
+  plot(x = predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,],
+       y = rev(seq(0.01, 0.99, by = 0.01)), type="l", xlab="Time", ylab="Survival",
+       col = "blue", xlim=c(0,max(moxonidineData)*1.1))
+  
+  
+  
+  #Find out where the predictions are less than our changepoint
+  PredictControl <- predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,]
+  for (i in 1:length(PredictControl)){
+    if ((PredictControl[i]<100)==F){
+      break
+    }
+  }
+  
+  probs <- seq(0.01, 0.01*i, by=.01)
+  
+  
+  #The treatment line is the same as the control line up until the changepoint
+  lines(x = predict(fitcontrol, type = "quantile", p =probs)[1,],
+        y = rev(seq(1-0.01*length(probs), 0.99, by = 0.01)),
+        col = "green")
+  
+  
+  #Need to find the Weibull parameters that best fit the remaining treatment line
+  #So need to extract the Kaplan-Meier estimates for the treatment group after changepoint
+  
+  TreatmentKMCP <- survfit(Surv(time, cens)~group, data = moxonidineData[moxonidineData$group==2,])
+  TreatmentKMCPSurv <- summary(TreatmentKMCP)$surv[101:200]
+  TreatmentKMCPTime <- summary(TreatmentKMCP)$time[101:200]
+  
+  fitcontrol <- survreg(Surv(time, cens)~1, dist="weibull", data = moxonidineData[moxonidineData$group==1,])
+  
+  PredictControl <- predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,]
+  for (i in 1:length(PredictControl)){
+    if ((PredictControl[i]<100)==F){
+      break
+    }
+  }
+  
+  probs <- seq(0.01, 0.01*i, by=.01)
+  
+  lambda = 0.5
+  scale = (100+(100/lambda))*1.1
+  ##Use optim instead here!
+  
+  
+  LQFunc <- function(params){
+    x = 100:floor(max(TreatmentKMCPTime))
+    y = dweibull(x, shape=params[1], scale=scale)
+    z = cumsum(y)
+    
+    diffsum = 0
+    for (i in 1:length(x)){
+      diffsum = diffsum + ((summary(TreatmentKMCP, times=x[i])$surv)-(1-z[i]-max(probs)))^2
+    }
+    return(diffsum)
+  }
+  
+  optim1 <- optim(par=c(2.8), fn = LQFunc, method = "Brent", lower=1, upper=5)
+  
+  
+  x = 100:floor(max(TreatmentKMCPTime))
+  y = dweibull(x, shape = optim1$par[1], scale = optim1$par[2])
+  z = cumsum(y)
+  lines(x, 1-z-max(probs), col="green")
+  
+  optim1$par[1]
+  optim1$par[2]
 
 
 
-x = 150:500
-y = dweibull(x, shape = 1, scale = 200)
-lines(x,0.45-cumsum(y), type="l", col="blue")
+
+
+
+MyFunc <- function(lambda){
+  moxonidineData <- GenerateData(200, lambda)
+  TreatmentKMCP <- survfit(Surv(time, cens)~group, data = moxonidineData[moxonidineData$group==2,])
+  TreatmentKMCPSurv <- summary(TreatmentKMCP)$surv[101:200]
+  TreatmentKMCPTime <- summary(TreatmentKMCP)$time[101:200]
+  LQFunc <- function(params){
+    x = 100:floor(max(TreatmentKMCPTime))
+    y = dweibull(x, shape=params[1], scale=params[2])
+    z = cumsum(y)
+    
+    diffsum = 0
+    for (i in 1:length(x)){
+      diffsum = diffsum + ((summary(TreatmentKMCP, times=x[i])$surv)-(1-z[i]-max(probs)))^2
+    }
+    return(diffsum)
+  }
+  
+  optim1 <- optim(par=c(2.9, 300), fn = LQFunc)
+  return(list(shape = optim1$par[1], scale = optim1$par[2]))
+}
+
+shapevec = rep(NA, 10)
+scalevec = rep(NA, 10)
+for (i in 1:10){
+  x = MyFunc()
+  shapevec[i] = x$shape
+  scalevec[i] = x$scale
+}
+
+plot(shapevec)
+plot(scalevec)
+plot(scalevec/shapevec)
+
+mean(shapevec)
+mean(scalevec)
+mean(scalevec/shapevec)
+
+
+lambda = seq(0.25, 0.75, by=0.125)
+shape = c(2.11, 2.58, 2.76, 2.77, 3.46)
+scale = c(608, 450, 343, 302, 258)
+sos = c(294, 184, 128, 112, 77)
+
+plot(lambda, sos)
+
+
+
+
+
+
 
 
 
