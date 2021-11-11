@@ -77,8 +77,8 @@ server <- function(input, output) {
     TreatmentKMCPSurv <- summary(TreatmentKMCP)$surv[(input$cp+1):input$n2]
     TreatmentKMCPTime <- summary(TreatmentKMCP)$time[(input$cp+1):input$n2]
 
-    ScaleGuess <- 160*(input$n2/input$n1)*(input$percentagealive/0.5)*(input$rate/2)*(input$cp/50)
-    ShapeGuess <- 1.9+(0.2*(50/input$cp))*(1.3*(0.5/input$percentagealive))*(0.07*(input$rate/2))
+    ScaleGuess <<- 160*(input$n2/input$n1)*(input$percentagealive/0.5)*(input$rate/2)*(input$cp/50)
+    ShapeGuess <<- 1.9+(0.2*(50/input$cp))*(1.3*(0.5/input$percentagealive))*(0.07*(input$rate/2))
    
     x <- input$cp:floor(max(TreatmentKMCPTime))
     y <- dweibull(x, shape=ShapeGuess, scale=ScaleGuess)
@@ -87,15 +87,21 @@ server <- function(input, output) {
   })
   
   
-  # output$params <-  renderText({
-  #   simMoxonidineData <- moxonidineData()
-  #   paste("The optimal paramaters of the Weibull dist. are", round(optim1$par[1], 2), 
-  #         "for the shape and ", round(optim1$par[2],2), "for the scale")
-  # })
+  output$params <-  renderText({
+    simMoxonidineData <- moxonidineData()
+    #This is the treatment parameters
+    #Need to say the Weibull distrubtions for the control
+    #Then the treatment is the same until the changepoint
+    #Then the treatment is different for after the changepoint
+    paste0("The parameters for the control group: Weibull(", round(ScaleGuess, 2),
+          ",", round(ShapeGuess, 2), ")")
+  })
   
 
 }
 shinyApp(ui, server)
+
+###Need to look at the different parameterisations of the Weibull distribution
 
 
 
