@@ -79,22 +79,7 @@ server <- function(input, output) {
 
     ScaleGuess <- 160*(input$n2/input$n1)*(input$percentagealive/0.5)*(input$rate/2)*(input$cp/50)
     ShapeGuess <- 1.9+(0.2*(50/input$cp))*(1.3*(0.5/input$percentagealive))*(0.07*(input$rate/2))
-    #print(ShapeGuess)
-    
-    # LQFunc <- function(params){
-    #   x <- input$cp:floor(max(TreatmentKMCPTime))
-    #   y <- dweibull(x, shape=params, scale=ScaleGuess)
-    #   z <- cumsum(y)
-    #   
-    #   diffsum <- 0
-    #   for (i in 1:length(x)){
-    #     diffsum <- diffsum + ((summary(TreatmentKMCP, times=x[i])$surv)-(1-z[i]-max(probs)))^2
-    #   }
-    #   return(diffsum)
-    # }
-    # 
-    # suppressWarnings(optim1 <<- optimise(f = LQFunc, interval = c(1,5)))
-    # print(optim1)
+   
     x <- input$cp:floor(max(TreatmentKMCPTime))
     y <- dweibull(x, shape=ShapeGuess, scale=ScaleGuess)
     z <- cumsum(y)
