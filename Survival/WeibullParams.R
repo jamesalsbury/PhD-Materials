@@ -134,3 +134,10 @@ y = dweibull(x, shape=optim1$minimum, scale=scale)
 z = cumsum(y)
 lines(x, 1-z-max(probs))
 
+
+
+
+
+
+
+
