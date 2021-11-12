@@ -19,7 +19,7 @@ ui <- fluidPage(
     mainPanel(
         plotOutput("plotData"),
         plotOutput("plotWeib"),
-        textOutput("params")
+        htmlOutput("params")
       )
     )
   )
@@ -47,16 +47,21 @@ server <- function(input, output) {
     simMoxonidineData <- moxonidineData()
     fitc <- survfit(Surv(time, cens)~1, data = simMoxonidineData[[1]])
     fitt <- survfit(Surv(time, cens)~1, data = simMoxonidineData[[2]])
-    plot(fitc, conf.int = F, col=c("blue"), xlim=c(0, max(simMoxonidineData[[2]])))
-    lines(fitt, conf.int = F, col="red")
+    plot(fitc, conf.int = F, col=c("blue"), xlim=c(0, max(simMoxonidineData[[2]])), 
+         main="Kaplan-Meier curve for the data")
+    lines(fitt, conf.int = F, col="red", lty=2)
+    legend("topright", legend = c("Control", "Treatment"), lty=1:2, col=c("blue", "red"))
   })
   
   output$plotWeib <- renderPlot({
     simMoxonidineData <- moxonidineData()
-    fitcontrol <- survreg(Surv(time, cens)~1, dist="weibull", data = simMoxonidineData[[1]])
+    fitcontrol <<- survreg(Surv(time, cens)~1, dist="weibull", data = simMoxonidineData[[1]])
     plot(x = predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,],
          y = rev(seq(0.01, 0.99, by = 0.01)), type="l", xlab="Time", ylab="Survival",
-         col = "blue", xlim=c(0, max(simMoxonidineData[[2]])))
+         col = "blue", xlim=c(0, max(simMoxonidineData[[2]])),
+         main="Best estimate of the survival curves using Weibull distributions")
+    legend("topright", legend = c("Control+Treatment", "Control", "Treatment"), lty=c(1, 1, 2),
+           col=c("purple", "blue", "red"))
     
     PredictControl <- predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,]
     for (i in 1:length(PredictControl)){
@@ -71,7 +76,7 @@ server <- function(input, output) {
     #The treatment line is the same as the control line up until the changepoint
     lines(x = predict(fitcontrol, type = "quantile", p =probs)[1,],
           y = rev(seq(1-0.01*length(probs), 0.99, by = 0.01)),
-          col = "green")
+          col = "purple")
     
     TreatmentKMCP <- survfit(Surv(time, cens)~1, data = simMoxonidineData[[2]])
     TreatmentKMCPSurv <- summary(TreatmentKMCP)$surv[(input$cp+1):input$n2]
@@ -83,25 +88,24 @@ server <- function(input, output) {
     x <- input$cp:floor(max(TreatmentKMCPTime))
     y <- dweibull(x, shape=ShapeGuess, scale=ScaleGuess)
     z <- cumsum(y)
-    lines(x, 1-z-max(probs))
+    lines(x, 1-z-max(probs), col="red", lty=2)
   })
   
   
-  output$params <-  renderText({
+  output$params <-  renderUI({
     simMoxonidineData <- moxonidineData()
-    #This is the treatment parameters
-    #Need to say the Weibull distrubtions for the control
-    #Then the treatment is the same until the changepoint
-    #Then the treatment is different for after the changepoint
-    paste0("The parameters for the control group: Weibull(", round(ScaleGuess, 2),
-          ",", round(ShapeGuess, 2), ")")
+    str1 <- paste0("The parameters for the control group: Weibull(scale = ", round(exp(fitcontrol$coefficients), 2),
+          ", shape = ", round(1/fitcontrol$scale, 2), ")")
+    str2 <- paste0("The parameters for the treatment group when treatment starts to take effect: Weibull(scale = ", round(ScaleGuess, 2),
+                   ", shape = ", round(ShapeGuess, 2), ")")
+    HTML(paste(str1, str2, sep = '<br/>'))
   })
   
 
 }
 shinyApp(ui, server)
 
-###Need to look at the different parameterisations of the Weibull distribution
+
 
 
 
