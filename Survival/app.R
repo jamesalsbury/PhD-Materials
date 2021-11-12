@@ -13,7 +13,7 @@ ui <- fluidPage(
       numericInput("n2", label="How many patients in the treatment group?", value = 200),
       numericInput("cp", label="When does the treatment begin to work (days)?", value = 50),
       numericInput("percentagealive", label="When the treatment begins to work, what percentage of patients are still alive?", value = 0.5),
-      numericInput("rate", label="When the treatment begins to work, what rate do patients die (compared to control?)", value = 2),
+      numericInput("rate", label="When the treatment begins to work, how many times longer would you expect patients to live? (For example, if a patient died every 2 days on control and you expect a patient to die every 4 days on treatment, the value here would be 2).", value = 2),
       actionButton("go", label="Generate the data")
     ),
     
@@ -24,7 +24,6 @@ ui <- fluidPage(
       )
     )
   )
-
 
 
 
