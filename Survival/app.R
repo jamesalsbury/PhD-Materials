@@ -94,6 +94,7 @@ server <- function(input, output) {
   
   output$params <-  renderUI({
     simMoxonidineData <- moxonidineData()
+    fitcontrol <<- survreg(Surv(time, cens)~1, dist="weibull", data = simMoxonidineData[[1]])
     str1 <- paste0("The parameters for the control group: Weibull(scale = ", round(exp(fitcontrol$coefficients), 2),
           ", shape = ", round(1/fitcontrol$scale, 2), ")")
     str2 <- paste0("The parameters for the treatment group when treatment starts to take effect: Weibull(scale = ", round(ScaleGuess, 2),

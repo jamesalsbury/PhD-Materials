@@ -12,3 +12,5 @@ forcats
 RColorBrewer
 coda
 rjags
+StanHeaders
+rstan
