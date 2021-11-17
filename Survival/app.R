@@ -1,3 +1,6 @@
+
+
+
 library(shiny)
 library(survival)
 library(rsconnect)
@@ -9,103 +12,97 @@ ui <- fluidPage(
   sidebarLayout(
     
     sidebarPanel(
-      numericInput("n1", label="How many patients in the control group?", value = 100),
-      numericInput("n2", label="How many patients in the treatment group?", value = 200),
-      numericInput("cp", label="When does the treatment begin to work (days)?", value = 50),
-      numericInput("percentagealive", label="When the treatment begins to work, what percentage of patients are still alive?", value = 0.5),
-      numericInput("rate", label="When the treatment begins to work, how many times longer would you expect patients to live? (For example, if a patient died every 2 days on control and you expect a patient to die every 4 days on treatment, the value here would be 2).", value = 2),
-      actionButton("go", label="Generate the data")
+      numericInput("cp", label="When does the treatment begin to work (months)?", value = 5),
+      numericInput("lambda1", label= withMathJax(paste0("$$\\lambda_1$$ (Decreasing value normally shifts line upwards)")), value=0, min=0),
+      numericInput("gamma1", label= withMathJax(paste0("$$\\gamma_1$$ (Decreasing value normally shifts line upwards)")), value = 0, min=0),
+      actionButton("reset", label="Fit to control/reset")
     ),
     
     mainPanel(
-        plotOutput("plotData"),
-        plotOutput("plotWeib"),
-        htmlOutput("params")
-      )
+      plotOutput("plotData"),
+      plotOutput("plotBestFit"),
+      htmlOutput("control"),
+      htmlOutput("treatment"),
+      htmlOutput("controlparams"),
+      htmlOutput("treatmentparams"),
+      htmlOutput("tparams")
     )
   )
-
-
-
-server <- function(input, output) {
-  
-  moxonidineData <- eventReactive(input$go, {
-    control <- data.frame(time = c(runif(input$n1*(1-input$percentagealive), 0, input$cp), 
-                runif(input$n1*input$percentagealive, input$cp, input$cp +
-                        (input$n1*input$percentagealive*input$cp)/(input$n1*(1-input$percentagealive)))), cens = rep(1, input$n1))
-    
-    treatment <- data.frame(time = c(runif(input$n2*(1-input$percentagealive), 0, input$cp), 
-                  runif(input$n2*input$percentagealive, input$cp, input$cp +
-                          (input$rate*input$n2*input$percentagealive*input$cp)/(input$n1*(1-input$percentagealive)))), cens = rep(1, input$n2))
-    
-    moxonidineData <- list(control, treatment)
-    return(moxonidineData)
-  },
 )
+
+
+server <- function(input, output, session) {
   
+
   output$plotData <- renderPlot({
-    simMoxonidineData <- moxonidineData()
-    fitc <- survfit(Surv(time, cens)~1, data = simMoxonidineData[[1]])
-    fitt <- survfit(Surv(time, cens)~1, data = simMoxonidineData[[2]])
-    plot(fitc, conf.int = F, col=c("blue"), xlim=c(0, max(simMoxonidineData[[2]])), 
-         main="Kaplan-Meier curve for the data")
-    lines(fitt, conf.int = F, col="red", lty=2)
-    legend("topright", legend = c("Control", "Treatment"), lty=1:2, col=c("blue", "red"))
+
+    lambda2 <- 0.06
+    gamma2 <- 0.8
+
+    simdata <<- data.frame(time = rweibull(1000, gamma2, 1/lambda2), cens = rep(1, 1000))
+    fitcontrolKM <- survfit(Surv(time, cens)~1, data = simdata)
+    plot(fitcontrolKM, conf.int = F, xlim=c(0,50), ylab="Survival", xlab="Time (months)", col="blue",
+         main = "The historical data for the control")
+    legend("topright", legend = "Kaplan-Meier curve to the control data", col="blue", lty=1)
+
+    
   })
   
-  output$plotWeib <- renderPlot({
-    simMoxonidineData <- moxonidineData()
-    fitcontrol <<- survreg(Surv(time, cens)~1, dist="weibull", data = simMoxonidineData[[1]])
+  output$plotBestFit <- renderPlot({
+     
+    
+    fitcontrol <<- survreg(Surv(time, cens)~1, dist="weibull", data = simdata)
     plot(x = predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,],
-         y = rev(seq(0.01, 0.99, by = 0.01)), type="l", xlab="Time", ylab="Survival",
-         col = "blue", xlim=c(0, max(simMoxonidineData[[2]])),
-         main="Best estimate of the survival curves using Weibull distributions")
-    legend("topright", legend = c("Control+Treatment", "Control", "Treatment"), lty=c(1, 1, 2),
-           col=c("purple", "blue", "red"))
-    
-    PredictControl <- predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,]
-    for (i in 1:length(PredictControl)){
-      if ((PredictControl[i]<input$cp)==F){
-        break
-      }
-    }
-    
-    probs <- seq(0.01, 0.01*i, by=.01)
-    
-    
-    #The treatment line is the same as the control line up until the changepoint
-    lines(x = predict(fitcontrol, type = "quantile", p =probs)[1,],
-          y = rev(seq(1-0.01*length(probs), 0.99, by = 0.01)),
-          col = "purple")
-    
-    TreatmentKMCP <- survfit(Surv(time, cens)~1, data = simMoxonidineData[[2]])
-    TreatmentKMCPSurv <- summary(TreatmentKMCP)$surv[(input$cp+1):input$n2]
-    TreatmentKMCPTime <- summary(TreatmentKMCP)$time[(input$cp+1):input$n2]
-
-    ScaleGuess <<- 160*(input$n2/input$n1)*(input$percentagealive/0.5)*(input$rate/2)*(input$cp/50)
-    ShapeGuess <<- 1.9+(0.2*(50/input$cp))*(1.3*(0.5/input$percentagealive))*(0.07*(input$rate/2))
+          y = rev(seq(0.01, 0.99, by = 0.01)), type="l", xlab="Time (months)", ylab="Survival",
+          col = "blue", xlim=c(0,50))
    
-    x <- input$cp:floor(max(TreatmentKMCPTime))
-    y <- dweibull(x, shape=ShapeGuess, scale=ScaleGuess)
-    z <- cumsum(y)
-    lines(x, 1-z-max(probs), col="red", lty=2)
-  })
-  
-  
-  output$params <-  renderUI({
-    simMoxonidineData <- moxonidineData()
-    fitcontrol <<- survreg(Surv(time, cens)~1, dist="weibull", data = simMoxonidineData[[1]])
-    str1 <- paste0("The parameters for the control group: Weibull(scale = ", round(exp(fitcontrol$coefficients), 2),
-          ", shape = ", round(1/fitcontrol$scale, 2), ")")
-    str2 <- paste0("The parameters for the treatment group when treatment starts to take effect: Weibull(scale = ", round(ScaleGuess, 2),
-                   ", shape = ", round(ShapeGuess, 2), ")")
-    HTML(paste(str1, str2, sep = '<br/>'))
-  })
-  
 
+    effectt <- seq(0, input$cp, by=0.01)
+    effecty <- exp(-((exp(-fitcontrol$coefficients))*effectt)^(1/fitcontrol$scale))
+    lines(effectt, effecty, col="green", lty=3)
+
+    aftereffectt <- seq(input$cp, 50, by=0.01)
+    aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*input$cp)^(1/fitcontrol$scale)-(input$lambda1^input$gamma1)*(aftereffectt^input$gamma1-input$cp^input$gamma1))
+    lines(aftereffectt, aftereffecty, col="red", lty=2)
+    
+    legend("topright", legend = c("Weibull fit to control data", "Proposed treatment survival curve", "Control + Treatment both Weibull"),
+           col=c("blue", "red", "green"), lty=1:3)
+
+  })
+  
+  observeEvent(input$reset, {
+    updateNumericInput(session, "cp", value = 5)
+    updateNumericInput(session, inputId = "lambda1", value = signif(as.numeric(exp(-fitcontrol$coefficients)), 2))
+    updateNumericInput(session, inputId  = "gamma1", value = signif(1/fitcontrol$scale, 2))
+  })
+  
+  
+  output$control <- renderUI({
+   withMathJax(paste0("We have parameterised the survival for the control as: $$S_c(t) = \\textrm{exp}\\{-(\\lambda_2t)^{\\gamma_2}\\}$$"))
+   })
+  
+  output$treatment <- renderUI({
+     withMathJax(paste0("We have parameterised the survival for the treatment as: $$S_t(t)=\\begin{cases}
+               \\textrm{exp}\\{-(\\lambda_2t)^{\\gamma_2}\\},  & t\\leq T \\\\
+               \\textrm{exp}\\{-(\\lambda_2T)^{\\gamma_2} - \\lambda_1^{\\gamma_1}(t^{\\gamma_1}- T^{\\gamma_1})\\}, & t > T
+               \\end{cases}\\!$$"))
+  })
+  
+  output$controlparams <- renderUI({
+    withMathJax(paste0("The parameters seen in the plot above are:$$\\lambda_1 = ",input$lambda1,  "  ,\\gamma_1 = ",input$gamma1 , "$$"))
+  })
+  
+  output$treatmentparams <- renderUI({
+    withMathJax(paste0("$$\\lambda_2 = ", signif(as.numeric(exp(-fitcontrol$coefficients)), 2),  "  ,\\gamma_2 = ",signif(1/fitcontrol$scale, 2) , "$$"))
+  })
+  
+  output$tparams <- renderUI({
+    withMathJax(paste0("$$T = ", input$cp, "$$"))
+  })
+  
 }
-shinyApp(ui, server)
 
+shinyApp(ui, server)
 
 
 
