@@ -2,6 +2,8 @@
 library(nleqslv)
 library(shiny)
 library(survival)
+library(shinydashboard)
+
 
 ui <- fluidPage(
   
@@ -64,25 +66,25 @@ server <- function(input, output, session) {
     gamma2 <- 1/fitcontrol$scale
     
     fn <- function(x) {
-
+      
       first <- x[1]*x[2]*(x[1]*(input$T1+input$T2))^(x[2]-1) - input$T2HR*(lambda2*gamma2*(lambda2*(input$T1+input$T2))^(gamma2-1))
       second <- x[1]*x[2]*(x[1]*(input$T1+input$T2+input$T3))^(x[2]-1) - (lambda2*gamma2*(lambda2*(input$T1+input$T2+input$T3))^(gamma2-1))
-
+      
       return(c(first, second))
-
+      
     }
-
+    
     y <- nleqslv(c(1,5), fn)
     lambda1 <<- y[[1]][1]
     gamma1 <<- y[[1]][2]
-
+    
     aftereffectt <- seq(input$T1, max(simdata$time)*1.1, by=0.01)
     aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*input$T1)^(1/fitcontrol$scale)-(lambda1^gamma1)*(aftereffectt^gamma1-input$T1^gamma1))
     lines(aftereffectt, aftereffecty, col="red", lty=2)
-
+    
     legend("topright", legend = c("Weibull fit to control data", "Proposed treatment survival curve", "Control + Treatment both Weibull"),
            col=c("blue", "red", "green"), lty=1:3)
-  
+    
   })
   
   
