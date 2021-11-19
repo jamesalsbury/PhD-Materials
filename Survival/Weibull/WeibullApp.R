@@ -1,6 +1,5 @@
 library(shiny)
 library(survival)
-library(rsconnect)
 
 ui <- fluidPage(
   
