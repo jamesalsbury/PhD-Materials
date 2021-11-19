@@ -152,18 +152,6 @@ server <- function(input, output, session) {
                \\end{cases}\\!$$"))
   })
   
-  # output$controlparams <- renderUI({
-  #   withMathJax(paste0("The parameters seen in the plot above are:$$\\lambda_1 = ", signif(lambda1, 2),  "  ,\\gamma_1 = ", signif(gamma1, 2) , "$$"))
-  # })
-  # 
-  # output$treatmentparams <- renderUI({
-  #   withMathJax(paste0("$$\\lambda_2 = ", signif(as.numeric(exp(-fitcontrol$coefficients)), 2),  "  ,\\gamma_2 = ",signif(1/fitcontrol$scale, 2) , "$$"))
-  # })
-  # 
-  # output$tparams <- renderUI({
-  #   withMathJax(paste0("$$T = ", input$T1Mean, "$$"))
-  # })
-  
   
 }
 
