@@ -12,8 +12,8 @@ ui <- fluidPage(
     
     sidebarPanel(
       numericInput("cp", label="When does the treatment begin to work (months)?", value = 5),
-      numericInput("lambda1", label= withMathJax(paste0("$$\\lambda_1$$ (Decreasing value normally shifts line upwards)")), value=0, min=0),
-      numericInput("gamma1", label= withMathJax(paste0("$$\\gamma_1$$ (Decreasing value normally shifts line upwards)")), value = 0, min=0),
+      numericInput("lambda1", label= withMathJax(paste0("$$\\lambda_1$$ (Decreasing value normally shifts line upwards)")), value=0.06, min=0),
+      numericInput("gamma1", label= withMathJax(paste0("$$\\gamma_1$$ (Decreasing value normally shifts line upwards)")), value = 0.8, min=0),
       actionButton("reset", label="Fit to control/reset")
     ),
     
@@ -39,10 +39,10 @@ server <- function(input, output, session) {
     lambda2 <- 0.06
     gamma2 <- 0.8
 
-    simdata <<- data.frame(time = rweibull(1000, gamma2, 1/lambda2), cens = rep(1, 1000))
+    simdata <<- data.frame(time = rweibull(10000, gamma2, 1/lambda2), cens = rep(1, 10000))
     fitcontrolKM <- survfit(Surv(time, cens)~1, data = simdata)
     plot(fitcontrolKM, conf.int = F, xlim=c(0,100), ylab="Survival", xlab="Time (months)", col="blue",
-         main = "The historical data for the control")
+          main = "The historical data for the control")
     legend("topright", legend = "Kaplan-Meier curve to the control data", col="blue", lty=1)
 
     
@@ -55,7 +55,7 @@ server <- function(input, output, session) {
     plot(x = predict(fitcontrol, type = "quantile", p = seq(0.01, 0.99, by=.01))[1,],
           y = rev(seq(0.01, 0.99, by = 0.01)), type="l", xlab="Time (months)", ylab="Survival",
           col = "blue", xlim=c(0,100))
-   
+                                                   
 
     effectt <- seq(0, input$cp, by=0.01)
     effecty <- exp(-((exp(-fitcontrol$coefficients))*effectt)^(1/fitcontrol$scale))
@@ -65,14 +65,25 @@ server <- function(input, output, session) {
     aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*input$cp)^(1/fitcontrol$scale)-(input$lambda1^input$gamma1)*(aftereffectt^input$gamma1-input$cp^input$gamma1))
     lines(aftereffectt, aftereffecty, col="red", lty=2)
     
-    legend("topright", legend = c("Weibull fit to control data", "Proposed treatment survival curve", "Control + Treatment both Weibull"),
-           col=c("blue", "red", "green"), lty=1:3)
-    
     lambda2 <- exp(-fitcontrol$coefficients)
     gamma2 <- 1/fitcontrol$scale
     t <- seq(input$cp, 100, by=0.001)
     HR <- (input$lambda1*input$gamma1*(input$lambda1*t)^(input$gamma1-1))/(lambda2*gamma2*(lambda2*t)^(gamma2-1))
     lines(t, HR)
+    t1 <- seq(0, input$cp, by=0.01)
+    HR1 <- rep(1, length(t1))
+    lines(t1, HR1)
+    if (HR[1]<1){
+      t3 <- seq(HR[1], 1, by=0.01)
+      HR3 <- rep(input$cp, length(t3))
+      lines(HR3, t3)
+    }
+     
+    
+    legend("topright", legend = c("Weibull fit to control data", "Proposed treatment survival curve", "Control + Treatment both Weibull", "Hazard ratio"),
+           col=c("blue", "red", "green", "black"), lty=1:3)
+    
+    
   })
   
   observeEvent(input$reset, {
@@ -117,18 +128,6 @@ server <- function(input, output, session) {
 shinyApp(ui, server)
 
 
-# library("nleqslv")
-# 
-# 
-# fn <- function(x) {
-# 
-#   first <- x[1]*x[2]*(30*x[1])^(x[2]-1) - 0.04463*0.75
-#   second <- x[1]*x[2]*(55*x[1])^(x[2]-1) - 0.03977
-# 
-#   return(c(first, second))
-# 
-# }
-# 
-# nleqslv(c(1,5), fn)
+
 
 

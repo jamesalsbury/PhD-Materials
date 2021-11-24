@@ -98,18 +98,18 @@ server <- function(input, output, session) {
       
     }
     
-    t1 <- seq(0, input$T1Mean, by=0.01)
-    HR1 <- rep(1, length(t1))
+    # t1 <- seq(0, input$T1Mean, by=0.01)
+    # HR1 <- rep(1, length(t1))
     y <- nleqslv(c(1,5), fn)
     lambda1 <- y[[1]][1]
     gamma1 <- y[[1]][2]
-    t2 <- seq(input$T1Mean, max(simdata$time)*1.1, by=0.01)
-    HR2 <- (lambda1*gamma1*(lambda1*t2)^(gamma1-1))/(lambda2*gamma2*(lambda2*t2)^(gamma2-1))
-    lines(t1, HR1)
-    lines(t2, HR2)
-    t3 <- seq(HR2[1], 1, by=0.01)
-    HR3 <- rep(input$T1Mean, length(t3))
-    lines(HR3, t3)
+    # t2 <- seq(input$T1Mean, max(simdata$time)*1.1, by=0.01)
+    # HR2 <- (lambda1*gamma1*(lambda1*t2)^(gamma1-1))/(lambda2*gamma2*(lambda2*t2)^(gamma2-1))
+    # lines(t1, HR1)
+    # lines(t2, HR2)
+    # t3 <- seq(HR2[1], 1, by=0.01)
+    # HR3 <- rep(input$T1Mean, length(t3))
+    # lines(HR3, t3)
     
     effectt <- seq(0, input$T1Mean, by=0.01)
     effecty <- exp(-((exp(-fitcontrol$coefficients))*effectt)^(1/fitcontrol$scale))
