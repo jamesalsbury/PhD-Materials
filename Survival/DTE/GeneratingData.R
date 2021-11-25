@@ -19,7 +19,7 @@ n1 <- 500
 n2 <- 500
 
 #Simulate data for the control group
-simcontrol <- data.frame(time = rweibull(100, gamma2, 1/lambda2), cens = rep(1, 100))
+simcontrol <- data.frame(time = rweibull(n1, gamma2, 1/lambda2), cens = rep(1, n1))
 #Plot this on a KM curve
 fitcontrolKM <- survfit(Surv(time, cens)~1, data = simcontrol)
 plot(fitcontrolKM, conf.int = F, xlim=c(0,max(simcontrol$time)*1.1), ylab="Survival", xlab="Time (months)", col="blue",
