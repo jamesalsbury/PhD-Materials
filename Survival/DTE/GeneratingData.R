@@ -11,8 +11,8 @@ gamma2 <- 0.8
 #We have elicited bigT, lambda1, gamma1 from questioning our experts
   
 bigT <- 10
-lambda1 <- 0.015
-gamma1 <- 0.5
+lambda1 <- 0.03
+gamma1 <- 0.8
 
 #Our sample sizes for both groups; 1=control, 2=treatment
 n1 <- 500
@@ -72,7 +72,39 @@ SimTreatmentFunc <- function(n2){
 SimTreatment <- SimTreatmentFunc(100)
 fittreatmentKM <- survfit(Surv(time, cens)~1, data = SimTreatment)
 lines(fittreatmentKM, conf.int = F, col="red")
+
+
+
+bigT = 5
+lambda2 = 0.06
+gamma2 = 0.8
+lambda1 = 0.03
+gamma1 = 0.8
+t = 5
+CDF = rep(NA, length(t))
+for (i in 1:length(t)){
+  if (t[i]>bigT){
+    CDF[i] = 1-exp(-(lambda2*bigT)^(gamma2)-lambda1^gamma1*(t[i]^gamma1-bigT^gamma1))
+  } else{
+    CDF[i] = 1-exp(-(lambda2*t[i])^gamma2)
+  }
+}
+
+
+
+u = runif(1000)
+samples = rep(NA, 1000)
+for (i in 1:length(u)){
+  if (u[i]>CDF){
+    samples[i] = (1/lambda1)*exp(log(-log(1-u[i])-(lambda2*T)^gamma2+lambda1^gamma1*T^gamma1)/gamma1)
+  } else{
+    samples[i] = (1/lambda2)*exp(log(-log(1-u[i]))/gamma2)
+  }
+}
+#plot(samples)
   
-
-
+data <- data.frame(time = samples, cens = rep(1, 1000))
+fittreatmentKM <- survfit(Surv(time, cens)~1, data = data)
+lines(fittreatmentKM, conf.int = F, col="red")
+library(survival)
 
