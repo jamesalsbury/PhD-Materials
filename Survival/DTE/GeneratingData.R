@@ -69,7 +69,7 @@ SimTreatmentFunc <- function(n2){
   data <- data.frame(time = events, cens = rep(1, n2))
 }
 
-SimTreatment <- SimTreatmentFunc(100)
+SimTreatment <- SimTreatmentFunc(n2)
 fittreatmentKM <- survfit(Surv(time, cens)~1, data = SimTreatment)
 lines(fittreatmentKM, conf.int = F, col="red")
 
