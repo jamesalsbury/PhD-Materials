@@ -93,42 +93,8 @@ server <- function(input, output, session) {
     aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*input$T1Mean)^(1/fitcontrol$scale)-(lambda1^gamma1)*(aftereffectt^gamma1-input$T1Mean^gamma1))
     lines(aftereffectt, aftereffecty, col="red", lwd=1.5, lty=2) 
     
-    #Need to draw samples from the distributions for T1, T2, T2HR and T3
-
-    # for (i in 1:50){
-    # 
-    # 
-    #   T1 <- rnorm(1, mean = input$T1Mean, sd = sqrt(input$T1Var))
-    # 
-    # 
-    #   estBetaParams <- function(mu, var) {
-    #     alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
-    #     beta <- alpha * (1 / mu - 1)
-    #     return(params = list(alpha = alpha, beta = beta))
-    #   }
-    # 
-    #   EstT2HR <- estBetaParams(input$T2HRMean, input$T2HRVar)
-    # 
-    #   T2HR <- rbeta(1, EstT2HR$alpha, EstT2HR$beta)
-    # 
-    # 
-    #   
-    #   gamma1 <- gamma2
-    #   lambda1 <-  exp((log(T2HR)+gamma1*log(lambda2))/gamma1)
-    # 
-    #   effectt <- seq(0, T1, by=0.01)
-    #   effecty <- exp(-((exp(-fitcontrol$coefficients))*effectt)^(1/fitcontrol$scale))
-    #   lines(effectt, effecty, col="green", lty=3)
-    # 
-    #   aftereffectt <- seq(T1, max(simdata$time)*1.1, by=0.01)
-    #   aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*T1)^(1/fitcontrol$scale)-(lambda1^gamma1)*(aftereffectt^gamma1-T1^gamma1))
-    #   lines(aftereffectt, aftereffecty, col="red", lty=2)
-    # }
-    
-    
     legend("topright", legend = c("Weibull fit to control data", "Proposed treatment survival curve", "Control + Treatment both Weibull", "Hazard Ratio"),
            col=c("blue", "red", "green", "black"), lty=1:3, cex=0.75)
-    
     
   })
   
@@ -213,7 +179,7 @@ server <- function(input, output, session) {
   
   output$assurance <- renderUI({
     
-    assnum <- 100
+    assnum <- 500
     assvec <- rep(NA, assnum)
     
     for (i in 1:assnum){
@@ -264,8 +230,6 @@ server <- function(input, output, session) {
     withMathJax(paste0("The assurance for these inputs is:", sum(assvec)/assnum))
     
   })
-  
-  
   
 }
 
