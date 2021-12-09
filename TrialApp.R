@@ -24,11 +24,13 @@ ui <- fluidPage(
       fluidRow(
         box(width = 14, title = "What is the hazard ratio after the change-point?", 
             splitLayout(
-              numericInput("T2HRMean", "Mean", value=0.5),
+              numericInput("T2HRMean", "Mean", value=0.65),
               numericInput("T2HRVar", "Variance", value=0.00001, min=0)
             )
         )
       ),
+      checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line",
+                                                                    "Hazard Ratio & 95% CI's", "95% CI for T", "Simulation curves")),
       fluidRow(
         box(width = 14, title = "Ratio of patients in each group?",
             splitLayout(
@@ -55,6 +57,8 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  
+  
   #lambda2 <- 0.06
   #gamma2 <- 0.8
   
@@ -75,7 +79,7 @@ server <- function(input, output, session) {
     return(lambda1)
   })
   
-  estBetaParams <- function(mu, var) {
+  estBetaParams <<- function(mu, var) {
     alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
     beta <- alpha * (1 / mu - 1)
     return(params = list(alpha = alpha, beta = beta))
@@ -168,6 +172,25 @@ server <- function(input, output, session) {
          bigT = bigT, HR = HR)
   })
   
+  
+  drawsimlines <- reactive({
+    lambda2 <- exp(-fitcontrol$coefficients)
+    gamma2 <- gamma1
+    linelist <- list()
+    for (i in 1:10){
+      bigT <- rnorm(1, mean = input$T1Mean, sd = sqrt(input$T1Var))
+      HRdist <- estBetaParams(mu = input$T2HRMean , var = sqrt(input$T2HRVar))
+      HR <- rbeta(1, HRdist$alpha, HRdist$beta)
+      lambda1 <- exp((log(HR)+gamma1*log(lambda2))/gamma1)
+      aftereffectt <- seq(bigT, max(simdata$time)*1.1, by=0.01)
+      aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*bigT)^(1/fitcontrol$scale)-(lambda1^gamma1)*(aftereffectt^gamma1-bigT^gamma1))
+      linelist[[(i*2)-1]] <- aftereffectt
+      linelist[[i*2]] <- aftereffecty
+    }
+    list(linelist = linelist)
+  })
+  
+  
   output$plotBestFit <- renderPlot({
     
     #Plotting the control data using the Weibull parameters found
@@ -177,12 +200,64 @@ server <- function(input, output, session) {
     
     
     lines(proposed()$effectt, proposed()$effecty, col="green", lty=2)
-    lines(proposed()$aftereffectt, proposed()$aftereffecty, col="red")
+    lines(proposed()$aftereffectt, proposed()$aftereffecty, col="red", lwd=1.5)
     #abline(h = 0.5)
     
     legend("topright", legend = c("Weibull fit to control data", "Control + Treatment both Weibull",
                                   "Proposed treatment survival curve"),
            col=c("blue", "green", "red"), lty=c(1, 3, 1), cex=0.75)
+    
+    
+    addfeedback <- input$showfeedback 
+    
+    if (is.null(addfeedback)){
+      CalcSim <<- TRUE
+    }
+    
+    if (!is.null(addfeedback)){
+      CheckSim <<- FALSE
+      for (i in 1:length(addfeedback)){
+        if (addfeedback[i]=="Simulation curves"){
+          CheckSim <- TRUE
+        }
+      }
+      if (CheckSim == FALSE){
+        CalcSim <<- TRUE
+      }
+    }
+    
+    if (!is.null(addfeedback)){
+      for (i in 1:length(addfeedback)){
+        if (addfeedback[i]=="Median survival line"){
+          lines(seq(0, 120, length=2), rep(0.5, 2), lty=3)
+        } else if (addfeedback[i]=="Hazard Ratio & 95% CI's"){
+          #Top line
+          lines(seq(0, input$T1Mean, length=2), rep(1, 2))
+          #Vertical line
+          lines(rep(input$T1Mean, 2), seq(input$T2HRMean, 1, length=2))
+          #Bottom line
+          lines(seq(input$T1Mean, 120,length=2), rep(input$T2HRMean, 2))
+          #Conf intervals
+          lines(seq(input$T1Mean, 120,length=2), rep(fivecurve()$HR, 2), lty=2)
+          lines(seq(input$T1Mean, 120,length=2), rep(ninetyfivecurve()$HR, 2), lty=2)
+        } else if (addfeedback[i]=="95% CI for T"){
+          x <- predict(fitcontrol, type = "quantile", p = seq(0.001, 0.999, by=.001))[1,]
+          p <- rev(seq(0.001, 0.999, by=.001))
+          points(fivecurve()$bigT, p[sum(fivecurve()$bigT > x)], cex=1.5, col="orange", pch=19)
+          points(ninetyfivecurve()$bigT, p[sum(ninetyfivecurve()$bigT > x)], cex=1.5, col="orange", pch=19)
+        } else if (addfeedback[i]=="Simulation curves"){
+          if (CalcSim){
+            Curves <- drawsimlines()$linelist
+            for (i in 1:10){
+              lines(Curves[[(i*2)-1]], Curves[[i*2]], col="purple", lwd=0.25, lty=2)
+            }
+            CalcSim <- FALSE
+          }
+        }
+      }
+    }
+    
+    
     
   })
   
@@ -190,8 +265,8 @@ server <- function(input, output, session) {
   output$feedback <- renderUI({
     str1 <- paste0("The median survival time for the control curve is ", round(predict(fitcontrol, type="quantile", p = 0.5)[[1]], 1), " months")
     str2 <- paste0("The median survival time for the proposed treatment curve is ", round(proposed()$combinedt[sum(!proposed()$combinedy<0.5)], 1), " months")
-    str3 <- paste0("The 95% CI for T is (", round(fivecurve()$bigT, 2), ", ", round(ninetyfivecurve()$bigT, 2), ")")
-    str4 <- paste0("The 95% CI for HR is (", round(fivecurve()$HR, 2), ", ", round(ninetyfivecurve()$HR, 2), ")")
+    str3 <- paste0("The 95% CI for T is (", round(fivecurve()$bigT, 4), ", ", round(ninetyfivecurve()$bigT, 4), ")")
+    str4 <- paste0("The 95% CI for HR is (", round(fivecurve()$HR, 4), ", ", round(ninetyfivecurve()$HR, 4), ")")
     HTML(paste(str1, str2, str3, str4, sep = '<br/>'))
   })
   
@@ -205,11 +280,6 @@ server <- function(input, output, session) {
       
       for (i in 1:length(assvec)){
         
-        estBetaParams <- function(mu, var) {
-          alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
-          beta <- alpha * (1 / mu - 1)
-          return(params = list(alpha = alpha, beta = beta))
-        }
         
         lambda2 <- exp(-fitcontrol$coefficients)
         gamma2 <- gamma1
@@ -220,12 +290,12 @@ server <- function(input, output, session) {
         
         #Simulate data for the control group
         simcontrol <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
-
-          
+        
+        
         CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
         u <- runif(n2)
         suppressWarnings(z <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
-
+        
         
         SimTreatment <- data.frame(time = z)
         DataCombined <- data.frame(time = c(simcontrol$time, SimTreatment$time), 
@@ -239,8 +309,8 @@ server <- function(input, output, session) {
     }
     
     n1n2sum <- input$n1+input$n2
-    n1vec <- floor(seq(input$n1*10, floor((1000/n1n2sum)*input$n1), length=30))
-    n2vec <- floor(seq(input$n2*10, floor((1000/n1n2sum)*input$n2), length=30))
+    n1vec <- floor(seq(input$n1*10, floor((1000/n1n2sum)*input$n1), length=20))
+    n2vec <- floor(seq(input$n2*10, floor((1000/n1n2sum)*input$n2), length=20))
     assvec <- rep(NA, length(n1vec))
     
     for (i in 1:length(n1vec)){
@@ -252,6 +322,10 @@ server <- function(input, output, session) {
     plot(sumvec, predict(asssmooth), type="l", lty=2, ylim=c(0,1),
          xlab="Total sample size", ylab="Assurance")
     
+    y <- predict(asssmooth,newdata=seq(10, 1000, by=10))
+    y <- y>0.8
+    x <- seq(10, 1000, by=0.1)
+    print(x[min(which(y == TRUE))])
   })
   
 }
