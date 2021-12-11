@@ -109,6 +109,3 @@ plot(x,y, type="l")
 
 #Perhaps a truncated Normal/student-t distribution could be a better choice?
 
-
-
-

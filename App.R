@@ -210,22 +210,6 @@ server <- function(input, output, session) {
     
     addfeedback <- input$showfeedback 
     
-    if (is.null(addfeedback)){
-      CalcSim <<- TRUE
-    }
-    
-    if (!is.null(addfeedback)){
-      CheckSim <<- FALSE
-      for (i in 1:length(addfeedback)){
-        if (addfeedback[i]=="Simulation curves"){
-          CheckSim <- TRUE
-        }
-      }
-      if (CheckSim == FALSE){
-        CalcSim <<- TRUE
-      }
-    }
-    
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
         if (addfeedback[i]=="Median survival line"){
@@ -246,19 +230,13 @@ server <- function(input, output, session) {
           points(fivecurve()$bigT, p[sum(fivecurve()$bigT > x)], cex=1.5, col="orange", pch=19)
           points(ninetyfivecurve()$bigT, p[sum(ninetyfivecurve()$bigT > x)], cex=1.5, col="orange", pch=19)
         } else if (addfeedback[i]=="Simulation curves"){
-          if (CalcSim){
             Curves <- drawsimlines()$linelist
             for (i in 1:10){
               lines(Curves[[(i*2)-1]], Curves[[i*2]], col="purple", lwd=0.25, lty=2)
             }
-            CalcSim <- FALSE
           }
         }
       }
-    }
-    
-    
-    
   })
   
   
@@ -318,16 +296,21 @@ server <- function(input, output, session) {
     }
     
     sumvec <- n1vec+n2vec
-    asssmooth <- loess(assvec~sumvec)
+    asssmooth <<- loess(assvec~sumvec)
     plot(sumvec, predict(asssmooth), type="l", lty=2, ylim=c(0,1),
          xlab="Total sample size", ylab="Assurance")
+    
+  })
+ 
+  samplesizeass <- renderUI({
     
     # y <- predict(asssmooth,newdata=seq(10, 1000, by=1))
     # y <- y>0.8
     # x <- seq(10, 1000, by=1)
     # print(x[min(which(y == TRUE))])
+    
   })
-  
+   
 }
 
 shinyApp(ui, server)
