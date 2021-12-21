@@ -6,6 +6,7 @@ library(shinydashboard)
 library(rsconnect)
 
 
+
 ui <- fluidPage(
   
   titlePanel("Cancer survival times - Weibull parameterisation"),
@@ -35,10 +36,11 @@ ui <- fluidPage(
         box(width = 14, title = "Ratio of patients in each group?",
             splitLayout(
               numericInput("n1", "Control", value=1, min=1),
-              numericInput("n2", "Treatment", value=2, min=1)
+              numericInput("n2", "Treatment", value=1, min=1)
             )
         )
       ),
+      actionButton("assline", "Draw assurance line")
     ),
     
     mainPanel(
@@ -49,7 +51,8 @@ ui <- fluidPage(
                            htmlOutput("feedback"), 
                   ), 
                   tabPanel("Assurance", 
-                           plotOutput("plotAssurance")))
+                           plotOutput("plotAssurance"),
+                           htmlOutput("samplesizeass")))
     )
   )
 )
@@ -252,8 +255,43 @@ server <- function(input, output, session) {
   
   output$plotAssurance <- renderPlot({
     
+    plot(powerlinefunc()$sumvec, predict(powerlinefunc()$asssmooth), xlab="Total sample size", ylab="Power/assurance", ylim=c(0,1), type="l")
+    
+    lines(asslinefunc()$sumvec, predict(asslinefunc()$asssmooth), type="l", lty=2, col="blue")
+    
+    legend("bottomright", legend = c("Power", "Assurance"),
+           col=c("black", "blue"), lty=1:2, cex=1)
+    
+  })
+ 
+  output$samplesizeass <- renderUI({
+
+    
+    y <- predict(asslinefunc()$asssmooth,newdata=seq(10, 1000, by=1))
+    x <- seq(10, 1000, by=1)
+
+    nonay <- na.omit(y)
+    if (max(nonay)<0.8){
+      str1 <- paste0("80% assurance is not possible with these prior parameters, the highest assurance we can have is ", round(y[991], 2))
+      HTML(paste(str1))
+    } else if (max(nonay)>0.8&max(nonay)<0.9){
+      y1 <- nonay >0.8
+      str1 <- paste0("For 80% assurance, the total sample size needed is ", x[min(which(y1 == TRUE))], " with ", round(x[min(which(y1 == TRUE))]/(input$n1+input$n2)*input$n1), " patients in control and ",  x[min(which(y1 == TRUE))] - round(x[min(which(y1 == TRUE))]/(input$n1+input$n2)*input$n1), " patients in treatment")
+      str2 <- paste0("90% assurance is not possible with these prior parameters, the highest assurance we can have is ", round(y[991], 2))
+      HTML(paste(str1, str2, sep = '<br/>'))
+    } else {
+      y1 <- nonay >0.8
+      str1 <- paste0("For 80% assurance, the total sample size needed is ", x[min(which(y1 == TRUE))], " with ", round(x[min(which(y1 == TRUE))]/(input$n1+input$n2)*input$n1), " patients in control and ",  x[min(which(y1 == TRUE))] - round(x[min(which(y1 == TRUE))]/(input$n1+input$n2)*input$n1), " patients in treatment")
+      y2 <- nonay>0.9
+      str2 <- paste0("For 90% assurance, the total sample size needed is ", x[min(which(y2 == TRUE))], " with ", round(x[min(which(y2 == TRUE))]/(input$n1+input$n2)*input$n1), " patients in control and ", x[min(which(y2 == TRUE))] - round(x[min(which(y2 == TRUE))]/(input$n1+input$n2)*input$n1), " patients in treatment")
+      HTML(paste(str1, str2, sep = '<br/>'))
+    }
+  })
+  
+  powerlinefunc <- eventReactive(input$assline, {
+    
     AssFunc <- function(n1, n2){
-      assnum <- 100
+      assnum <- 40
       assvec <- rep(NA, assnum)
       
       for (i in 1:length(assvec)){
@@ -261,9 +299,8 @@ server <- function(input, output, session) {
         
         lambda2 <- exp(-fitcontrol$coefficients)
         gamma2 <- gamma1
-        bigT <- rnorm(1, mean = input$T1Mean, sd = sqrt(input$T1Var))
-        HRdist <- estBetaParams(mu = input$T2HRMean , var = sqrt(input$T2HRVar))
-        HR <- rbeta(1, HRdist$alpha, HRdist$beta)
+        bigT <- input$T1Mean
+        HR <- input$T2HRMean
         lambda1 <- exp((log(HR)+gamma1*log(lambda2))/gamma1)
         
         #Simulate data for the control group
@@ -287,6 +324,63 @@ server <- function(input, output, session) {
     }
     
     n1n2sum <- input$n1+input$n2
+    n1vec <- floor(seq(input$n1*10, floor((1000/n1n2sum)*input$n1), length=30))
+    n2vec <- floor(seq(input$n2*10, floor((1000/n1n2sum)*input$n2), length=30))
+    assvec <- rep(NA, length(n1vec))
+    
+    for (i in 1:length(n1vec)){
+      assvec[i] <- AssFunc(n1vec[i], n2vec[i])
+    }
+    
+    sumvec <- n1vec+n2vec
+    asssmooth <<- loess(assvec~sumvec)
+    
+    list(sumvec = sumvec, asssmooth = asssmooth)
+    
+  })
+  
+  
+  
+  asslinefunc <- eventReactive(input$assline, {
+    
+    AssFunc <- function(n1, n2){
+      assnum <- 100
+      assvec <- rep(NA, assnum)
+      
+      for (i in 1:length(assvec)){
+        
+        
+        lambda2 <- exp(-fitcontrol$coefficients)
+        gamma2 <- gamma1
+        bigT <- rnorm(1, mean = input$T1Mean, sd = sqrt(input$T1Var))
+        if (bigT<0){
+          assvec[i] <- NA
+        } else{
+          HRdist <- estBetaParams(mu = input$T2HRMean , var = sqrt(input$T2HRVar))
+          HR <- rbeta(1, HRdist$alpha, HRdist$beta)
+          lambda1 <- exp((log(HR)+gamma1*log(lambda2))/gamma1)
+          
+          #Simulate data for the control group
+          simcontrol <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
+          
+          
+          CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+          u <- runif(n2)
+          suppressWarnings(z <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+          
+          
+          SimTreatment <- data.frame(time = z)
+          DataCombined <- data.frame(time = c(simcontrol$time, SimTreatment$time), 
+                                     group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
+          test <<- survdiff(Surv(time, cens)~group, data = DataCombined)
+          assvec[i] <- test$chisq > qchisq(0.95, 1)
+        }
+        
+      }
+      return(sum(na.omit(assvec))/sum(!is.na(assvec)))  
+    }
+    
+    n1n2sum <- input$n1+input$n2
     n1vec <- floor(seq(input$n1*10, floor((1000/n1n2sum)*input$n1), length=50))
     n2vec <- floor(seq(input$n2*10, floor((1000/n1n2sum)*input$n2), length=50))
     assvec <- rep(NA, length(n1vec))
@@ -297,17 +391,8 @@ server <- function(input, output, session) {
     
     sumvec <- n1vec+n2vec
     asssmooth <<- loess(assvec~sumvec)
-    plot(sumvec, predict(asssmooth), type="l", lty=2, ylim=c(0,1),
-         xlab="Total sample size", ylab="Assurance")
     
-  })
- 
-  samplesizeass <- renderUI({
-    
-    # y <- predict(asssmooth,newdata=seq(10, 1000, by=1))
-    # y <- y>0.8
-    # x <- seq(10, 1000, by=1)
-    # print(x[min(which(y == TRUE))])
+    list(sumvec = sumvec, asssmooth = asssmooth)
     
   })
    
@@ -315,7 +400,8 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
-
+#Can we add a button which when clicked adds an assurance line
+#Adds text on the bottom about what the inputs were, different colour
 
 
 
