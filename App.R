@@ -4,68 +4,100 @@ library(shiny)
 library(survival)
 library(shinydashboard)
 library(rsconnect)
-
+library(SHELF)
 
 
 ui <- fluidPage(
   
+  # Application title
   titlePanel("Cancer survival times - Weibull parameterisation"),
   
-  sidebarLayout(
+  # sidebarLayout(
+  mainPanel(tags$style(type="text/css",
+                       ".shiny-output-error { visibility: hidden; }",
+                       ".shiny-output-error:before { visibility: hidden; }"
+  ),
+  
+  tabsetPanel(
+    tabPanel("Eliciting T", 
+             actionButton("elicitT", "Click here to elicit T"), htmlOutput("htmlT")),
+  
+    tabPanel("Elicting HR"),
+
     
-    sidebarPanel(
-      fluidRow(
-        box(width = 14, title = "When does the treatment begin to take effect (months)?", 
-            splitLayout(
-              numericInput("T1Mean", "Mean", value=5),
-              numericInput("T1Var", "Variance", value=1, min=0)
-            )
-        )
-      ),
-      fluidRow(
-        box(width = 14, title = "What is the hazard ratio after the change-point?", 
-            splitLayout(
-              numericInput("T2HRMean", "Mean", value=0.65),
-              numericInput("T2HRVar", "Variance", value=0.00001, min=0)
-            )
-        )
-      ),
-      checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line",
-                                                                    "Hazard Ratio & 95% CI's", "95% CI for T", "Simulation curves")),
-      fluidRow(
-        box(width = 14, title = "Ratio of patients in each group?",
-            splitLayout(
-              numericInput("n1", "Control", value=1, min=1),
-              numericInput("n2", "Treatment", value=1, min=1)
-            )
-        )
-      ),
-      actionButton("assline", "Draw assurance line")
-    ),
-    
-    mainPanel(
-      
-      tabsetPanel(type="tabs",
-                  tabPanel("Elicitation",
-                           plotOutput("plotBestFit"),
-                           htmlOutput("feedback"), 
-                  ), 
-                  tabPanel("Assurance", 
-                           plotOutput("plotAssurance"),
-                           htmlOutput("samplesizeass")))
+    tabPanel("Feedback"),
+   
+    tabPanel("Assurance"),
+        
     )
-  )
+    
+  ),
+
 )
+
+
+
+# ui <- fluidPage(
+#   
+#   #App title
+#   titlePanel("Cancer survival times - Weibull parameterisation"),
+#   
+#   sidebarLayout(
+#     
+#     #Questions on the LHS
+#     sidebarPanel(
+#       fluidRow(
+#         box(width = 14, title = "When does the treatment begin to take effect (months)?", 
+#             splitLayout(
+#               numericInput("T1Mean", "Mean", value=5),
+#               numericInput("T1Var", "Variance", value=1, min=0)
+#             )
+#         )
+#       ),
+#       fluidRow(
+#         box(width = 14, title = "What is the hazard ratio after the change-point?", 
+#             splitLayout(
+#               numericInput("T2HRMean", "Mean", value=0.65),
+#               numericInput("T2HRVar", "Variance", value=0.00001, min=0)
+#             )
+#         )
+#       ),
+#       #Feedback options
+#       checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line",
+#                                                                     "Hazard Ratio & 95% CI's", "95% CI for T", "Simulation curves")),
+#       fluidRow(
+#         box(width = 14, title = "Ratio of patients in each group?",
+#             splitLayout(
+#               numericInput("n1", "Control", value=1, min=1),
+#               numericInput("n2", "Treatment", value=1, min=1)
+#             )
+#         )
+#       ),
+#       actionButton("assline", "Draw assurance line")
+#     ),
+#     
+#     mainPanel(
+#       
+#       #Choice of tabs
+#       tabsetPanel(type="tabs",
+#                   tabPanel("Elicitation",
+#                            plotOutput("plotBestFit"),
+#                            htmlOutput("feedback"), 
+#                   ), 
+#                   tabPanel("Assurance", 
+#                            plotOutput("plotAssurance"),
+#                            htmlOutput("samplesizeass")))
+#     )
+#   )
+# )
 
 
 server <- function(input, output, session) {
   
-  
-  
   #lambda2 <- 0.06
   #gamma2 <- 0.8
   
-  #Simulate data for the control, in pratice the data would just be given to us
+  #Simulate data for the control, in practice the data would just be given to us
   simdata <<- data.frame(time = rweibull(10000, 0.8, 1/0.06), cens = rep(1, 10000))
   
   #Determine lambda2 and gamma2 from the control data
@@ -82,16 +114,17 @@ server <- function(input, output, session) {
     return(lambda1)
   })
   
+  #Function to calculate Beta parameters given mean and variance
   estBetaParams <<- function(mu, var) {
     alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
     beta <- alpha * (1 / mu - 1)
     return(params = list(alpha = alpha, beta = beta))
   }
   
+  #Plot the proposed treatment curve (not interested in variation here)
   proposed <- reactive({
     lambda1 <- findlambda1()
     
-    #Plot the proposed treatment curve (not interested in variation here)
     #Plot the treatment curve until the change-point (just same as control) 
     effectt <- seq(0, input$T1Mean, by=0.01)
     effecty <- exp(-((exp(-fitcontrol$coefficients))*effectt)^(1/fitcontrol$scale))
@@ -101,6 +134,7 @@ server <- function(input, output, session) {
     aftereffectt <- seq(input$T1Mean, max(simdata$time)*1.1, by=0.01)
     aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*input$T1Mean)^(1/fitcontrol$scale)-(lambda1^gamma1)*(aftereffectt^gamma1-input$T1Mean^gamma1))
     
+    #Combine before and after changepoint
     combinedt <- c(effectt, aftereffectt)
     combinedy <- c(effecty, aftereffecty)
     
@@ -108,77 +142,41 @@ server <- function(input, output, session) {
          aftereffecty = aftereffecty, combinedt = combinedt, combinedy = combinedy)
   })
   
+  #Finding the 2.5% estimates for T and HR (given the inputs from the user)
   fivecurve <- reactive({
     
     #Calculating lambda2 and gamma2
     lambda2 <- exp(-fitcontrol$coefficients)
     gamma2 <- gamma1
     
-    #Finding the 5% and 95% estimates for T and HR (given the inputs from the user)
+    #2.5% estimates for T and HR
     bigT <- qnorm(0.025, mean = input$T1Mean, sd = sqrt(input$T1Var))
     HRdist <- estBetaParams(mu = input$T2HRMean , var = sqrt(input$T2HRVar))
     HR <- qbeta(0.025, HRdist$alpha, HRdist$beta)
     
-    
-    #Calculating lambda1 in the case of HR being at 5%
-    lambda1 <- exp((log(HR)+gamma1*log(lambda2))/gamma1)
-    
-    #Plotting the 5% lines (when T and HR is at 5%)
-    #Before CP
-    effectt <- seq(0, bigT, by=0.01)
-    effecty <- exp(-((exp(-fitcontrol$coefficients))*effectt)^(1/fitcontrol$scale))
-    
-    
-    #After CP
-    aftereffectt <- seq(bigT, max(simdata$time)*1.1, by=0.01)
-    aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*bigT)^(1/fitcontrol$scale)-(lambda1^gamma1)*(aftereffectt^gamma1-bigT^gamma1))
-    
-    combinedt <- c(effectt, aftereffectt)
-    combinedy <- c(effecty, aftereffecty)
-    
-    list(effectt = effectt, effecty = effecty, aftereffectt = aftereffectt, 
-         aftereffecty = aftereffecty, combinedt = combinedt, combinedy = combinedy,
-         bigT = bigT, HR = HR)
+    list(bigT = bigT, HR = HR)
   })
   
+  #Finding the 97.5% estimates for T and HR (given the inputs from the user)
   ninetyfivecurve <- reactive({
     
     #Calculating lambda2 and gamma2
     lambda2 <- exp(-fitcontrol$coefficients)
     gamma2 <- gamma1
     
-    #Finding the 5% and 95% estimates for T and HR (given the inputs from the user)
+    #Finding the 97.5% estimates for T and HR
     bigT <- qnorm(0.975, mean = input$T1Mean, sd = sqrt(input$T1Var))
     HRdist <- estBetaParams(mu = input$T2HRMean , var = sqrt(input$T2HRVar))
     HR <- qbeta(0.975, HRdist$alpha, HRdist$beta)
     
-    
-    #Calculating lambda1 in the case of HR being at 5%
-    lambda1 <- exp((log(HR)+gamma1*log(lambda2))/gamma1)
-    
-    #Plotting the 5% lines (when T and HR is at 5%)
-    #Before CP
-    effectt <- seq(0, bigT, by=0.01)
-    effecty <- exp(-((exp(-fitcontrol$coefficients))*effectt)^(1/fitcontrol$scale))
-    
-    
-    #After CP
-    aftereffectt <- seq(bigT, max(simdata$time)*1.1, by=0.01)
-    aftereffecty <- exp(-(exp(-fitcontrol$coefficients)*bigT)^(1/fitcontrol$scale)-(lambda1^gamma1)*(aftereffectt^gamma1-bigT^gamma1))
-    
-    
-    combinedt <- c(effectt, aftereffectt)
-    combinedy <- c(effecty, aftereffecty)
-    
-    list(effectt = effectt, effecty = effecty, aftereffectt = aftereffectt, 
-         aftereffecty = aftereffecty, combinedt = combinedt, combinedy = combinedy,
-         bigT = bigT, HR = HR)
+    list(bigT = bigT, HR = HR)
   })
   
-  
+  #Plots 10 simulated curves drawn from the user's inputs
   drawsimlines <- reactive({
     lambda2 <- exp(-fitcontrol$coefficients)
     gamma2 <- gamma1
+    #Initliaies 
     linelist <- list()
     for (i in 1:10){
       bigT <- rnorm(1, mean = input$T1Mean, sd = sqrt(input$T1Var))
@@ -193,6 +191,15 @@ server <- function(input, output, session) {
     list(linelist = linelist)
   })
   
+  # elicitTFunc <- eventReactive(input$elicitT, {
+  #   list()
+  #   
+  # }
+  # )
+  
+  output$htmlT <- uiOutput({
+    SHELF::elicit()
+  })
   
   output$plotBestFit <- renderPlot({
     
@@ -216,7 +223,10 @@ server <- function(input, output, session) {
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
         if (addfeedback[i]=="Median survival line"){
-          lines(seq(0, 120, length=2), rep(0.5, 2), lty=3)
+          lines(seq(0, proposed()$combinedt[sum(!proposed()$combinedy<0.5)], length=2), rep(0.5, 2), lty=3)
+          lines(rep(predict(fitcontrol, type="quantile", p = 0.5)[[1]], 2), seq(-1, 0.5, length=2), lty=3)
+          lines(rep(proposed()$combinedt[sum(!proposed()$combinedy<0.5)], 2), seq(-1, 0.5, length=2), lty=3)
+          
         } else if (addfeedback[i]=="Hazard Ratio & 95% CI's"){
           #Top line
           lines(seq(0, input$T1Mean, length=2), rep(1, 2))
@@ -315,7 +325,7 @@ server <- function(input, output, session) {
         SimTreatment <- data.frame(time = z)
         DataCombined <- data.frame(time = c(simcontrol$time, SimTreatment$time), 
                                    group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
-        test <<- survdiff(Surv(time, cens)~group, data = DataCombined)
+        test <- survdiff(Surv(time, cens)~group, data = DataCombined)
         assvec[i] <- test$chisq > qchisq(0.95, 1)
         
       }
@@ -372,7 +382,7 @@ server <- function(input, output, session) {
           SimTreatment <- data.frame(time = z)
           DataCombined <- data.frame(time = c(simcontrol$time, SimTreatment$time), 
                                      group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
-          test <<- survdiff(Surv(time, cens)~group, data = DataCombined)
+          test <- survdiff(Surv(time, cens)~group, data = DataCombined)
           assvec[i] <- test$chisq > qchisq(0.95, 1)
         }
         
@@ -399,15 +409,6 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
-
-#Can we add a button which when clicked adds an assurance line
-#Adds text on the bottom about what the inputs were, different colour
-
-
-
-
-
-
 
 
 
