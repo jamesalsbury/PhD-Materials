@@ -197,9 +197,9 @@ server <- function(input, output, session) {
   # }
   # )
   
-  output$htmlT <- uiOutput({
-    SHELF::elicit()
-  })
+  # output$htmlT <- uiOutput({
+  #   #SHELF::elicit()
+  # })
   
   output$plotBestFit <- renderPlot({
     
