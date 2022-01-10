@@ -1,0 +1,57 @@
+---
+title: "Fitted Dirichlet Distribution"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+date: "`r format(Sys.time(), '%d %B %Y, %H:%M')`"
+fontsize: 11pt
+params:
+  allFits: NA
+  categories: NA
+  n: NA
+  quantiles: NA
+  thetaMatrix: NA
+---
+
+## Elicited judgements
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+```{r}
+mydf <- data.frame(params$quantiles, params$thetaMatrix)
+colnames(mydf) <- c("quantiles", params$categories)
+rownames(mydf) <- NULL
+knitr::kable(mydf)
+```
+
+
+### Dirichlet density function and parameters
+
+Define the vector of unknown population proportions as 
+$$\theta := (\theta_1,\ldots,\theta_k),$$
+with $k = `r length(params$categories)`$ . We write 
+$$\theta  \sim Dirichlet(a_1,\ldots,a_k),$$
+with
+$$
+f(\theta)=\frac{\Gamma(a_1+\ldots +a_k)}{\Gamma(a_1)\ldots \Gamma(a_k)}\prod_{i=1}^k \theta_i^{a_i-1}.
+$$
+The fitted parameter values $a_1,\ldots,a_k$ are as follows:
+
+```{r}
+fitDirichlet(params$allFits, categories = params$categories,
+             n.fitted = params$n, silent = TRUE, 
+             plotBeta = FALSE)
+```
+
+## Comparing the elicited marginals with the marginals from the Dirichlet fit
+
+```{r}
+d <- fitDirichlet(params$allFits, categories = params$categories,
+             n.fitted = params$n)
+```
+
+
+
