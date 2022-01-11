@@ -62,7 +62,7 @@ server <- function(input, output, session) {
   #lambda2 <- 0.06
   #gamma2 <- 0.8
   
-  #Simulate data for the control, in pratice the data would just be given to us
+  #Simulate data for the control, in practice the data would just be given to us
   simdata <<- data.frame(time = rweibull(10000, 0.8, 1/0.06), cens = rep(1, 10000))
   
   #Determine lambda2 and gamma2 from the control data

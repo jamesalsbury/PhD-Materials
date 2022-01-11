@@ -1,5 +1,6 @@
 library(SHELF)
 library(shiny)
+library(survival)
 #' Elicit a bivariate distribution using a Gaussian copula
 #' 
 #' Opens up a web browser (using the shiny package), from which you can specify
@@ -31,7 +32,7 @@ elicitBivariate<- function(){
     ui = shinyUI(fluidPage(
       
       # Application title
-      titlePanel("Hello: bivariate distribution"),
+      titlePanel("Delayed Treatment Effects - Weibull parameterisation"),
       
       # sidebarLayout(
       mainPanel(tags$style(type="text/css",
@@ -40,15 +41,15 @@ elicitBivariate<- function(){
       ),
       
       tabsetPanel(
-        tabPanel("Parameter 1",
+        tabPanel("Eliciting T",
                  fluidRow(
                    column(4, 
                           textInput("limits1", label = h5("Parameter 1 limits"), 
-                                    value = "0, 100")
+                                    value = "0, 50")
                    ),
                    column(4,
                           textInput("values1", label = h5("Parameter 1 values"), 
-                                    value = "25, 50, 75")
+                                    value = "5, 6, 7")
                    ),
                    column(4,
                           textInput("probs1", label = h5("Cumulative probabilities"), 
@@ -87,15 +88,15 @@ elicitBivariate<- function(){
                  plotOutput("distPlot1")
                  #tableOutput("valuesPDF1")
         ),
-        tabPanel("Parameter 2",
+        tabPanel("Eliciting HR",
                  fluidRow(
                    column(4, 
                           textInput("limits2", label = h5("Parameter limits"), 
-                                    value = "0, 200")
+                                    value = "0, 1")
                    ),
                    column(4,
                           textInput("values2", label = h5("Parameter values"), 
-                                    value = "30, 40, 60")
+                                    value = "0.5, 0.6, 0.75")
                    ),
                    column(4,
                           textInput("probs2", label = h5("Cumulative probabilities"), 
@@ -134,27 +135,21 @@ elicitBivariate<- function(){
                  # tableOutput("valuesPDF2")
         ),
         
-        tabPanel("Joint distribution",
-                 fluidRow(
-                   column(4, 
-                          numericInput("concProb", h5("Concordance probability"),
-                                       value = 0.5,
-                                       min = 0, max = 1)
-                   ),
-                   column(4,
-                          numericInput("sampleSize", h5("Sample size"),
-                                       value = 1000,
-                                       min = 1)
-                   ),
-                   column(4, 
-                          checkboxInput("showSample", "Show sample")
+        tabPanel("Feedback", 
+                 sidebarLayout(
+                   sidebarPanel = sidebarPanel(
+                     checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "Hazard Ratio & 95% CI's", "95% CI for T", "Simulation curves"))
+                   ), 
+                   mainPanel = mainPanel(
+                     plotOutput("plotFeedback")
                    )
                  ),
-                 plotOutput("bivariatePlot")
         ),
-        tabPanel("Help",
-                 includeHTML(system.file("shinyAppFiles", "helpBivariate.html",
-                                         package="SHELF"))
+                 
+          
+        tabPanel("Assurance",
+                 plotOutput("plotAssurance")
+                 
         )
         
       ),
@@ -165,7 +160,7 @@ elicitBivariate<- function(){
                                                'pdf' = "pdf_document",
                                                'Word' = "word_document"))
           ),
-          column(3, offset = 1, 
+          column(3, offset = 1,
                  numericInput("fs", label = "Font size", value = 12)
           )),
         fluidRow(
@@ -176,7 +171,7 @@ elicitBivariate<- function(){
           column(3, actionButton("exit", "Quit")
           )
         )
-        
+
       )
       
       )
@@ -243,12 +238,10 @@ elicitBivariate<- function(){
                                  xl = limits1()[1], xu = limits1()[2], 
                                  fs = input$fs))
         
-        
       })
       
       
       output$distPlot2 <- renderPlot({
-        
         
         
         #  dist<-c("hist","normal", "t", "gamma", "lognormal", "logt","beta", "best")
@@ -260,170 +253,181 @@ elicitBivariate<- function(){
         
       })
       
-      df1 <- reactive({
-        conc.probs <- matrix(0, 2, 2)
-        conc.probs[1, 2] <- input$concProb
-        data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, 
-                                n = input$sampleSize, 
-                                d = c(input$dist1, input$dist2)))
+      # df1 <- reactive({
+      #   conc.probs <- matrix(0, 2, 2)
+      #   conc.probs[1, 2] <- input$concProb
+      #   data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, 
+      #                           n = input$sampleSize, 
+      #                           d = c(input$dist1, input$dist2)))
+      # })
+      
+      drawsimlines <- reactive({
+        lambda2 <- 0.06
+        gamma2 <- gamma1 <- 0.8
+        linelist <- list()
+        for (i in 1:10){
+          bigT <- rnorm(1, mean = as.numeric(myfit1()$Normal[1]), sd = as.numeric(myfit1()$Normal[2]))
+          HR <- rbeta(1, as.numeric(myfit2()$Beta[1]), as.numeric(myfit2()$Beta[2]))
+          lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
+          treatmenttime <- seq(bigT, 120, by=0.01)
+          treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
+          linelist[[(i*2)-1]] <- treatmenttime
+          linelist[[i*2]] <- treatmentsurv
+        }
+        list(linelist = linelist)
       })
       
-      output$bivariatePlot <- renderPlot({
+      output$plotFeedback <- renderPlot({
         
-        theme_set(theme_grey(base_size = input$fs))
+        lambda2 <- 0.06
+        gamma2 <- 0.8
+        gamma1 <- gamma2
+        controltime <- seq(0, 120, by=0.01)
+        controlcurve <- exp(-(lambda2*controltime)^gamma2)
+        plot(controltime, controlcurve, type="l", col="blue", xlab="Time", ylab="Survival", main="Elicitation of treatment curve")
+        legend("topright", legend = c("Same fit before changepoint", "Control", "Treatment"),
+               col=c("green", "blue", "red"), lty=c(1), cex=0.75)
         
-        annotations <- data.frame(
-          xpos = c(Inf,Inf,-Inf,-Inf),
-          ypos =  c(Inf, -Inf,-Inf,Inf),
-          annotateText = as.character(c(input$concProb / 2, 
-                                        0.5 - input$concProb /2,
-                                        input$concProb / 2, 
-                                        0.5 - input$concProb /2)),
-          hjustvar = c(1.5, 1.5, -0.5, -0.5) ,
-          vjustvar = c(1.5, -0.5, -0.5, 1.5))
+    
+        bigTMean <- as.numeric(myfit1()$Normal[1])
+        HRFit <- myfit2()$Beta
+        HRMean <- as.numeric(HRFit[1]/(HRFit[1]+HRFit[2]))
+        lambda1 <- as.numeric(exp((log(HRMean)/gamma2)+log(lambda2)))
         
-        
-        p1 <- ggplot(data = df1(), aes(x = X1, y = X2))
-        if(input$showSample){
-          p1 <- p1 + geom_point(alpha=0.15, colour = "red")}
-        
-        p1 <- p1 + 
-          geom_hline(yintercept = m2())+
-          geom_vline(xintercept = m1())+
-          labs(x=expression(X[1]), y = expression(X[2]))+
-          geom_text(data = annotations, aes(x = xpos,
-                                            y = ypos,
-                                            hjust = hjustvar,
-                                            vjust = vjustvar,
-                                            label = annotateText),
-                    size = input$fs / 2) +
-          xlim(0.95*limits1()[1], 1.05*limits1()[2])+
-          ylim(0.95*limits2()[1], 1.05*limits2()[2])
-        
-        if(input$showSample){
+        treatmenttime1 <- seq(0, bigTMean, by=0.01)
+        treatmentsurv1 <- exp(-(lambda2*treatmenttime1)^gamma2)
+        lines(treatmenttime1, treatmentsurv1, col="green")
+ 
+        treatmenttime2 <- seq(bigTMean, 120, by=0.01)
+        treatmentsurv2 <- exp(-(lambda2*bigTMean)^gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMean^gamma1))
+        lines(treatmenttime2, treatmentsurv2, col="red")
           
-          suppressWarnings(suppressMessages(ggExtra::ggMarginal(p1, type = "histogram",
-                                                                fill = "red")))
-        }else{
-          suppressWarnings(suppressMessages(p1))
+        addfeedback <- input$showfeedback 
+        
+          if (!is.null(addfeedback)){
+            for (i in 1:length(addfeedback)){
+              if (addfeedback[i]=="Median survival line"){
+                lines(seq(-1, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), rep(0.5, 2), lty=3)
+                lines(rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), seq(-1, 0.5, length=2), lty=3)
+                lines(rep(controltime[sum(controlcurve>0.5)], 2), seq(-1, 0.5, length=2), lty=3)
+              } else if (addfeedback[i]=="Hazard Ratio & 95% CI's"){
+                #Top line
+                lines(seq(0, bigTMean, length=2), rep(1, 2))
+                #Vertical line
+                lines(rep(bigTMean, 2), seq(HRMean, 1, length=2))
+                #Bottom line
+                lines(seq(bigTMean, 120,length=2), rep(HRMean, 2))
+                #Conf intervals
+                lines(seq(bigTMean, 120,length=2), rep(qbeta(0.025, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
+                lines(seq(bigTMean, 120,length=2), rep(qbeta(0.975, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
+              } else if (addfeedback[i]=="95% CI for T"){
+                points(qnorm(0.025, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.025, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
+                points(qnorm(0.975, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.975, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
+              } else if (addfeedback[i]=="Simulation curves"){
+                Curves <- drawsimlines()$linelist
+                for (i in 1:10){
+                  lines(Curves[[(i*2)-1]], Curves[[i*2]], col="purple", lwd=0.25, lty=2)
+                }
+              }
+            }
+          }
+      })
+      
+      output$plotAssurance <- renderPlot({
+        
+        AssFunc <- function(n1, n2){
+          assnum <- 100
+          assvec <- rep(NA, assnum)
+        
+        assvec <- rep(NA, 100)
+        
+        for (i in 1:100){
+          lambda2 <- 0.06
+          gamma2 <- gamma1 <- 0.8
+          bigT <- rnorm(1, mean = as.numeric(myfit1()$Normal[1]), sd = as.numeric(myfit1()$Normal[2]))
+          HR <- rbeta(1, as.numeric(myfit2()$Beta[1]), as.numeric(myfit2()$Beta[2]))
+          lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
+          
+          
+          controldata <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
+          
+          
+          CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+          u <- runif(n2)
+          suppressWarnings(z <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+          
+          
+          treatmentdata <- data.frame(time = z)
+          DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time), 
+                                     group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
+          test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+          assvec[i] <- test$chisq > qchisq(0.95, 1)
         }
         
+        return(sum(assvec)/100)
         
+        }
+        
+        n1vec <- seq(10, 500, length=50)
+        n2vec <- seq(10, 500, length=50)
+        assvec <- rep(NA, 50)
+        
+        for (i in 1:50){
+          assvec[i] <- AssFunc(n1vec[i], n2vec[i])
+        }
+        
+        sumvec <- n1vec+n2vec
+        asssmooth <- loess(assvec~sumvec)
+        plot(sumvec, predict(asssmooth), type="l", lty=2, ylim=c(0,1),
+             xlab="Total sample size", ylab="Assurance")
+       
       })
       
       
+      # observeEvent(input$exit, {
+      #   stopApp(list(parameter1 = myfit1(), parameter2 = myfit2(), 
+      #                cp = input$concProb))
+      # }) 
       
+      # output$downloadData <- downloadHandler(
+      #   filename = "joint-sample.csv",
+      #   content = function(file) {
+      #     utils::write.csv(df1(), file, row.names = FALSE)
+      #   }
+      # )
       
-      observeEvent(input$exit, {
-        stopApp(list(parameter1 = myfit1(), parameter2 = myfit2(), 
-                     cp = input$concProb))
-      }) 
-      
-      output$downloadData <- downloadHandler(
-        filename = "joint-sample.csv",
-        content = function(file) {
-          utils::write.csv(df1(), file, row.names = FALSE)
-        }
-      )
-      
-      output$report <- downloadHandler(
-        filename = function(){switch(input$outFormat,
-                                     html_document = "distributions-report.html",
-                                     pdf_document = "distributions-report.pdf",
-                                     word_document = "distributions-report.docx")},
-        content = function(file) {
-          # Copy the report file to a temporary directory before processing it, in
-          # case we don't have write permissions to the current working dir (which
-          # can happen when deployed).
-          tempReport <- file.path(tempdir(), "elicitationShinySummaryBivariate.Rmd")
-          file.copy(system.file("shinyAppFiles", "elicitationShinySummaryBivariate.Rmd",
-                                package="SHELF"),
-                    tempReport, overwrite = TRUE)
-          
-          # Set up parameters to pass to Rmd document
-          params <- list(fit1 = myfit1(), fit2 = myfit2(), cp = input$concProb,
-                         d = c(input$dist1, input$dist2), m1 = m1(), m2 = m2())
-          
-          # Knit the document, passing in the `params` list, and eval it in a
-          # child of the global environment (this isolates the code in the document
-          # from the code in this app).
-          rmarkdown::render(tempReport, output_file = file,
-                            params = params,
-                            output_format = input$outFormat,
-                            envir = new.env(parent = globalenv())
-          )
-        }
-      )
+      # output$report <- downloadHandler(
+      #   filename = function(){switch(input$outFormat,
+      #                                html_document = "distributions-report.html",
+      #                                pdf_document = "distributions-report.pdf",
+      #                                word_document = "distributions-report.docx")},
+      #   content = function(file) {
+      #     # Copy the report file to a temporary directory before processing it, in
+      #     # case we don't have write permissions to the current working dir (which
+      #     # can happen when deployed).
+      #     tempReport <- file.path(tempdir(), "elicitationShinySummaryBivariate.Rmd")
+      #     file.copy(system.file("shinyAppFiles", "elicitationShinySummaryBivariate.Rmd",
+      #                           package="SHELF"),
+      #               tempReport, overwrite = TRUE)
+      #     
+      #     # Set up parameters to pass to Rmd document
+      #     params <- list(fit1 = myfit1(), fit2 = myfit2(), cp = input$concProb,
+      #                    d = c(input$dist1, input$dist2), m1 = m1(), m2 = m2())
+      #     
+      #     # Knit the document, passing in the `params` list, and eval it in a
+      #     # child of the global environment (this isolates the code in the document
+      #     # from the code in this app).
+      #     rmarkdown::render(tempReport, output_file = file,
+      #                       params = params,
+      #                       output_format = input$outFormat,
+      #                       envir = new.env(parent = globalenv())
+      #     )
+      #   }
+      # )
       
     }
   ))
 }
 
 elicitBivariate()
-
-# quantileValues1 <- reactive({
-#   ssq <- myfit1()$ssq[1, is.na(myfit1()$ssq[1,])==F]
-#   best.index <- which(ssq == min(ssq))[1]
-#   
-#   ex <- 1
-#   pl <- limits1()[1]
-#   pu <- limits1()[2]
-#   if(as.numeric(input$radio1)==8){index<-best.index}else{index<-as.numeric(input$radio1) - 1}
-#   if(as.numeric(input$radio1)==1){
-#     if(pl == -Inf & myfit1()$limits[ex,1] > -Inf){pl <- myfit1()$limits[ex,1]}
-#     if(pu == Inf & myfit1()$limits[ex,2] < Inf){pu <- myfit1()$limits[ex,2] }
-#     if(pl == -Inf & myfit1()$limits[ex,1] == -Inf){
-#       pl <- qnorm(0.001, myfit1()$Normal[ex,1], myfit1()$Normal[ex,2])}
-#     if(pu == Inf & myfit1()$limits[ex,2] == Inf){
-#       pu <- qnorm(0.999, myfit1()$Normal[ex,1], myfit1()$Normal[ex,2])}
-#     p <- c(0, myfit1()$probs[ex,], 1)
-#     x <- c(pl, myfit1()$vals[ex,], pu)
-#     values <- qhist(c(0.05, 0.95), x, p)
-#   }
-#   
-#   if(as.numeric(input$radio1)>1){
-#     temp<-feedback(myfit1(), quantiles=c(0.05, 0.95), ex=1)
-#     values=temp$fitted.quantiles[,index]
-#   }
-#   data.frame(quantiles=c(0.05, 0.95), values=values)
-#   
-# }) 
-# 
-# 
-# quantileValues2 <- reactive({
-#   ssq <- myfit2()$ssq[1, is.na(myfit2()$ssq[1,])==F]
-#   best.index <- which(ssq == min(ssq))[1]
-#   
-#   ex <- 1
-#   pl <- limits1()[1]
-#   pu <- limits1()[2]
-#   if(as.numeric(input$radio2)==8){index<-best.index}else{index<-as.numeric(input$radio2) - 1}
-#   if(as.numeric(input$radio2)==1){
-#     if(pl == -Inf & myfit2()$limits[ex,1] > -Inf){pl <- myfit2()$limits[ex,1]}
-#     if(pu == Inf & myfit2()$limits[ex,2] < Inf){pu <- myfit2()$limits[ex,2] }
-#     if(pl == -Inf & myfit2()$limits[ex,1] == -Inf){
-#       pl <- qnorm(0.001, myfit2()$Normal[ex,1], myfit2()$Normal[ex,2])}
-#     if(pu == Inf & myfit2()$limits[ex,2] == Inf){
-#       pu <- qnorm(0.999, myfit2()$Normal[ex,1], myfit2()$Normal[ex,2])}
-#     p <- c(0, myfit2()$probs[ex,], 1)
-#     x <- c(pl, myfit2()$vals[ex,], pu)
-#     values <- qhist(c(0.05, 0.95), x, p)
-#   }
-#   
-#   if(as.numeric(input$radio1)>1){
-#     temp<-feedback(myfit1(), quantiles=c(0.05, 0.95), ex=1)
-#     values=temp$fitted.quantiles[,index]
-#   }
-#   data.frame(quantiles=c(0.05, 0.95), values=values)
-#   
-# }) 
-# 
-# 
-# output$valuesPDF1 <- renderTable({
-#   quantileValues1()
-# })
-# 
-# output$valuesPDF2 <- renderTable({
-#   quantileValues2()
-# })
 
