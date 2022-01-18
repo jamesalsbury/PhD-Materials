@@ -41,6 +41,17 @@ elicitBivariate<- function(){
       ),
       
       tabsetPanel(
+        tabPanel("Control", 
+                 sidebarLayout(
+                   sidebarPanel = sidebarPanel(
+                     numericInput("lambda2", "lambda2", value=0.06),
+                     numericInput("gamma2", "gamma2", value=0.8)
+                   ), 
+                   mainPanel = mainPanel(
+                     plotOutput("plotControl")
+                   )
+                 ),
+        ),
         tabPanel("Eliciting T",
                  fluidRow(
                    column(4, 
@@ -86,7 +97,6 @@ elicitBivariate<- function(){
                  
                  
                  plotOutput("distPlot1")
-                 #tableOutput("valuesPDF1")
         ),
         tabPanel("Eliciting HR",
                  fluidRow(
@@ -132,7 +142,6 @@ elicitBivariate<- function(){
                  ),
                  
                  plotOutput("distPlot2")
-                 # tableOutput("valuesPDF2")
         ),
         
         tabPanel("Feedback", 
@@ -228,6 +237,15 @@ elicitBivariate<- function(){
                 tdf = input$tdf2)
       })
       
+      output$plotControl <- renderPlot({
+        gamma1 <- input$gamma2
+        controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+        controlcurve <- exp(-(input$lambda2*controltime)^input$gamma2)
+        plot(controltime, controlcurve, type="l", col="blue", xlab="Time", ylab="Survival", main="Control curve", ylim=c(0,1))
+        
+      })
+      
+      
       output$distPlot1 <- renderPlot({
         
         
@@ -255,22 +273,22 @@ elicitBivariate<- function(){
       
       # df1 <- reactive({
       #   conc.probs <- matrix(0, 2, 2)
-      #   conc.probs[1, 2] <- input$concProb
-      #   data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, 
-      #                           n = input$sampleSize, 
+      #   conc.probs[1, 2] <- 0.5
+      #   data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs,
+      #                           n = input$sampleSize,
       #                           d = c(input$dist1, input$dist2)))
       # })
       
       drawsimlines <- reactive({
-        lambda2 <- 0.06
-        gamma2 <- gamma1 <- 0.8
+    
+        gamma1 <- input$gamma2
         linelist <- list()
         for (i in 1:10){
           bigT <- rnorm(1, mean = as.numeric(myfit1()$Normal[1]), sd = as.numeric(myfit1()$Normal[2]))
           HR <- rbeta(1, as.numeric(myfit2()$Beta[1]), as.numeric(myfit2()$Beta[2]))
-          lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
+          lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
           treatmenttime <- seq(bigT, 120, by=0.01)
-          treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
+          treatmentsurv <- exp(-(input$lambda2*bigT)^input$gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
           linelist[[(i*2)-1]] <- treatmenttime
           linelist[[i*2]] <- treatmentsurv
         }
@@ -278,28 +296,29 @@ elicitBivariate<- function(){
       })
       
       output$plotFeedback <- renderPlot({
-        
-        lambda2 <- 0.06
-        gamma2 <- 0.8
-        gamma1 <- gamma2
-        controltime <- seq(0, 120, by=0.01)
-        controlcurve <- exp(-(lambda2*controltime)^gamma2)
+  
+        gamma1 <- input$gamma2
+        controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+        controlcurve <- exp(-(input$lambda2*controltime)^input$gamma2)
         plot(controltime, controlcurve, type="l", col="blue", xlab="Time", ylab="Survival", main="Elicitation of treatment curve")
         legend("topright", legend = c("Same fit before changepoint", "Control", "Treatment"),
                col=c("green", "blue", "red"), lty=c(1), cex=0.75)
         
     
-        bigTMean <- as.numeric(myfit1()$Normal[1])
-        HRFit <- myfit2()$Beta
-        HRMean <- as.numeric(HRFit[1]/(HRFit[1]+HRFit[2]))
-        lambda1 <- as.numeric(exp((log(HRMean)/gamma2)+log(lambda2)))
         
-        treatmenttime1 <- seq(0, bigTMean, by=0.01)
-        treatmentsurv1 <- exp(-(lambda2*treatmenttime1)^gamma2)
+        # theta <<- feedback(myfit1(), quantiles = 0.5)
+        # print(theta$fitted.quantiles[input$dist1][, 1])
+        
+        bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
+        HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
+        lambda1 <- as.numeric(exp((log(HRMedian)/input$gamma2)+log(input$lambda2)))
+        
+        treatmenttime1 <- seq(0, bigTMedian, by=0.01)
+        treatmentsurv1 <- exp(-(input$lambda2*treatmenttime1)^input$gamma2)
         lines(treatmenttime1, treatmentsurv1, col="green")
  
-        treatmenttime2 <- seq(bigTMean, 120, by=0.01)
-        treatmentsurv2 <- exp(-(lambda2*bigTMean)^gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMean^gamma1))
+        treatmenttime2 <- seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+        treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMedian^gamma1))
         lines(treatmenttime2, treatmentsurv2, col="red")
           
         addfeedback <- input$showfeedback 
@@ -312,17 +331,17 @@ elicitBivariate<- function(){
                 lines(rep(controltime[sum(controlcurve>0.5)], 2), seq(-1, 0.5, length=2), lty=3)
               } else if (addfeedback[i]=="Hazard Ratio & 95% CI's"){
                 #Top line
-                lines(seq(0, bigTMean, length=2), rep(1, 2))
+                lines(seq(0, bigTMedian, length=2), rep(1, 2))
                 #Vertical line
-                lines(rep(bigTMean, 2), seq(HRMean, 1, length=2))
+                lines(rep(bigTMedian, 2), seq(HRMedian, 1, length=2))
                 #Bottom line
-                lines(seq(bigTMean, 120,length=2), rep(HRMean, 2))
+                lines(seq(bigTMedian, 120,length=2), rep(HRMedian, 2))
                 #Conf intervals
-                lines(seq(bigTMean, 120,length=2), rep(qbeta(0.025, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
-                lines(seq(bigTMean, 120,length=2), rep(qbeta(0.975, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
+                #lines(seq(bigTMedian, 120,length=2), rep(qbeta(0.025, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
+                #lines(seq(bigTMedian, 120,length=2), rep(qbeta(0.975, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
               } else if (addfeedback[i]=="95% CI for T"){
-                points(qnorm(0.025, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.025, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
-                points(qnorm(0.975, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.975, mean = bigTMean, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
+                points(qnorm(0.025, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.025, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
+                points(qnorm(0.975, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.975, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
               } else if (addfeedback[i]=="Simulation curves"){
                 Curves <- drawsimlines()$linelist
                 for (i in 1:10){
@@ -342,19 +361,19 @@ elicitBivariate<- function(){
         assvec <- rep(NA, 100)
         
         for (i in 1:100){
-          lambda2 <- 0.06
-          gamma2 <- gamma1 <- 0.8
+        
+          gamma1 <- input$gamma2
           bigT <- rnorm(1, mean = as.numeric(myfit1()$Normal[1]), sd = as.numeric(myfit1()$Normal[2]))
           HR <- rbeta(1, as.numeric(myfit2()$Beta[1]), as.numeric(myfit2()$Beta[2]))
-          lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
+          lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
           
           
-          controldata <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
+          controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
           
           
-          CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+          CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
           u <- runif(n2)
-          suppressWarnings(z <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+          suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
           
           
           treatmentdata <- data.frame(time = z)
