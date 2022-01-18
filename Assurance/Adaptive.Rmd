@@ -1,0 +1,362 @@
+---
+title: "Assurance in Adaptive Clinical Trials"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4, fig.align = "centre")
+library(simsurv)
+library(survival)
+library(truncnorm)
+```
+
+## Introduction 
+
+We are planning a hypothetical trial to see how we can calculate assurance for adaptive clinical trials. The trial will be looking at an experimental treatment given to patients after invasive heart surgery.
+
+## Setup of the trial
+
+The trial will run for 12 months and for simplicity we assume all of the patients are enrolled in the trial at the same time, timepoint 0. The trial will compare the current standard treatment - the control- to a new experimental treatment. Both of the treatments are given in the same way so we are able to run a double-blind trial. The patients will be randomised to a treatment group in the ratio 1:1. From historical data we know that, for the control, the proportion of patients alive at the end of 12 months is 30%. From pilot studies and phase II trials, we are assuming that there is a 20% absolute difference between the control and experimental treatment - i.e. we are assuming 50% of the patients in the experimental group will be alive at the end of 12 months.  
+
+We are assuming exponential distributions for both of the groups, $S(t) = \text{exp}(-\lambda t)$. 
+
+We will work through different designs of the trial, finally calculating assurance for an adaptive design.
+
+## Power with point-estimates
+
+Firstly, we will just look at a trial with no adaptive element to it. We will also not consider assurance here, just look at traditional power. 
+
+From the information above, we can calculate $\lambda_c$ (hazard for the control group) and $\lambda_e$ (hazard for the experimental group). 
+
+For the control, we know that 30% of patients are expected to be alive after 12 months. Therefore, mathematically: 
+
+```{=latex}
+\begin{align*}
+S_c(t) &= \text{exp}(-\lambda_c t) \\
+0.3 &= \text{exp}(-12\lambda_c) \\
+\lambda_c &\approx 0.100
+\end{align*}
+```
+
+We can do the same for the experimental group and we obtain $\lambda_e \approx 0.0578$. We can draw the hypothetical survival curves:
+
+```{r survcurves, echo=F}
+time <- seq(0, 12, by=0.01)
+control <- exp(-0.1 * time)
+experimental <- exp(-0.0578 * time)
+plot(time, control, ylim=c(0,1), type="l", col="blue", xlab="Time (months)", ylab="Survival")
+lines(time, experimental, col="red", lty=2)
+legend("topright", legend = c("Control", "Experimnetal"), col=c("blue", "red"), lty=1:2)
+
+
+```
+
+
+We can use this information to calculate the sample size required in our trial. We want our trial to have 90% power and 5% significance level $\alpha$. 
+
+```{r power, echo=F, cache=T}
+lambda1 <- -log(0.5)/12
+lambda2 <- -log(0.3)/12
+
+PowerFunc <- function(n1, n2){
+  covs <- data.frame(id = 1:n1)
+  power <- rep(NA, 100)
+  for (i in 1:100){
+    Control <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda2, maxt = 12), group = rep("control", n1))  
+    Treatment <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda1, maxt = 12), group = rep("treatment", n2)) 
+    
+    Combined <- rbind(Control, Treatment)
+    
+    test <- survdiff(Surv(eventtime, status)~group, data = Combined)
+    power[i] <- test$chisq > qchisq(0.95, 1)
+  }
+  mean(power)
+}
+
+N1Vec <- N2Vec <- seq(10, 300, by=10)
+powervec <- rep(NA, length(N1Vec))
+
+for (i in 1:length(N1Vec)){
+  powervec[i] <- PowerFunc(N1Vec[i], N2Vec[i])
+}
+
+lo <<- loess(powervec~N1Vec)
+plot(N1Vec,predict(lo), type="l", xlab="Total sample size", ylab="Power", ylim=c(0,1), xaxt="n")
+axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
+```
+
+From the above plot, we see that we require a sample size of $\approx$ 230 patients; 115 in each group. From the setup, we expect to see $0.7n_1+0.5n_2$ events to occur, which is 138.  
+
+This is clearly the most basic survival setup we can have; we have a point-estimate for how many patients we expect to be alive after 12 months and we are not adapting our trial at all. 
+
+## Power with 1 interim analysis
+
+Now, we will extend the above trial to incorporate 1 interim analysis; we will perform this interim analysis after half the expected events have occurred. In our interim analysis, we will only test for efficacy, to determine whether we can stop the trial early. There are various different $\alpha$ spending functions we could use, we have chosen to use O'Brien-Fleming as outlined below:
+
+```{r alphaspending, echo=F, warnings=F, message=F}
+
+my_tbl <- tibble::tribble(
+  ~InterimNumber, ~alpha,
+                1,     0.0054,
+                2,     0.0492
+  )
+
+require(knitr)
+kable(my_tbl, digits = 3, row.names = FALSE, align = "c",
+              caption = NULL)
+
+```
+
+This means that at our interim analysis - after half the expected events have occurred - we will test the data at the significance level 0.0054. If this is significant than we can stop the trial here. If this is not significant then we continue the trial to the end and then test the data at the significance level 0.0492. We can see the corresponding power curve below:
+
+```{r power1, echo=F, cache=T}
+
+lambda1 <- -log(0.5)/12
+lambda2 <- -log(0.3)/12
+
+
+PowerFuncInterim <- function(n1, n2){
+  covs <- data.frame(id = 1:n1)
+  power <- rep(NA, 100)
+  expectedevents <- 0.7*n1+0.5*n2
+  for (i in 1:100){
+    Control <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda2, maxt = 12), group = rep("control", n1))  
+    Treatment <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda1, maxt = 12), group = rep("treatment", n2)) 
+    
+    Combined <- rbind(Control, Treatment)
+    
+    SortedHalfEvents <- Combined[Combined$status==1,][order(Combined[Combined$status==1,]$eventtime),][1:(expectedevents*0.5),]
+    
+     if (sum(SortedHalfEvents$group=="treatment")==0){
+      
+    } else if (sum(SortedHalfEvents$group=="treatment")==expectedevents){
+      
+    } else {
+      test1 <- survdiff(Surv(eventtime, status)~group, data = SortedHalfEvents)
+      
+      if (test1$chisq > qchisq(1-0.0054, 1)){
+        power[i] <- 1
+      } else {
+        test2 <- survdiff(Surv(eventtime, status)~group, data = Combined)
+        if (test2$chisq >qchisq(1-0.0492, 1)){
+          power[i] <- 1
+        } else {
+          power[i] <- 0
+        }
+      }
+    }
+  }
+  mean(power)
+}
+
+N1Vec <- N2Vec <- seq(10, 300, by=10)
+powervec <- rep(NA, length(N1Vec))
+
+for (i in 1:length(N1Vec)){
+  powervec[i] <- PowerFuncInterim(N1Vec[i], N2Vec[i])
+}
+
+
+plot(N1Vec,predict(lo), type="l", xlab="Total sample size", ylab="Power", ylim=c(0,1), xaxt="n")
+axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
+lo1 <- loess(powervec~N1Vec)
+lines(N1Vec[(length(N1Vec)-length(predict(lo1))+1):length(N1Vec)], predict(lo1), col="blue")
+legend("bottomright", legend=c("Power", "Power with 1 interim look"), col=c("black", "blue"), lty=1)
+```
+
+From the above plot, we can see that the power curves are very similar. This indicates that we do not lose much power (only a small deviation between 200 and 450) when considering 1 interim analysis. This is beneficial as we need  a similar sample size to the non-adapted trial, but we have the possibility of stopping early here. This would save time, resources, money etc. It is also better from an ethical perspective as we have the possibility of stopping the trial earlier and no longer subjecting patients to treatments that we believe to be inferior (the control).  
+
+## Assurance with no interim analysis
+
+In both of the trial designs above, we have assumed point-estimates for the proportion of patients alive in both treatment groups. However, we can extend this by eliciting distributions for these quantities. More specifically, we elicit the distribution for the proportion of patients alive in the control group ($S_1(12)$) and the distribution of the difference between treatment groups ($\rho$). We do this as we realise that there is a dependency between the proportion of patients alive in the control group and the proportion of patients alive in the experimental group. 
+
+
+We have three examples of potential elicited distributions as follows:
+
+$$\rho \sim \text{N}(0.2, 0.001) \text{ and } S_1(12) \sim \text{Be}(30, 70)$$
+$$\rho \sim \text{N}(0.2, 0.05) \text{ and } S_1(12) \sim \text{Be}(30, 70)$$
+$$\rho \sim \text{N}(0.3, 0.005) \text{ and } S_1(12) \sim \text{Be}(30, 70)$$
+We can see the elicited distributions for $\rho$ below. 
+
+```{r elicit1, echo=F}
+
+x <- seq(-0.5, 1, by=0.01)
+rho1 <- dnorm(x, mean = 0.2, sd = sqrt(0.001))
+rho2 <- dnorm(x, mean = 0.2, sd = sqrt(0.05))
+rho3 <- dnorm(x, mean = 0.3, sd = sqrt(0.005))
+plot(x, rho1, type="l", ylab="density")
+lines(x, rho2, col="blue", lty=2)
+lines(x, rho3, col="red", lty=3)
+legend("topright", legend=c("Scenario 1", "Scenario 2", "Scenario 3"), col=c("black", "blue", "red"), lty=1:3)
+
+```
+
+The elicited distributions for $S_1(12)$ are all the same, as seen below:
+
+```{r elicit2, echo=F}
+
+x <- seq(0, 1, by=0.001)
+y <- dbeta(x, 30, 70)
+plot(x, y, type="l", ylab="density")
+
+
+```
+
+We can see the assurance of these distributions in the following plot:
+
+
+```{r ass1, echo=F, cache=T}
+
+ AssFunc <- function(n1, n2, mu, var){
+   
+   covs <- data.frame(id = 1:n1)
+   ass <- rep(NA, 100)
+   expectedevents <- 0.7*n1+0.5*n2
+   for (i in 1:100){
+     S1 <- rbeta(1, 30, 70)
+   rho <- rtruncnorm(1, a = -S1, b = 1-S1, mean = mu, sd = sqrt(var))
+   S2 <- S1 + rho
+   lambda1 <- -log(S2)/12
+   lambda2 <- -log(S1)/12
+    Control <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda2, maxt = 12), group = rep("control", n1))
+     Treatment <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda1, maxt = 12), group = rep("treatment", n2))
+
+     Combined <- rbind(Control, Treatment)
+
+test <- survdiff(Surv(eventtime, status)~group, data = Combined)
+     ass[i] <- test$chisq > qchisq(0.95, 1)
+   }
+   mean(ass)
+ }
+
+ N1Vec <- N2Vec <- seq(10, 300, by=10)
+
+ plot(N1Vec,predict(lo), type="l", xlab="Total sample size", ylab="Power", ylim=c(0,1), xaxt="n")
+ axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
+
+
+ assvec1 <- rep(NA, length(N1Vec))
+
+ for (i in 1:length(N1Vec)){
+   assvec1[i] <- AssFunc(N1Vec[i], N2Vec[i], mu = 0.2, var = 0.001)
+ }
+
+ lo2 <- loess(assvec1~N1Vec)
+ lines(N1Vec[(length(N1Vec)-length(predict(lo2))+1):length(N1Vec)], predict(lo2), col="blue")
+ axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
+
+ assvec2 <- rep(NA, length(N1Vec))
+
+ for (i in 1:length(N1Vec)){
+   assvec2[i] <- AssFunc(N1Vec[i], N2Vec[i], mu = 0.2, var = 0.05)
+ }
+
+ lo3 <- loess(assvec2~N1Vec)
+ lines(N1Vec[(length(N1Vec)-length(predict(lo3))+1):length(N1Vec)], predict(lo3), col="red")
+
+assvec3 <- rep(NA, length(N1Vec))
+
+ for (i in 1:length(N1Vec)){
+   assvec3[i] <- AssFunc(N1Vec[i], N2Vec[i], mu = 0.3, var = 0.005)
+ }
+
+ lo4 <- loess(assvec3~N1Vec)
+ lines(N1Vec[(length(N1Vec)-length(predict(lo4))+1):length(N1Vec)], predict(lo4), col="green")
+
+legend("bottomright", legend=c("Power", "Scenario 1", "Scenario 2", "Scenario 3"), col=c("black", "blue", "red", "green"), lty=1)
+
+```
+
+
+```{r ass2, echo=F, cache=T}
+
+ AssFunc <- function(n1, n2, mu, var){
+   
+   covs <- data.frame(id = 1:n1)
+   ass <- rep(NA, 100)
+   expectedevents <- 0.7*n1+0.5*n2
+   for (i in 1:100){
+     S1 <- rbeta(1, 30, 70)
+   rho <- rtruncnorm(1, a = -S1, b = 1-S1, mean = mu, sd = sqrt(var))
+   S2 <- S1 + rho
+   lambda1 <- -log(S2)/12
+   lambda2 <- -log(S1)/12
+    Control <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda2, maxt = 12), group = rep("control", n1))
+     Treatment <- data.frame(simsurv(dist = "exponential", x = covs, lambdas = lambda1, maxt = 12), group = rep("treatment", n2))
+     
+     
+     
+    Combined <- rbind(Control, Treatment)
+    
+    SortedHalfEvents <- Combined[Combined$status==1,][order(Combined[Combined$status==1,]$eventtime),][1:(expectedevents*0.5),]
+    
+     if (sum(SortedHalfEvents$group=="treatment")==0){
+      
+    } else if (sum(SortedHalfEvents$group=="treatment")==expectedevents){
+      
+    } else {
+      test1 <- survdiff(Surv(eventtime, status)~group, data = SortedHalfEvents)
+      
+      if (test1$chisq > qchisq(1-0.0054, 1)){
+        ass[i] <- 1
+      } else {
+        test2 <- survdiff(Surv(eventtime, status)~group, data = Combined)
+        if (test2$chisq >qchisq(1-0.0492, 1)){
+          ass[i] <- 1
+        } else {
+          ass[i] <- 0
+        }
+      }
+    }
+
+   }
+   mean(ass)
+ }
+
+ N1Vec <- N2Vec <- seq(10, 300, by=10)
+
+ plot(N1Vec,predict(lo), type="l", xlab="Total sample size", ylab="Power", ylim=c(0,1), xaxt="n")
+ axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
+
+
+ assvec1 <- rep(NA, length(N1Vec))
+
+ for (i in 1:length(N1Vec)){
+   assvec1[i] <- AssFunc(N1Vec[i], N2Vec[i], mu = 0.2, var = 0.001)
+ }
+
+ lo2 <- loess(assvec1~N1Vec)
+ lines(N1Vec[(length(N1Vec)-length(predict(lo2))+1):length(N1Vec)], predict(lo2), col="blue")
+ axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
+
+ assvec2 <- rep(NA, length(N1Vec))
+
+ for (i in 1:length(N1Vec)){
+   assvec2[i] <- AssFunc(N1Vec[i], N2Vec[i], mu = 0.2, var = 0.05)
+ }
+
+ lo3 <- loess(assvec2~N1Vec)
+ lines(N1Vec[(length(N1Vec)-length(predict(lo3))+1):length(N1Vec)], predict(lo3), col="red")
+
+assvec3 <- rep(NA, length(N1Vec))
+
+ for (i in 1:length(N1Vec)){
+   assvec3[i] <- AssFunc(N1Vec[i], N2Vec[i], mu = 0.3, var = 0.005)
+ }
+
+ lo4 <- loess(assvec3~N1Vec)
+ lines(N1Vec[(length(N1Vec)-length(predict(lo4))+1):length(N1Vec)], predict(lo4), col="green")
+
+legend("bottomright", legend=c("Power", "Scenario 1", "Scenario 2", "Scenario 3"), col=c("black", "blue", "red", "green"), lty=1)
+
+```
+
+
+
+
+
+
+
+
+
