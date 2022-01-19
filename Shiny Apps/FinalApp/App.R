@@ -55,11 +55,11 @@ elicitBivariate<- function(){
         tabPanel("Eliciting T",
                  fluidRow(
                    column(4, 
-                          textInput("limits1", label = h5("Parameter 1 limits"), 
+                          textInput("limits1", label = h5("T limits"), 
                                     value = "0, 50")
                    ),
                    column(4,
-                          textInput("values1", label = h5("Parameter 1 values"), 
+                          textInput("values1", label = h5("T values"), 
                                     value = "5, 6, 7")
                    ),
                    column(4,
@@ -101,11 +101,11 @@ elicitBivariate<- function(){
         tabPanel("Eliciting HR",
                  fluidRow(
                    column(4, 
-                          textInput("limits2", label = h5("Parameter limits"), 
+                          textInput("limits2", label = h5("HR limits"), 
                                     value = "0, 1")
                    ),
                    column(4,
-                          textInput("values2", label = h5("Parameter values"), 
+                          textInput("values2", label = h5("HR values"), 
                                     value = "0.5, 0.6, 0.75")
                    ),
                    column(4,
@@ -147,7 +147,7 @@ elicitBivariate<- function(){
         tabPanel("Feedback", 
                  sidebarLayout(
                    sidebarPanel = sidebarPanel(
-                     checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "Hazard Ratio & 95% CI's", "95% CI for T", "Simulation curves"))
+                      checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "Hazard Ratio & 95% CI's", "95% CI for T", "CI for Survival Curves (0.1 and 0.9)"))
                    ), 
                    mainPanel = mainPanel(
                      plotOutput("plotFeedback")
@@ -157,7 +157,23 @@ elicitBivariate<- function(){
                  
           
         tabPanel("Assurance",
-                 plotOutput("plotAssurance")
+                 sidebarLayout(
+                   sidebarPanel = sidebarPanel(
+                     numericInput("maxss", "Maximum sample size?", value=1000),
+                     box(width = 10, title = "Ratio of patients in each group?",
+                         splitLayout(
+                           numericInput("n1", "Control", value=1, min=1),
+                           numericInput("n2", "Treatment", value=1, min=1)
+                         )
+                     ),
+                     actionButton("drawassurance", "Plot assurance line"),
+                     numericInput("samplesize", "Assurance at sample size:", value=100),
+                   ), 
+                   mainPanel = mainPanel(
+                     plotOutput("plotAssurance"),
+                     htmlOutput("assuranceSS")
+                   )
+                 ),
                  
         )
         
@@ -258,7 +274,7 @@ elicitBivariate<- function(){
         
       })
       
-      
+  
       output$distPlot2 <- renderPlot({
         
         
@@ -282,18 +298,98 @@ elicitBivariate<- function(){
       drawsimlines <- reactive({
     
         gamma1 <- input$gamma2
-        linelist <- list()
-        for (i in 1:10){
-          bigT <- rnorm(1, mean = as.numeric(myfit1()$Normal[1]), sd = as.numeric(myfit1()$Normal[2]))
-          HR <- rbeta(1, as.numeric(myfit2()$Beta[1]), as.numeric(myfit2()$Beta[2]))
+        conc.probs <- matrix(0, 2, 2)
+        conc.probs[1, 2] <- 0.5
+        mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 500, d = c(input$dist1, input$dist2)))
+        
+        time <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+        SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
+        
+        for (i in 1:500){
+          bigT <- mySample[i,1]
+          HR <- mySample[i,2]
           lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
-          treatmenttime <- seq(bigT, 120, by=0.01)
+          
+          controltime <- seq(0, bigT, by=0.01)
+          controlsurv <- exp(-(input$lambda2*controltime)^input$gamma2)
+          
+          treatmenttime <- seq(bigT, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
           treatmentsurv <- exp(-(input$lambda2*bigT)^input$gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
-          linelist[[(i*2)-1]] <- treatmenttime
-          linelist[[i*2]] <- treatmentsurv
+          
+          timecombined <- c(controltime, treatmenttime)[1:length(time)]
+          survcombined <- c(controlsurv, treatmentsurv)[1:length(time)]
+          
+      
+          SimMatrix[i,] <- survcombined
+          
         }
-        list(linelist = linelist)
+        
+        lowerbound <- rep(NA, length(time))
+        upperbound <- rep(NA, length(time))
+        for (j in 1:length(time)){
+          lowerbound[j] <- quantile(SimMatrix[,j], 0.1)
+          upperbound[j] <- quantile(SimMatrix[,j], 0.9)
+        }
+
+        return(list(lowerbound=lowerbound, upperbound=upperbound, time=time))
+       
       })
+      
+      
+      calculateAssurance <- eventReactive(input$drawassurance, {
+        
+        gamma1 <- input$gamma2
+        conc.probs <- matrix(0, 2, 2)
+        conc.probs[1, 2] <- 0.5
+        assnum <- 100
+        
+        AssFunc <- function(n1, n2){
+          
+          assvec <- rep(NA, assnum)
+          mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+          
+          
+          for (i in 1:assnum){
+            
+            bigT <- mySample[i,1]
+            HR <- mySample[i,2] 
+            lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
+            
+            controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
+            
+            CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
+            u <- runif(n2)
+            suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
+            
+            treatmentdata <- data.frame(time = z)
+            DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time), 
+                                       group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
+            test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+            assvec[i] <- test$chisq > qchisq(0.95, 1)
+          }
+          
+          return(sum(assvec)/assnum)
+          
+        }
+      
+        ratiosum <- input$maxss/(input$n1+input$n2)
+        
+        n1vec <- floor(seq(10, ratiosum*input$n1, length=50))
+        n2vec <- floor(seq(10, ratiosum*input$n2, length=50))
+        assvec <- rep(NA, 50)
+        
+        for (i in 1:50){
+          assvec[i] <- AssFunc(n1vec[i], n2vec[i])
+        }
+        
+        sumvec <- n1vec+n2vec
+        asssmooth <- loess(assvec~sumvec)
+        
+        return(list(sumvec=sumvec, asssmooth=asssmooth))
+        
+
+      })
+      
       
       output$plotFeedback <- renderPlot({
   
@@ -304,14 +400,10 @@ elicitBivariate<- function(){
         legend("topright", legend = c("Same fit before changepoint", "Control", "Treatment"),
                col=c("green", "blue", "red"), lty=c(1), cex=0.75)
         
-    
-        
-        # theta <<- feedback(myfit1(), quantiles = 0.5)
-        # print(theta$fitted.quantiles[input$dist1][, 1])
         
         bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
         HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
-        lambda1 <- as.numeric(exp((log(HRMedian)/input$gamma2)+log(input$lambda2)))
+        lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
         
         treatmenttime1 <- seq(0, bigTMedian, by=0.01)
         treatmentsurv1 <- exp(-(input$lambda2*treatmenttime1)^input$gamma2)
@@ -335,18 +427,18 @@ elicitBivariate<- function(){
                 #Vertical line
                 lines(rep(bigTMedian, 2), seq(HRMedian, 1, length=2))
                 #Bottom line
-                lines(seq(bigTMedian, 120,length=2), rep(HRMedian, 2))
+                lines(seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1,length=2), rep(HRMedian, 2))
                 #Conf intervals
-                #lines(seq(bigTMedian, 120,length=2), rep(qbeta(0.025, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
-                #lines(seq(bigTMedian, 120,length=2), rep(qbeta(0.975, as.numeric(HRFit[1]), as.numeric(HRFit[2])), 2), lty=2)
+                lines(seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1,length=2), rep(feedback(myfit2(), quantiles = 0.975)$fitted.quantiles[input$dist2][, 1], 2), lty=2)
+                lines(seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1,length=2), rep(feedback(myfit2(), quantiles = 0.025)$fitted.quantiles[input$dist2][, 1], 2), lty=2)
               } else if (addfeedback[i]=="95% CI for T"){
-                points(qnorm(0.025, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.025, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
-                points(qnorm(0.975, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])), controlcurve[sum(controltime<qnorm(0.975, mean = bigTMedian, sd = as.numeric(myfit1()$Normal[2])))], cex=1.5, col="orange", pch=19)
-              } else if (addfeedback[i]=="Simulation curves"){
-                Curves <- drawsimlines()$linelist
-                for (i in 1:10){
-                  lines(Curves[[(i*2)-1]], Curves[[i*2]], col="purple", lwd=0.25, lty=2)
-                }
+                points(feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])], cex=1.5, col="orange", pch=19)
+                points(feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])], cex=1.5, col="orange", pch=19)
+              } else if (addfeedback[i]=="CI for Survival Curves (0.1 and 0.9)"){
+                #Function to draw simulated lines
+                lines(drawsimlines()$time, drawsimlines()$lowerbound, lty=2)
+                lines(drawsimlines()$time, drawsimlines()$upperbound, lty=2)
+                
               }
             }
           }
@@ -354,52 +446,15 @@ elicitBivariate<- function(){
       
       output$plotAssurance <- renderPlot({
         
-        AssFunc <- function(n1, n2){
-          assnum <- 100
-          assvec <- rep(NA, assnum)
-        
-        assvec <- rep(NA, 100)
-        
-        for (i in 1:100){
-        
-          gamma1 <- input$gamma2
-          bigT <- rnorm(1, mean = as.numeric(myfit1()$Normal[1]), sd = as.numeric(myfit1()$Normal[2]))
-          HR <- rbeta(1, as.numeric(myfit2()$Beta[1]), as.numeric(myfit2()$Beta[2]))
-          lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
-          
-          
-          controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
-          
-          
-          CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
-          u <- runif(n2)
-          suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
-          
-          
-          treatmentdata <- data.frame(time = z)
-          DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time), 
-                                     group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
-          test <- survdiff(Surv(time, cens)~group, data = DataCombined)
-          assvec[i] <- test$chisq > qchisq(0.95, 1)
-        }
-        
-        return(sum(assvec)/100)
-        
-        }
-        
-        n1vec <- seq(10, 500, length=50)
-        n2vec <- seq(10, 500, length=50)
-        assvec <- rep(NA, 50)
-        
-        for (i in 1:50){
-          assvec[i] <- AssFunc(n1vec[i], n2vec[i])
-        }
-        
-        sumvec <- n1vec+n2vec
-        asssmooth <- loess(assvec~sumvec)
-        plot(sumvec, predict(asssmooth), type="l", lty=2, ylim=c(0,1),
+        plot(calculateAssurance()$sumvec, predict(calculateAssurance()$asssmooth), type="l", lty=2, ylim=c(0,1),
              xlab="Total sample size", ylab="Assurance")
        
+      })
+      
+      output$assuranceSS <- renderUI({
+       
+        paste0("With a sample size of ", input$samplesize, " assurance is: ", round(predict(calculateAssurance()$asssmooth, newdata = input$samplesize), 2))
+      
       })
       
       
@@ -449,4 +504,6 @@ elicitBivariate<- function(){
 }
 
 elicitBivariate()
+
+
 
