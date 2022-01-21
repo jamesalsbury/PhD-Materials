@@ -1,0 +1,105 @@
+---
+title: "CondPower"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(simsurv)
+library(survival)
+library(truncnorm)
+```
+
+## Introduction 
+
+We are planning a hypothetical trial to see how we can calculate assurance for adaptive clinical trials. The trial will be looking at an experimental treatment given to patients after invasive heart surgery.
+
+## Setup of the trial
+
+The trial will run for 12 months and for simplicity we assume all of the patients are enrolled in the trial at the same time, timepoint 0. The trial will compare the current standard treatment - the control- to a new experimental treatment. Both of the treatments are given in the same way so we are able to run a double-blind trial. The patients will be randomised to a treatment group in the ratio 1:1. 
+
+We are assuming exponential distributions for both of the groups, $S(t) = \text{exp}(-\lambda t)$. 
+
+We can elicit distributions for: the proportion of patients alive at the end of 12 months in the control group ($S_c(12)$) and the difference in the proportions of patients alive in the two treatment groups ($\rho$). 
+
+After collaboration with clinicians, we have elicited the following priors for the trial: 
+
+$$S_1(12) \sim \text{Be}(30, 70) \text{ and } \rho \sim \text{N}(0.2, 0.005)$$
+
+We calculate assurance using these priors, not assuming any adaption in the trial:
+
+```{r priors, echo=F}
+
+PowerFunc <- function(n1, n2){
+   covs <- data.frame(id = 1:n1)
+   power <- rep(NA, 100)
+   S1 <- 0.3
+     S2 <- 0.5
+     lambda1 <- -log(S2)/12
+     lambda2 <- -log(S1)/12
+   for (i in 1:100){
+     
+     Control <- data.frame(simsurv(dist = "exponential", x = covs, 
+                            lambdas = lambda2, maxt = 12), group = rep("control", n1))
+     Treatment <- data.frame(simsurv(dist = "exponential", x = covs,
+                            lambdas = lambda1, maxt = 12), group = rep("treatment", n2))
+
+     Combined <- rbind(Control, Treatment)
+
+     test <- survdiff(Surv(eventtime, status)~group, data = Combined)
+     power[i] <- test$chisq > qchisq(0.95, 1)
+   }
+   mean(power)
+  
+}
+
+AssFunc <- function(n1, n2, mu, var){
+   
+   covs <- data.frame(id = 1:n1)
+   ass <- rep(NA, 100)
+   for (i in 1:100){
+     S1 <- rbeta(1, 30, 70)
+     rho <- rtruncnorm(1, a = -S1, b = 1-S1, mean = mu, sd = sqrt(var))
+     S2 <- S1 + rho
+     lambda1 <- -log(S2)/12
+     lambda2 <- -log(S1)/12
+     Control <- data.frame(simsurv(dist = "exponential", x = covs, 
+                            lambdas = lambda2, maxt = 12), group = rep("control", n1))
+     Treatment <- data.frame(simsurv(dist = "exponential", x = covs,
+                            lambdas = lambda1, maxt = 12), group = rep("treatment", n2))
+
+     Combined <- rbind(Control, Treatment)
+
+     test <- survdiff(Surv(eventtime, status)~group, data = Combined)
+     ass[i] <- test$chisq > qchisq(0.95, 1)
+   }
+   mean(ass)
+}
+
+ N1Vec <- N2Vec <- seq(10, 300, by=10)
+ 
+ powervec <- rep(NA, length(N1Vec))
+ 
+ for (i in 1:length(N1Vec)){
+   powervec[i] <- PowerFunc(N1Vec[i], N2Vec[i])
+ }
+ 
+ smoothedpower <- loess(powervec~N1Vec)
+ plot(N1Vec,predict(smoothedpower), type="l", xlab="Total sample size", ylab="Power/Assurance", ylim=c(0,1), xaxt="n")
+ axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
+ legend("bottomright", legend = c("Power", "Assurance"), col=c("black", "blue"), lty=1:2)
+
+
+ assvec <- rep(NA, length(N1Vec))
+
+ for (i in 1:length(N1Vec)){
+   assvec[i] <- AssFunc(N1Vec[i], N2Vec[i], mu = 0.2, var = 0.005)
+ }
+ 
+ smoothedass <- loess(assvec~N1Vec)
+ lines(N1Vec,predict(smoothedass), col="blue", lty=2)
+
+```
+
+
+

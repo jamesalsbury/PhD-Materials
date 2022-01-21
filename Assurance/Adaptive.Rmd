@@ -212,7 +212,6 @@ We can see the assurance of these distributions in the following plot:
    
    covs <- data.frame(id = 1:n1)
    ass <- rep(NA, 100)
-   expectedevents <- 0.7*n1+0.5*n2
    for (i in 1:100){
      S1 <- rbeta(1, 30, 70)
    rho <- rtruncnorm(1, a = -S1, b = 1-S1, mean = mu, sd = sqrt(var))
@@ -244,7 +243,6 @@ test <- survdiff(Surv(eventtime, status)~group, data = Combined)
 
  lo2 <- loess(assvec1~N1Vec)
  lines(N1Vec[(length(N1Vec)-length(predict(lo2))+1):length(N1Vec)], predict(lo2), col="blue")
- axis(1, at = seq(0, 300,by = 50), labels = seq(0, 600, by = 100))
 
  assvec2 <- rep(NA, length(N1Vec))
 
