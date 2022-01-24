@@ -71,10 +71,6 @@ ui <- fluidPage(
                )
                
              ),
-             
-             
-             
-             
              plotOutput("distPlot1")
     ),
     tabPanel("Eliciting HR",
@@ -184,8 +180,6 @@ ui <- fluidPage(
 server = function(input, output, session) {
   
   # Hack to avoid CRAN check NOTE
-  
-  X1 <- X2 <- xpos <- ypos <- hjustvar <- vjustvar <- annotateText <- NULL
   
   limits1 <- reactive({
     eval(parse(text = paste("c(", input$limits1, ")")))
