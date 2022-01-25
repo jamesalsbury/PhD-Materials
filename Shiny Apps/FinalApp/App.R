@@ -4,6 +4,9 @@ library(survival)
 library(shinydashboard)
 library(readxl)
 library(rsconnect)
+library(ggplot2)
+library(ggfortify)
+library(plotly)
 
 
 ui <- fluidPage(
@@ -126,7 +129,7 @@ ui <- fluidPage(
     tabPanel("Feedback", 
              sidebarLayout(
                sidebarPanel = sidebarPanel(
-                 checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "Hazard Ratio & 95% CI's", "95% CI for T", "CI for Survival Curves (0.1 and 0.9)"))
+                 checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Survival Curves (0.1 and 0.9)"))
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotFeedback")
@@ -249,7 +252,7 @@ server = function(input, output, session) {
   output$recommendedParams <- renderUI({
     if (is.null(inputData())){
       
-    } else{
+    } else {
       str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
       str2 <- paste0("Lambda2 = ", round(inputData()$lambda2, 3))
       str3 <- paste0("Gamma2 = ", round(inputData()$gamma2, 3))
@@ -262,19 +265,23 @@ server = function(input, output, session) {
     
     controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
     controlsurv <- exp(-(input$lambda2*controltime)^input$gamma2)
-    plot(controltime, controlsurv, type="l", col="blue", xlab="Time", ylab="Survival", ylim=c(0,1))
+    controldf <- data.frame(controltime = controltime,
+                            controlsurv = controlsurv)
+    theme_set(theme_grey(base_size = input$fs))
+    p1 <- ggplot(data=controldf, aes(x=controltime, y=controlsurv)) +
+      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
+    
+    print(p1)
     
     if (is.null(inputData())){
       
-    } else{
+    } else {
       controlSample <- data.frame(time = inputData()$controltime, cens = inputData()$controlcens)
-      km <- survfit(Surv(time, cens)~1, data = controlSample)
-      lines(km, conf.int = F)
+      km <- survival::survfit(Surv(time, cens)~1, data = controlSample)
+      autoplot(km, conf.int = F, surv.colour = "red", xlab = "Time", ylab="Survival")  + 
+        geom_line(data = controldf, aes(x = controltime, y = controlsurv), colour = "blue")
+      
     }
-    
-    
-    legend("topright", legend=c("Kaplan-Meier", "Weibull"), col=c("black", "blue"), lty=1)
-    
     
   })
   
@@ -406,9 +413,13 @@ server = function(input, output, session) {
     gamma1 <- input$gamma2
     controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
     controlcurve <- exp(-(input$lambda2*controltime)^input$gamma2)
-    plot(controltime, controlcurve, type="l", col="blue", xlab="Time", ylab="Survival", main="Elicitation of treatment curve")
-    legend("topright", legend = c("Same fit before changepoint", "Control", "Treatment"),
-           col=c("green", "blue", "red"), lty=c(1), cex=0.75)
+    controldf <- data.frame(controltime = controltime, controlcurve = controlcurve)
+    theme_set(theme_grey(base_size = input$fs))
+    p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) +
+      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
+    
+    #legend("topright", legend = c("Same fit before changepoint", "Control", "Treatment"),
+    #col=c("green", "blue", "red"), lty=c(1), cex=0.75)
     
     
     bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
@@ -417,48 +428,53 @@ server = function(input, output, session) {
     
     treatmenttime1 <- seq(0, bigTMedian, by=0.01)
     treatmentsurv1 <- exp(-(input$lambda2*treatmenttime1)^input$gamma2)
-    lines(treatmenttime1, treatmentsurv1, col="green")
+    treatmenttime1df <- data.frame(treatmenttime1 = treatmenttime1, treatmentsurv1 = treatmentsurv1)
+    p1 <-  p1 + geom_line(data = treatmenttime1df, aes(x = treatmenttime1, y = treatmentsurv1), colour = "green") 
+    
     
     treatmenttime2 <- seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
     treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMedian^gamma1))
-    lines(treatmenttime2, treatmentsurv2, col="red")
+    treatmenttime2df <- data.frame(treatmenttime2 = treatmenttime2, treatmentsurv2 = treatmentsurv2)
+    p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red")
+    #scale_color_manual(name='James', breaks=c('Same fit before changepoint', 'Control', 'Treatment'),
+    # values=c('Same fit before changepoint'='green', 'Control'='blue', 'Treatment'='red'))
+    
+    print(p1)
+    
     
     addfeedback <- input$showfeedback 
     
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
         if (addfeedback[i]=="Median survival line"){
-          lines(seq(-1, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), rep(0.5, 2), lty=3)
-          lines(rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), seq(-1, 0.5, length=2), lty=3)
-          lines(rep(controltime[sum(controlcurve>0.5)], 2), seq(-1, 0.5, length=2), lty=3)
-        } else if (addfeedback[i]=="Hazard Ratio & 95% CI's"){
-          #Top line
-          lines(seq(0, bigTMedian, length=2), rep(1, 2))
-          #Vertical line
-          lines(rep(bigTMedian, 2), seq(HRMedian, 1, length=2))
-          #Bottom line
-          lines(seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1,length=2), rep(HRMedian, 2))
-          #Conf intervals
-          lines(seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1,length=2), rep(feedback(myfit2(), quantiles = 0.975)$fitted.quantiles[input$dist2][, 1], 2), lty=2)
-          lines(seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1,length=2), rep(feedback(myfit2(), quantiles = 0.025)$fitted.quantiles[input$dist2][, 1], 2), lty=2)
+          mediandf <- data.frame(x = seq(0, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), y = rep(0.5, 2))
+          mediandf1 <<- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
+          mediandf2 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
+          p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
+            geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed")
         } else if (addfeedback[i]=="95% CI for T"){
-          points(feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])], cex=1.5, col="orange", pch=19)
-          points(feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])], cex=1.5, col="orange", pch=19)
+          p1 <- p1 + geom_point(aes(x = feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])]), colour="orange") +
+            geom_point(aes(x = feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])]), colour="orange")
         } else if (addfeedback[i]=="CI for Survival Curves (0.1 and 0.9)"){
           #Function to draw simulated lines
-          lines(drawsimlines()$time, drawsimlines()$lowerbound, lty=2)
-          lines(drawsimlines()$time, drawsimlines()$upperbound, lty=2)
-          
+          simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
+          simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
+          p1 <- p1 + geom_line(data = simlineslower, aes(x=x, y=y), linetype="dashed")+
+            geom_line(data = simlinesupper, aes(x=x, y=y), linetype="dashed")
         }
       }
     }
+    print(p1)
   })
   
   output$plotAssurance <- renderPlot({
     
-    plot(calculateAssurance()$sumvec, predict(calculateAssurance()$asssmooth), type="l", lty=2, ylim=c(0,1),
-         xlab="Total sample size", ylab="Assurance")
-    
+    theme_set(theme_grey(base_size = input$fs))
+    assurancedf <- data.frame(x = calculateAssurance()$sumvec, y = predict(calculateAssurance()$asssmooth))
+    p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + ylim(0,1) + xlab("Total sample size") +
+      ylab("Assurance")
+    print(p1)
+  
   })
   
   output$assuranceSS <- renderUI({
