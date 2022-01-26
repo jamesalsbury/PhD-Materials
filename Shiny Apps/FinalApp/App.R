@@ -6,7 +6,7 @@ library(readxl)
 library(rsconnect)
 library(ggplot2)
 library(ggfortify)
-
+library(dplyr)
 
 ui <- fluidPage(
   
@@ -20,6 +20,8 @@ ui <- fluidPage(
   ),
   
   tabsetPanel(
+    # Control UI ---------------------------------
+    
     tabPanel("Control", 
              sidebarLayout(
                sidebarPanel = sidebarPanel(
@@ -33,6 +35,8 @@ ui <- fluidPage(
                )
              ),
     ),
+    
+    # T UI ---------------------------------
     tabPanel("Eliciting T",
              fluidRow(
                column(4, 
@@ -75,6 +79,7 @@ ui <- fluidPage(
              ),
              plotOutput("distPlot1")
     ),
+    # HR UI ---------------------------------
     tabPanel("Eliciting HR",
              fluidRow(
                column(4, 
@@ -122,6 +127,7 @@ ui <- fluidPage(
              htmlOutput("HRProportion")
     ),
     
+    # Feedback UI ---------------------------------
     tabPanel("Feedback", 
              sidebarLayout(
                sidebarPanel = sidebarPanel(
@@ -136,22 +142,23 @@ ui <- fluidPage(
              ),
     ),
     
-    
+    # Assurance UI ---------------------------------
     tabPanel("Assurance",
              sidebarLayout(
                sidebarPanel = sidebarPanel(
-                 numericInput("maxss", "Maximum sample size?", value=1000),
+                 numericInput("minlength", "Minimum trial length?", value=36),
                  box(width = 10, title = "Ratio of patients in each group?",
                      splitLayout(
                        numericInput("n1", "Control", value=1, min=1),
                        numericInput("n2", "Treatment", value=1, min=1)
                      )
                  ),
-                 actionButton("drawassurance", "Plot assurance line"),
-                 numericInput("samplesize", "Assurance at sample size:", value=100),
-                 numericInput("chosenassurance", "What assurance do we want?", value=0.5)
+                 numericInput("chosenassurance", "What assurance do we want?", value=0.5),
+                 actionButton("drawSSvMonths", "Produce plot"),
+                 #numericInput("samplesize", "Assurance at sample size:", value=100),
                ), 
                mainPanel = mainPanel(
+                 plotOutput("samplevmonths"),
                  plotOutput("plotAssurance"),
                  htmlOutput("assuranceSS")
                )
@@ -186,7 +193,60 @@ ui <- fluidPage(
 
 server = function(input, output, session) {
   
-  # Hack to avoid CRAN check NOTE
+# Functions for the control tab ---------------------------------
+  
+  inputData <- reactive({
+    chosenFile <- input$uploadSample
+    if (is.null(chosenFile)){
+      return(NULL)
+    } else {
+      controlSample <- read_excel(chosenFile$datapath, sheet=1)
+      weibfit <- survreg(Surv(time, cens)~1, data = controlSample, dist = "weibull")
+      updateTextInput(session, "lambda2", value = round(as.numeric(1/(exp(weibfit$icoef[1]))), 3))
+      updateTextInput(session, "gamma2", value = round(as.numeric(exp(-weibfit$icoef[2])), 3))
+      return(list(gamma2 = as.numeric(exp(-weibfit$icoef[2])), lambda2 = as.numeric(1/(exp(weibfit$icoef[1]))), controltime = controlSample$time, controlcens = controlSample$cens))
+    }
+    
+  })
+  
+  output$recommendedParams <- renderUI({
+    if (is.null(inputData())){
+      
+    } else {
+      str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
+      str2 <- paste0("Lambda2 = ", round(inputData()$lambda2, 3))
+      str3 <- paste0("Gamma2 = ", round(inputData()$gamma2, 3))
+      HTML(paste(str1, str2, str3, sep = '<br/>'))
+    }
+    
+  })
+  
+  output$plotControl <- renderPlot({
+    
+    controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+    controlsurv <- exp(-(input$lambda2*controltime)^input$gamma2)
+    controldf <- data.frame(controltime = controltime,
+                            controlsurv = controlsurv)
+    theme_set(theme_grey(base_size = input$fs))
+    p1 <- ggplot(data=controldf, aes(x=controltime, y=controlsurv)) +
+      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
+    
+    print(p1)
+    
+    if (is.null(inputData())){
+      
+    } else {
+      controlSample <- data.frame(time = inputData()$controltime, cens = inputData()$controlcens)
+      km <- survival::survfit(Surv(time, cens)~1, data = controlSample)
+      autoplot(km, conf.int = F, surv.colour = "red", xlab = "Time", ylab="Survival")  + 
+        geom_line(data = controldf, aes(x = controltime, y = controlsurv), colour = "blue")
+      
+    }
+    
+  })
+  
+# Functions for the eliciting distributions tabs ---------------------------------
+
   
   limits1 <- reactive({
     eval(parse(text = paste("c(", input$limits1, ")")))
@@ -231,33 +291,23 @@ server = function(input, output, session) {
             upper = limits2()[2], 
             tdf = input$tdf2)
   })
+
+ 
+# Functions for the T tab ---------------------------------
   
-  inputData <- reactive({
-    chosenFile <- input$uploadSample
-    if (is.null(chosenFile)){
-      return(NULL)
-    } else {
-      controlSample <- read_excel(chosenFile$datapath, sheet=1)
-      weibfit <- survreg(Surv(time, cens)~1, data = controlSample, dist = "weibull")
-      updateTextInput(session, "lambda2", value = round(as.numeric(1/(exp(weibfit$icoef[1]))), 3))
-      updateTextInput(session, "gamma2", value = round(as.numeric(exp(-weibfit$icoef[2])), 3))
-      return(list(gamma2 = as.numeric(exp(-weibfit$icoef[2])), lambda2 = as.numeric(1/(exp(weibfit$icoef[1]))), controltime = controlSample$time, controlcens = controlSample$cens))
-    }
+  output$distPlot1 <- renderPlot({
+    
+    
+    #d = dist[as.numeric(input$radio1)]
+    # dist<-c("hist","normal", "t", "gamma", "lognormal", "logt","beta", "best")
+    suppressWarnings(plotfit(myfit1(), d = input$dist1,
+                             ql = 0.05, qu = 0.95,
+                             xl = limits1()[1], xu = limits1()[2], 
+                             fs = input$fs))
     
   })
   
-  
-  output$recommendedParams <- renderUI({
-    if (is.null(inputData())){
-      
-    } else {
-      str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
-      str2 <- paste0("Lambda2 = ", round(inputData()$lambda2, 3))
-      str3 <- paste0("Gamma2 = ", round(inputData()$gamma2, 3))
-      HTML(paste(str1, str2, str3, sep = '<br/>'))
-    }
-    
-  })
+# Functions for the HR tab ---------------------------------
   
   output$TrialFeedback <- renderUI({
     
@@ -274,46 +324,7 @@ server = function(input, output, session) {
     str4 <- paste0("This means there should be an absolute treatment effect of ", round((treatmentsurv2-controlcurve)*100, 1), "% after ", input$triallength, " months" )
     HTML(paste(str1, str2, str3, str4, sep = '<br/>'))
     
-    
   })
-  
-  output$plotControl <- renderPlot({
-    
-    controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
-    controlsurv <- exp(-(input$lambda2*controltime)^input$gamma2)
-    controldf <- data.frame(controltime = controltime,
-                            controlsurv = controlsurv)
-    theme_set(theme_grey(base_size = input$fs))
-    p1 <- ggplot(data=controldf, aes(x=controltime, y=controlsurv)) +
-      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
-    
-    print(p1)
-    
-    if (is.null(inputData())){
-      
-    } else {
-      controlSample <- data.frame(time = inputData()$controltime, cens = inputData()$controlcens)
-      km <- survival::survfit(Surv(time, cens)~1, data = controlSample)
-      autoplot(km, conf.int = F, surv.colour = "red", xlab = "Time", ylab="Survival")  + 
-        geom_line(data = controldf, aes(x = controltime, y = controlsurv), colour = "blue")
-      
-    }
-    
-  })
-  
-  
-  output$distPlot1 <- renderPlot({
-    
-    
-    #d = dist[as.numeric(input$radio1)]
-    # dist<-c("hist","normal", "t", "gamma", "lognormal", "logt","beta", "best")
-    suppressWarnings(plotfit(myfit1(), d = input$dist1,
-                             ql = 0.05, qu = 0.95,
-                             xl = limits1()[1], xu = limits1()[2], 
-                             fs = input$fs))
-    
-  })
-  
   
   output$distPlot2 <- renderPlot({
     
@@ -326,7 +337,31 @@ server = function(input, output, session) {
     
     
   })
+
+  HRProportionCalc <- reactive({
+    
+    gamma1 <- input$gamma2
+    controlcurve <- exp(-(input$lambda2*input$triallength)^input$gamma2)
+    bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
+    HR <- seq(0.1, 1, by=0.01)
+    diff <- rep(NA, length(HR))
+    for (i in 1:length(HR)){
+      lambda1 <- exp((log(HR[i])/input$gamma2)+log(input$lambda2))
+      treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(input$triallength^gamma1-bigTMedian^gamma1))
+      diff[i] <- treatmentsurv2 - controlcurve
+    }
+    return(HR[sum(diff>(input$clinicaldiff)/100)])
+    
+  })
   
+  output$HRProportion <- renderUI({
+    str1 <- paste0("The probability that HR is less than 1 is: ", feedback(myfit2(), values = 1)$fitted.probabilities[input$dist2][, 1])
+    str2 <- paste0("For clinical difference, HR needs to be no bigger than: ", HRProportionCalc())
+    str3 <- paste0("Therefore, probabiliy than HR is lower than target treatment effect: ", feedback(myfit2(), values = HRProportionCalc())$fitted.probabilities[input$dist2][, 1])
+    HTML(paste(str1, str2, str3, sep = '<br/>'))
+  })
+  
+# Functions for the Feedback tab ---------------------------------
   
   drawsimlines <- reactive({
     
@@ -367,85 +402,6 @@ server = function(input, output, session) {
     return(list(lowerbound=lowerbound, upperbound=upperbound, time=time))
     
   })
-  
-  HRProportionCalc <- reactive({
-    
-    gamma1 <- input$gamma2
-    controlcurve <- exp(-(input$lambda2*input$triallength)^input$gamma2)
-    bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
-    HR <- seq(0.1, 1, by=0.01)
-    diff <- rep(NA, length(HR))
-    for (i in 1:length(HR)){
-      lambda1 <- exp((log(HR[i])/input$gamma2)+log(input$lambda2))
-      treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(input$triallength^gamma1-bigTMedian^gamma1))
-      diff[i] <- treatmentsurv2 - controlcurve
-    }
-    return(HR[sum(diff>(input$clinicaldiff)/100)])
-    
-  })
-  
-  output$HRProportion <- renderUI({
-    str1 <- paste0("The probability that HR is less than 1 is: ", feedback(myfit2(), values = 1)$fitted.probabilities[input$dist2][, 1])
-    str2 <- paste0("For clinical difference, HR needs to be no bigger than: ", HRProportionCalc())
-    str3 <- paste0("Therefore, probabiliy than HR is lower than target treatment effect: ", feedback(myfit2(), values = HRProportionCalc())$fitted.probabilities[input$dist2][, 1])
-    HTML(paste(str1, str2, str3, sep = '<br/>'))
-  })
-  
-  
-  calculateAssurance <- eventReactive(input$drawassurance, {
-    
-    gamma1 <- input$gamma2
-    conc.probs <- matrix(0, 2, 2)
-    conc.probs[1, 2] <- 0.5
-    assnum <- 100
-    
-    AssFunc <- function(n1, n2){
-      
-      assvec <- rep(NA, assnum)
-      mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
-      
-      
-      for (i in 1:assnum){
-        
-        bigT <- mySample[i,1]
-        HR <- mySample[i,2] 
-        lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
-        
-        controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
-        
-        CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
-        u <- runif(n2)
-        suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
-        
-        treatmentdata <- data.frame(time = z)
-        DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time), 
-                                   group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
-        test <- survdiff(Surv(time, cens)~group, data = DataCombined)
-        assvec[i] <- test$chisq > qchisq(0.95, 1)
-      }
-      
-      return(sum(assvec)/assnum)
-      
-    }
-    
-    ratiosum <- input$maxss/(input$n1+input$n2)
-    
-    n1vec <- floor(seq(10, ratiosum*input$n1, length=50))
-    n2vec <- floor(seq(10, ratiosum*input$n2, length=50))
-    assvec <- rep(NA, 50)
-    
-    for (i in 1:50){
-      assvec[i] <- AssFunc(n1vec[i], n2vec[i])
-    }
-    
-    sumvec <- n1vec+n2vec
-    asssmooth <- loess(assvec~sumvec)
-    
-    return(list(sumvec=sumvec, asssmooth=asssmooth))
-    
-    
-  })
-  
   
   output$plotFeedback <- renderPlot({
     
@@ -512,6 +468,128 @@ server = function(input, output, session) {
     print(p1)
   })
   
+# Functions for the Assurance tab ---------------------------------
+  
+  
+  calculateSSvMonths <- eventReactive(input$drawSSvMonths, {
+    
+    gamma1 <- input$gamma2
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    assnum <- 100
+    
+    assuranceneeded <- 0.5
+    triallengthvec <- floor(seq(input$minlength, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, length=10))
+    ssneededvec <- rep(NA, length(triallengthvec))
+    
+    AssFunc <- function(n1, n2, months){
+      
+      assvec <- rep(NA, assnum)
+      mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+      
+      for (i in 1:assnum){
+        
+        bigT <- mySample[i,1]
+        HR <- mySample[i,2]
+        lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
+        
+        controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
+        
+        CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
+        u <- runif(n2)
+        suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
+        
+        treatmentdata <- data.frame(time = z)
+        DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time),
+                                   group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
+        
+        DataCombined <- DataCombined %>%
+          filter(time<months)
+        
+        test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+        assvec[i] <- test$chisq > qchisq(0.95, 1)
+      }
+      
+      return(sum(assvec)/assnum)
+      
+    } 
+    
+    for (i in 1:length(triallengthvec)){
+      calcass <- 0
+      n1 <- 50
+      while (calcass<input$chosenassurance){
+        calcass <- AssFunc(n1, n1, triallengthvec[i])
+        n1 <- n1 + 50
+      }
+      ssneededvec[i] <- n1
+    }
+    
+    
+    asssmooth <- loess(ssneededvec~triallengthvec)
+    
+    return(list(triallengthvec=triallengthvec, asssmooth=asssmooth))
+    
+  })    
+
+  calculateAssurance <- eventReactive(input$drawassurance, {
+    
+    gamma1 <- input$gamma2
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    assnum <- 100
+
+    AssFunc <- function(n1, n2){
+
+      assvec <- rep(NA, assnum)
+      mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+
+
+      for (i in 1:assnum){
+
+        bigT <- mySample[i,1]
+        HR <- mySample[i,2]
+        lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
+
+        controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
+
+        CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
+        u <- runif(n2)
+        suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
+
+        treatmentdata <- data.frame(time = z)
+        DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time),
+                                   group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
+        
+        #DataCombined <-DataCombined[order(DataCombined$time),][1:events,]
+        
+        test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+        assvec[i] <- test$chisq > qchisq(0.95, 1)
+      }
+
+      return(sum(assvec)/assnum)
+
+    } 
+
+    ratiosum <- input$maxss/(input$n1+input$n2)
+    # 
+    n1vec <- floor(seq(10, ratiosum*input$n1, length=50))
+    n2vec <- floor(seq(10, ratiosum*input$n2, length=50))
+    #eventvec <- floor(seq(50, input$maxevents, length=50))
+    assvec <- rep(NA, 50)
+
+    for (i in 1:50){
+      assvec[i] <- AssFunc(n1vec[i], n2vec[i])
+    }
+
+    sumvec <- n1vec+n2vec
+    asssmooth <- loess(assvec~sumvec)
+
+    return(list(sumvec=sumvec, asssmooth=asssmooth))
+    
+    
+  })
+  
+  
   output$plotAssurance <- renderPlot({
     
     theme_set(theme_grey(base_size = input$fs))
@@ -525,6 +603,19 @@ server = function(input, output, session) {
   output$assuranceSS <- renderUI({
     
     paste0("With a sample size of ", input$samplesize, " assurance is: ", round(predict(calculateAssurance()$asssmooth, newdata = input$samplesize), 2))
+    
+  })
+  
+  output$samplevmonths <- renderPlot({
+    
+    calculateSSvMonths
+    
+    theme_set(theme_grey(base_size = input$fs))
+    assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$asssmooth))
+    p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Trial length") +
+     ylab("Sample size needed")
+    print(p1)    
+    
     
   })
   
@@ -574,4 +665,5 @@ server = function(input, output, session) {
 
 shinyApp(ui, server)
 
+###Breaks when T is allowed to be less than 0 - need to fix
 
