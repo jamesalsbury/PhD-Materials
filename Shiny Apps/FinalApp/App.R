@@ -6,7 +6,6 @@ library(readxl)
 library(rsconnect)
 library(ggplot2)
 library(ggfortify)
-library(plotly)
 
 
 ui <- fluidPage(
@@ -25,8 +24,8 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  fileInput("uploadSample", "Upload your control sample"),
-                 numericInput("lambda2", "lambda2", value=0.06),
-                 numericInput("gamma2", "gamma2", value=0.8)
+                 numericInput("lambda2", "lambda2", value=0.2),
+                 numericInput("gamma2", "gamma2", value=0.7)
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotControl"),
@@ -38,11 +37,11 @@ ui <- fluidPage(
              fluidRow(
                column(4, 
                       textInput("limits1", label = h5("T limits"), 
-                                value = "0, 50")
+                                value = "0, 10")
                ),
                column(4,
                       textInput("values1", label = h5("T values"), 
-                                value = "5, 6, 7")
+                                value = "2, 3, 4")
                ),
                column(4,
                       textInput("probs1", label = h5("Cumulative probabilities"), 
@@ -84,7 +83,7 @@ ui <- fluidPage(
                ),
                column(4,
                       textInput("values2", label = h5("HR values"), 
-                                value = "0.5, 0.6, 0.75")
+                                value = "0.4, 0.5, 0.6")
                ),
                column(4,
                       textInput("probs2", label = h5("Cumulative probabilities"), 
@@ -119,16 +118,20 @@ ui <- fluidPage(
                
              ),
              
-             plotOutput("distPlot2")
+             plotOutput("distPlot2"),
+             htmlOutput("HRProportion")
     ),
     
     tabPanel("Feedback", 
              sidebarLayout(
                sidebarPanel = sidebarPanel(
-                 checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Survival Curves (0.1 and 0.9)"))
-               ), 
+                 checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Survival Curves (0.1 and 0.9)")),
+                 numericInput("triallength", "How long do you expect to run the trial for? (months)", value=18),
+                 numericInput("clinicaldiff", "What is the minimum clinical difference you need to see here?", value = 10)
+               ),
                mainPanel = mainPanel(
-                 plotOutput("plotFeedback")
+                 plotOutput("plotFeedback"),
+                 htmlOutput("TrialFeedback")
                )
              ),
     ),
@@ -146,6 +149,7 @@ ui <- fluidPage(
                  ),
                  actionButton("drawassurance", "Plot assurance line"),
                  numericInput("samplesize", "Assurance at sample size:", value=100),
+                 numericInput("chosenassurance", "What assurance do we want?", value=0.5)
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotAssurance"),
@@ -255,6 +259,24 @@ server = function(input, output, session) {
     
   })
   
+  output$TrialFeedback <- renderUI({
+    
+    gamma1 <- input$gamma2
+    controlcurve <- exp(-(input$lambda2*input$triallength)^input$gamma2)
+    bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
+    HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
+    lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
+    treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(input$triallength^gamma1-bigTMedian^gamma1))
+    
+    str1 <- paste0("If the trial runs for ", input$triallength, " months, we expect:")
+    str2 <- paste0(round(controlcurve*100, 1), "% of patients to be alive in the control group")
+    str3 <- paste0(round(treatmentsurv2*100, 1), "% of patients to be alive in the treatment group")
+    str4 <- paste0("This means there should be an absolute treatment effect of ", round((treatmentsurv2-controlcurve)*100, 1), "% after ", input$triallength, " months" )
+    HTML(paste(str1, str2, str3, str4, sep = '<br/>'))
+    
+    
+  })
+  
   output$plotControl <- renderPlot({
     
     controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
@@ -344,6 +366,29 @@ server = function(input, output, session) {
     
     return(list(lowerbound=lowerbound, upperbound=upperbound, time=time))
     
+  })
+  
+  HRProportionCalc <- reactive({
+    
+    gamma1 <- input$gamma2
+    controlcurve <- exp(-(input$lambda2*input$triallength)^input$gamma2)
+    bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
+    HR <- seq(0.1, 1, by=0.01)
+    diff <- rep(NA, length(HR))
+    for (i in 1:length(HR)){
+      lambda1 <- exp((log(HR[i])/input$gamma2)+log(input$lambda2))
+      treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(input$triallength^gamma1-bigTMedian^gamma1))
+      diff[i] <- treatmentsurv2 - controlcurve
+    }
+    return(HR[sum(diff>(input$clinicaldiff)/100)])
+    
+  })
+  
+  output$HRProportion <- renderUI({
+    str1 <- paste0("The probability that HR is less than 1 is: ", feedback(myfit2(), values = 1)$fitted.probabilities[input$dist2][, 1])
+    str2 <- paste0("For clinical difference, HR needs to be no bigger than: ", HRProportionCalc())
+    str3 <- paste0("Therefore, probabiliy than HR is lower than target treatment effect: ", feedback(myfit2(), values = HRProportionCalc())$fitted.probabilities[input$dist2][, 1])
+    HTML(paste(str1, str2, str3, sep = '<br/>'))
   })
   
   
@@ -441,14 +486,20 @@ server = function(input, output, session) {
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
         if (addfeedback[i]=="Median survival line"){
-          mediandf <- data.frame(x = seq(0, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), y = rep(0.5, 2))
-          mediandf1 <<- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
-          mediandf2 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
-          p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
-            geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed")
+          if (exp(-(input$lambda2*bigTMedian)^input$gamma2)<0.5){
+            mediandf <- data.frame(x = seq(0, controltime[sum(controlcurve>0.5)], length=2), y = rep(0.5, 2))
+            mediandf1 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
+            p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") 
+          } else {
+            mediandf <- data.frame(x = seq(0, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), y = rep(0.5, 2))
+            mediandf1 <<- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
+            mediandf2 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
+            p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
+              geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed")
+          }
         } else if (addfeedback[i]=="95% CI for T"){
-          p1 <- p1 + geom_point(aes(x = feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])]), colour="orange") +
-            geom_point(aes(x = feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])]), colour="orange")
+          p1 <- p1 + geom_point(aes(x = feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4) +
+            geom_point(aes(x = feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4)
         } else if (addfeedback[i]=="CI for Survival Curves (0.1 and 0.9)"){
           #Function to draw simulated lines
           simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
@@ -468,7 +519,7 @@ server = function(input, output, session) {
     p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + ylim(0,1) + xlab("Total sample size") +
       ylab("Assurance")
     print(p1)
-  
+    
   })
   
   output$assuranceSS <- renderUI({
@@ -520,8 +571,6 @@ server = function(input, output, session) {
   # )
   
 }
-
-
 
 shinyApp(ui, server)
 
