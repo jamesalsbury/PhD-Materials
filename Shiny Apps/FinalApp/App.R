@@ -27,8 +27,8 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  fileInput("uploadSample", "Upload your control sample"),
-                 numericInput("lambda2", "lambda2", value=0.2),
-                 numericInput("gamma2", "gamma2", value=0.7)
+                 numericInput("lambda2", "lambda2", value=0.05),
+                 numericInput("gamma2", "gamma2", value=1)
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotControl"),
@@ -42,7 +42,7 @@ ui <- fluidPage(
              fluidRow(
                column(4, 
                       textInput("limits1", label = h5("T limits"), 
-                                value = "0, 10")
+                                value = "0, 6")
                ),
                column(4,
                       textInput("values1", label = h5("T values"), 
@@ -89,7 +89,7 @@ ui <- fluidPage(
                ),
                column(4,
                       textInput("values2", label = h5("HR values"), 
-                                value = "0.4, 0.5, 0.6")
+                                value = "0.5, 0.6, 0.7")
                ),
                column(4,
                       textInput("probs2", label = h5("Cumulative probabilities"), 
@@ -148,7 +148,8 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  useShinyjs(),
-                 numericInput("minlength", "Minimum trial length?", value=36),
+                 numericInput("minlength", "Minimum trial length?", value=24),
+                 numericInput("maxlength", "Maximum trial length?", value=48),
                  box(width = 10, title = "Ratio of patients in each group?",
                      splitLayout(
                        numericInput("n1", "Control", value=1, min=1),
@@ -161,7 +162,8 @@ ui <- fluidPage(
                ), 
                mainPanel = mainPanel(
                  plotOutput("samplevmonths"),
-                 htmlOutput("samplesizerequired")
+                 htmlOutput("samplesizerequired"),
+                 plotOutput("eventsPlot")
                )
              ),
              
@@ -474,7 +476,6 @@ server = function(input, output, session) {
   
   observe({
     hide("chosenlength")
-    
   })
   
   observeEvent(input$drawSSvMonths, {
@@ -489,12 +490,15 @@ server = function(input, output, session) {
     assnum <- 100
     
     assuranceneeded <- 0.5
-    triallengthvec <- floor(seq(input$minlength, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, length=10))
+    triallengthvec <- floor(seq(input$minlength, input$maxlength, length=10))
     ssneededvec <- rep(NA, length(triallengthvec))
+    eventsneededvec <- rep(NA, length(triallengthvec))
+    
     
     AssFunc <- function(n1, n2, months){
       
       assvec <- rep(NA, assnum)
+      eventvec <- rep(NA, assnum)
       mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
       
       for (i in 1:assnum){
@@ -518,9 +522,10 @@ server = function(input, output, session) {
         
         test <- survdiff(Surv(time, cens)~group, data = DataCombined)
         assvec[i] <- test$chisq > qchisq(0.95, 1)
-      }
+        eventvec[i] <- nrow(DataCombined)
+      } 
       
-      return(sum(assvec)/assnum)
+      return(list(assurance = sum(assvec)/assnum, events = sum(eventvec)/assnum))
       
     } 
     
@@ -531,79 +536,24 @@ server = function(input, output, session) {
       n1 <- round((total/ratiosum)*input$n1)
       n2 <- round((total/ratiosum)*input$n2)
       while (calcass<input$chosenassurance){
-        calcass <- AssFunc(n1, n2, triallengthvec[i])
-        total <- total + 100
+        calcass <- AssFunc(n1, n2, triallengthvec[i])$assurance
+        total <- total + 1000
         n1 <- round((total/ratiosum)*input$n1)
         n2 <- round((total/ratiosum)*input$n2)
       }
       ssneededvec[i] <- total
+      eventsneededvec[i] <- AssFunc(n1, n2, triallengthvec[i])$events
     }
     
     
     asssmooth <- loess(ssneededvec~triallengthvec)
+    eventssmooth <- loess(eventsneededvec~triallengthvec)
     
-    return(list(triallengthvec=triallengthvec, asssmooth=asssmooth))
+    return(list(triallengthvec=triallengthvec, asssmooth=asssmooth, eventssmooth=eventssmooth))
     
   })    
 
-  # calculateAssurance <- eventReactive(input$drawassurance, {
-  #   
-  #   gamma1 <- input$gamma2
-  #   conc.probs <- matrix(0, 2, 2)
-  #   conc.probs[1, 2] <- 0.5
-  #   assnum <- 100
-  # 
-  #   AssFunc <- function(n1, n2){
-  # 
-  #     assvec <- rep(NA, assnum)
-  #     mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
-  # 
-  # 
-  #     for (i in 1:assnum){
-  # 
-  #       bigT <- mySample[i,1]
-  #       HR <- mySample[i,2]
-  #       lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
-  # 
-  #       controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
-  # 
-  #       CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
-  #       u <- runif(n2)
-  #       suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
-  # 
-  #       treatmentdata <- data.frame(time = z)
-  #       DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time),
-  #                                  group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
-  #       
-  #       #DataCombined <-DataCombined[order(DataCombined$time),][1:events,]
-  #       
-  #       test <- survdiff(Surv(time, cens)~group, data = DataCombined)
-  #       assvec[i] <- test$chisq > qchisq(0.95, 1)
-  #     }
-  # 
-  #     return(sum(assvec)/assnum)
-  # 
-  #   } 
-  # 
-  #   ratiosum <- input$maxss/(input$n1+input$n2)
-  #   # 
-  #   n1vec <- floor(seq(10, ratiosum*input$n1, length=50))
-  #   n2vec <- floor(seq(10, ratiosum*input$n2, length=50))
-  #   #eventvec <- floor(seq(50, input$maxevents, length=50))
-  #   assvec <- rep(NA, 50)
-  # 
-  #   for (i in 1:50){
-  #     assvec[i] <- AssFunc(n1vec[i], n2vec[i])
-  #   }
-  # 
-  #   sumvec <- n1vec+n2vec
-  #   asssmooth <- loess(assvec~sumvec)
-  # 
-  #   return(list(sumvec=sumvec, asssmooth=asssmooth))
-  #   
-  #   
-  # })
-  
+
   output$samplesizerequired <- renderUI({
     
     str1 <- paste0("If you run the trial for ", input$chosenlength, " months, you will require a total sample size of ", round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength)))
@@ -611,25 +561,20 @@ server = function(input, output, session) {
     HTML(paste(str1, str2, sep = '<br/>'))
   })
   
-  # output$plotAssurance <- renderPlot({
-  #   
-  #   theme_set(theme_grey(base_size = input$fs))
-  #   assurancedf <- data.frame(x = calculateAssurance()$sumvec, y = predict(calculateAssurance()$asssmooth))
-  #   p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + ylim(0,1) + xlab("Total sample size") +
-  #     ylab("Assurance")
-  #   print(p1)
-  #   
-  # })
-  
-  # output$assuranceSS <- renderUI({
-  #   
-  #   paste0("With a sample size of ", input$samplesize, " assurance is: ", round(predict(calculateAssurance()$asssmooth, newdata = input$samplesize), 2))
-  #   
-  # })
+
+  output$eventsPlot <- renderPlot({
+    
+    theme_set(theme_grey(base_size = input$fs))
+    assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$eventssmooth))
+    p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Trial length") +
+      ylab("Sample size needed")
+    print(p1) 
+    
+    
+  })
+
   
   output$samplevmonths <- renderPlot({
-    
-    calculateSSvMonths
     
     theme_set(theme_grey(base_size = input$fs))
     assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$asssmooth))
