@@ -163,7 +163,8 @@ ui <- fluidPage(
                mainPanel = mainPanel(
                  plotOutput("samplevmonths"),
                  htmlOutput("samplesizerequired"),
-                 plotOutput("eventsPlot")
+                 plotOutput("eventsPlot"),
+                 htmlOutput("eventsrequired")
                )
              ),
              
@@ -487,10 +488,9 @@ server = function(input, output, session) {
     gamma1 <- input$gamma2
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
-    assnum <- 100
+    assnum <- 50
     
-    assuranceneeded <- 0.5
-    triallengthvec <- floor(seq(input$minlength, input$maxlength, length=10))
+    triallengthvec <- floor(seq(input$minlength, input$maxlength, length=8))
     ssneededvec <- rep(NA, length(triallengthvec))
     eventsneededvec <- rep(NA, length(triallengthvec))
     
@@ -499,9 +499,20 @@ server = function(input, output, session) {
       
       assvec <- rep(NA, assnum)
       eventvec <- rep(NA, assnum)
-      mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+      mySample <<- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+      
+      if (sum(mySample$X1<0)>0){
+        negative <- which(mySample$X1<0)
+      } else {
+        negative <- 0
+      }
+    
       
       for (i in 1:assnum){
+        
+        if (i %in% negative){
+          
+        } else {
         
         bigT <- mySample[i,1]
         HR <- mySample[i,2]
@@ -524,20 +535,22 @@ server = function(input, output, session) {
         assvec[i] <- test$chisq > qchisq(0.95, 1)
         eventvec[i] <- nrow(DataCombined)
       } 
+    }
       
-      return(list(assurance = sum(assvec)/assnum, events = sum(eventvec)/assnum))
+      
+      return(list(assurance = mean(na.omit(assvec)), events = mean(na.omit(eventvec))))
       
     } 
     
     for (i in 1:length(triallengthvec)){
       calcass <- 0
       ratiosum <- input$n1+input$n2
-      total <- 100
+      total <- 500
       n1 <- round((total/ratiosum)*input$n1)
       n2 <- round((total/ratiosum)*input$n2)
       while (calcass<input$chosenassurance){
         calcass <- AssFunc(n1, n2, triallengthvec[i])$assurance
-        total <- total + 1000
+        total <- total + 300
         n1 <- round((total/ratiosum)*input$n1)
         n2 <- round((total/ratiosum)*input$n2)
       }
@@ -562,12 +575,18 @@ server = function(input, output, session) {
   })
   
 
+  output$eventsrequired <- renderUI({
+    
+    str1 <- paste0("If you run the trial for ", input$chosenlength, " months, you will require  ", round(predict(calculateSSvMonths()$eventssmooth, newdata = input$chosenlength)), " number of events")
+    HTML(paste(str1, sep = '<br/>'))
+  })
+  
   output$eventsPlot <- renderPlot({
     
     theme_set(theme_grey(base_size = input$fs))
     assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$eventssmooth))
     p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Trial length") +
-      ylab("Sample size needed")
+      ylab("No. of events needed")
     print(p1) 
     
     
