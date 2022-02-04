@@ -21,7 +21,7 @@ I will only focus on stopping for efficacy here.
 
 Imagine we are performing a clinical trial for a drug that is said to reduce systolic blood pressure in patients with hypertension. We will measure the systolic blood pressure of patients after a month (28 days) of taking this drug every day. After discussion with the clinicians, we have the following information: they believe for the control the endpoint will be Normally distributed with mean 160 and standard deviation 10. $X_c \sim N(160, 10^2)$. They also believe that the treatment will have a mean reduction of systolic blood pressure of 5 and the variation will be the same in both groups; therefore $X_t \sim N(155, 10^2)$. The plot below shows their beliefs:
 
-```{r beliefs, echo=F }
+```{r beliefs, echo=F}
 x <- seq(120, 200, by=0.01)
 control <- dnorm(x, 160, sd = 10)
 plot(x,control, type="l", ylab="density", col="blue")
@@ -32,7 +32,7 @@ legend("topright", legend=c("control", "treatment"), col=c("blue", "red"), lty=1
 ```
 We can use the information above to calculate the sample size required to find a statistically significance difference between these two groups. We wish to run our trial at $\alpha$ = 0.05 and power $1-\beta$ = 0.9. We calculate that we require 84 patients in each group, therefore the total sample size is 168. 
 
-# ```{r, echo=F }
+```{r, echo=F}
 # sigma1 <- 10
 # sigma2 <- 10
 # alpha <- 0.05
@@ -48,14 +48,14 @@ We can use the information above to calculate the sample size required to find a
 # }
 # plot(power, 1-betavec, ylim=c(0,1), type="l", xlab="Sample size (n1)", ylab="Power", col="blue")
 # abline(h = 0.9, lty=2)
-# ```
+```
 
 
 ## Interim analysis
 
 We will illustrate what happens to the type I error rate if we do not adjust for multiple looks at the data. We will only consider stopping for efficacy here, which we will do if the t-test is significant at 0.05. We have two groups: control and treatment. They will both come from the same underlying distribution: $N(10, 5^2)$ as seen below
 
-```{r control, echo=F }
+```{r controlPlot, echo=F}
 x <- seq(-10, 30, by=0.01)
 y <- dnorm(x, 10, sd = 5)
 plot(x, y, type="l")
@@ -64,7 +64,7 @@ plot(x, y, type="l")
 
 We will generate 100 samples for each group and then perform a t.test on these data:
 
-```{r, echo=F }
+```{r typeI, echo=T}
 testvec <- rep(NA, 10000)
 for (i in 1:10000){
   controldata <- rnorm(100, 10, sd =5)
@@ -76,10 +76,10 @@ mean(testvec)
 ```
 
 
-We see that the null hypothesis is rejected 5% of the time, which is what we mean by type I error. We can see how this changes when we include interim analyses and allow ourselves to reject the null hypothesis at different points.
+We see that the null hypothesis is rejected $\approx$ 5% of the time, which is what we mean by type I error. We can see how this changes when we include interim analyses and allow ourselves to reject the null hypothesis at different points.
 
 
-```{r, echo=F }
+```{r notControlling, echo=F}
 
 IAFunc <- function(numberofanalyses){
   testvec <- rep(NA, 5000)
@@ -116,7 +116,155 @@ abline(h = 0.05, lty=2)
 We see that, in general, as we increase the number of interim analyses, the type I error increases too. This is because we are giving ourselves multiple opportunities to reject the null hypothesis. A way to correct for this is to use alpha-spending functions. There are different alpha-spending schemes, but they are all designed to maintain the type I error rate at a prespecifed value (usually $\alpha = 0.05$). The two most famous schemes are the Pocock scheme and the O'Brien-Fleming scheme, which can be seen in the table below:
 
 
-![A Food Hygiene Rating sticker showing a score of 5 - they can be found on the entrances to most establishments in the UK.](AlphaSpending.png){#id .class width=30% height=30%}
+![Different alpha spending function schemes](AlphaSpending.png){#id .class width=30% height=30%}
+
+When we implement them, the results can be seen below:
+
+```{r Controlling, echo=F}
+
+Pocock2 <- rep(0.0294, 2)
+Pocock3 <- rep(0.0221, 3)
+Pocock4 <- rep(0.0182, 4)
+Pocock5 <- rep(0.0158, 5)
+OBF2 <- c(0.0054, 0.0492)
+OBF3 <- c(0.0006, 0.0151, 0.0471)
+OBF4 <- c(0.00005, 0.0039, 0.0184, 0.0412)
+OBF5 <- c(0.000005, 0.0013, 0.0085, 0.0228, 0.0417)
+
+
+IAFunc <- function(numberofanalyses){
+  PocockVec <- rep(NA, 10000)
+  OBFVec <- rep(NA, 10000)
+  PocockLength <- rep(100, 10000)
+  OBFLength <- rep(100, 10000)
+  for (i in 1:10000){
+  rejectedPocock <- F
+  rejectedOBF <- F
+  controldata <- rnorm(100, 10, sd = 5)
+  treatmentdata <- rnorm(100, 10, sd = 5)
+  if (numberofanalyses==1){
+      test <- t.test(controldata, treatmentdata)
+      if (test$p.value<0.05){
+        rejectedPocock <- T
+        rejectedOBF <- T
+      }
+  } else if (numberofanalyses==2){
+    for (j in 1:2){
+      if (rejectedPocock&&rejectedOBF){
+        break
+      } else {
+       cdata <- controldata[1:(j*(100/2))]
+      tdata <- treatmentdata[1:(j*(100/2))]
+      test <- t.test(cdata, tdata)
+      if (test$p.value<Pocock2[j]){
+        PocockLength[i] <- length(cdata)
+        rejectedPocock <- T
+      }
+      if (test$p.value<OBF2[j]){
+        OBFLength[i] <- length(cdata)
+        rejectedOBF <- T
+      } 
+      }
+    }
+  } else if (numberofanalyses==3){
+    for (j in 1:3){
+      if (rejectedPocock&&rejectedOBF){
+        break
+      } else {
+      cdata <- controldata[1:(j*(100/3))]
+      tdata <- treatmentdata[1:(j*(100/3))]
+      test <- t.test(cdata, tdata)
+      if (test$p.value<Pocock3[j]){
+        PocockLength[i] <- length(cdata)
+        rejectedPocock <- T
+      }
+      if (test$p.value<OBF3[j]){
+        OBFLength[i] <- length(cdata)
+        rejectedOBF <- T
+      }
+      }
+    }
+  } else if (numberofanalyses==4){
+    for (j in 1:4){
+      if (rejectedPocock&&rejectedOBF){
+        break 
+      } else {
+      cdata <- controldata[1:(j*(100/4))]
+      tdata <- treatmentdata[1:(j*(100/4))]
+      test <- t.test(cdata, tdata)
+      if (test$p.value<Pocock4[j]){
+        PocockLength[i] <- length(cdata)
+        rejectedPocock <- T
+      }
+      if (test$p.value<OBF4[j]){
+        OBFLength[i] <- length(cdata)
+        rejectedOBF <- T
+      }
+      }
+    }
+  } else if (numberofanalyses==5){
+    for (j in 1:5){
+      if (rejectedPocock&&rejectedOBF){
+        break
+      } else {
+      cdata <- controldata[1:(j*(100/5))]
+      tdata <- treatmentdata[1:(j*(100/5))]
+      test <- t.test(cdata, tdata)
+      if (test$p.value<Pocock5[j]){
+        PocockLength[i] <- length(cdata)
+        rejectedPocock <- T
+      }
+      if (test$p.value<OBF5[j]){
+        OBFLength[i] <- length(cdata)
+        rejectedOBF <- T
+      }
+      }
+    }
+  }
+  PocockVec[i] <- rejectedPocock
+  OBFVec[i] <- rejectedOBF
+  }
+  return(list(Pocock = mean(PocockVec), OBF = mean(OBFVec), PocockLengthOut = mean(PocockLength), OBFLengthOut = mean(OBFLength)))
+}
+
+analyses <- 1:5
+PocockSpendingVec <- rep(NA, length(analyses))
+OBFSpendingVec <- rep(NA, length(analyses))
+PocockLengthVec <- rep(NA, length(analyses))
+OBFLengthVec <- rep(NA, length(analyses))
+for (i in 1:length(analyses)){
+  output <- IAFunc(analyses[i])
+  PocockSpendingVec[i] <- output$Pocock
+  OBFSpendingVec[i] <- output$OBF
+  PocockLengthVec[i] <- output$PocockLengthOut
+  OBFLengthVec[i] <- output$OBFLengthOut
+}
+
+
+plot(analyses, PocockSpendingVec, ylim=c(0, 0.25), xlab="Number of analyses", ylab="Type I rate", xlim=c(0, 5), col = "blue", pch = 19)
+points(analyses, OBFSpendingVec, col="red", pch=19)
+legend("topright", legend=c("Pocock", "OBF"), col=c("blue", "red"), pch = 19)
+abline(h = 0.05, lty=2)
+
+plot(analyses, PocockLengthVec, xlab="Number of analyses", ylab="Average trial length", col="blue", pch=19)
+points(analyses, OBFLengthVec, col="red", pch=19)
+legend("topright", legend=c("Pocock", "OBF"), col=c("blue", "red"), pch = 19)
+
+```
+
+
+## Bayesian interim analysis
+
+
+Need to look at this in a Bayesian context??
+
+Have a prior effect of the difference in treatments
+
+Then simulate data according to the difference not being the same
+Need to choose decision rule?
+See how this affects the type I error
+Change the prior to see if this changes things? It definitely will, e.g. strong beliefs that the treatment is better will need more data to overturn this
+Best thing might be a vague/noninformative prior
 
 
 
