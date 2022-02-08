@@ -1,0 +1,29 @@
+---
+title: "PredPower"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Looking at stopping for futility instead
+
+# Conditional power
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4415071/pdf/ciu935.pdf
+
+Conditional power is the probability that the final study result will be statistically significant, given the data observed thus far.
+
+Placebo rate is 35%
+They think the ancrod rate is 40%
+Want to detect at 95% power
+Two-tailed significance of 0.05
+
+n = 600 in total
+300 in each
+
+Interim analysis was done after 670 patients were followed up for 3 months
+0.0007 for efficacy
+Futility based on conditional power
+If conditional power was less than 30%, the trial would be stopped. 
