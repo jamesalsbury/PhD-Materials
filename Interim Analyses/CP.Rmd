@@ -15,15 +15,12 @@ https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4415071/pdf/ciu935.pdf
 
 Conditional power is the probability that the final study result will be statistically significant, given the data observed thus far.
 
-Placebo rate is 35%
-They think the ancrod rate is 40%
-Want to detect at 95% power
-Two-tailed significance of 0.05
+This trial looked at trying to reduce the rates of pneumonia in elderly care home residents. 
 
-n = 600 in total
-300 in each
+The primary endpoint was development of first pneumonia. The target sample size was 828 particpiants to detect a 25% reduction in the cumulative 2.5 year first pneumonia rate with internvention relative to control assuming a type I error of 0.05, 80% power
 
-Interim analysis was done after 670 patients were followed up for 3 months
-0.0007 for efficacy
-Futility based on conditional power
-If conditional power was less than 30%, the trial would be stopped. 
+One interim analysis was specified at 2.5 years for efficacy using a H-B stopping boundary of 0.001 with futility assessed by conditional power using 50% power under the current trend as a guideline for considering the trial as futile. 
+
+
+
+
