@@ -14,6 +14,7 @@ library(knitr)
 library(dplyr)
 library(RColorBrewer)
 library(truncnorm)
+library(rstan)
 ```
 
 ## Introduction
@@ -93,7 +94,6 @@ mean(testvec)
 In the following scenario, we assume the remaining data will follow that of the clinicians beliefs before the trial started: control will have an incidence rate of 45% and treatment will have a lower incidence rate of 30%. Even in this very optimistic scenario (as the data so far does not support these beliefs), the conditional power is very low.  This suggests that the trial should be stopped for futility. 
 
 ```{r cp1, echo=F}
-
 testvec <- rep(NA, 1000)
 for (i in 1:length(testvec)){
   remainingControl <- rbinom(117, size = 1, prob = 0.45)
@@ -104,8 +104,8 @@ test <- chisq.test(MoxonidineData, correct = F)
 testvec[i] <- test$p.value<0.05
 }
 mean(testvec)
-
 ```
+
 
 
 
@@ -155,8 +155,8 @@ We can calculate assurance under the four scenarios. This can be seen in the fig
 
 ```{r power+ass, message=F, warning=F, echo=F}
 
-N1vec <- floor(seq(10, 500, length=50))
-N2vec <- floor(seq(10,500, length = 50))
+N1vec <- floor(seq(50, 500, length=50))
+N2vec <- floor(seq(50,500, length = 50))
 powervec <- rep(NA, length = length(N1vec))
 for (i in 1:length(powervec)){
   power <- power.prop.test(n=N1vec[i],p1=0.45,p2=0.3)
@@ -169,7 +169,7 @@ plot(N1vec, powervec, type = "l", ylim = c(0,1), xlab = "Total sample size", xax
 axis(1, at = seq(0, 500,by = 100), labels = seq(0, 1000, by = 200))
 
 assurancefunc <- function(n1, n2, m, v){
-  n <- 10e1
+  n <- 20e1
   zvec <- rep(NA, length=n)
   for (i in 1:n){
     theta1 <- rbeta(1, 10.7, 13.1) #Control
@@ -192,7 +192,7 @@ for (i in 1:length(ass1)){
   ass1[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.0001)
 }
 lo1 <- loess(ass1~N1vec)
-lines(N1vec[1:(length(predict(lo1)))], predict(lo1), lty=3, col="blue")
+lines(N1vec, predict(lo1), lty=3, col="blue")
 
 #Scenario 2
 ass2 <- rep(NA, length=length(N1vec))
@@ -200,7 +200,7 @@ for (i in 1:length(ass2)){
   ass2[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.01)
 }
 lo2 <- loess(ass2~N1vec)
-lines(N1vec[1:(length(predict(lo2)))], predict(lo2), lty=4, col="red")
+lines(N1vec, predict(lo2), lty=4, col="red")
 
 
 #Scenario 3
@@ -210,13 +210,13 @@ for (i in 1:length(ass3)){
 }
 
 lo3 <- loess(ass3~N1vec)
-lines(N1vec[1:(length(predict(lo3)))], predict(lo3), lty=5, col="green")
+lines(N1vec, predict(lo3), lty=5, col="green")
 
 DesignAssuranceFuncNonInform <- function(){
 
   #We calculate the assurance for user-specified n1 and n2
   assurancefunc <- function(n1, n2){
-    n <- 10e1
+    n <- 20e1
     zvec <- vector(length=n)
     for (i in 1:n){
       theta1 <- rbeta(1, 10.7, 13.1) #Control
@@ -235,8 +235,8 @@ DesignAssuranceFuncNonInform <- function(){
 
   #We compute the assurance for a range of different n1, n2 values
   assurance <- rep(NA, length = 50)
-  N1vec <- floor(seq(10, 500, length=50))
-  N2vec <- floor(seq(10,500, length = 50))
+  N1vec <- floor(seq(50, 500, length=50))
+  N2vec <- floor(seq(50,500, length = 50))
   for (i in 1:length(N1vec)){
     assurance[i] <- assurancefunc(N1vec[i], N2vec[i])
   }
@@ -245,7 +245,7 @@ DesignAssuranceFuncNonInform <- function(){
   lo <- loess(assurance~N1vec)
   return(lo)
 }
-lines(N1vec[1:(length(predict(DesignAssuranceFuncNonInform())))], predict(DesignAssuranceFuncNonInform()), lty=6, col="yellow")
+lines(N1vec, predict(DesignAssuranceFuncNonInform()), lty=6, col="yellow")
 
 legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 3", "Scenario 4"),
        col=c("black", "blue", "red", "green", "yellow"), lty=2:6)
@@ -258,11 +258,84 @@ In scenario 2, the prior for $\rho$ indicates that the beliefs are not quite as 
 In scenario 3, the prior for $\rho$ indicates that the treatment may not be as effective as 33%. This is shown in the plot as the assurance is lower than both scenarios 1 and 2.
 
 
-<!-- ### Interim analysis stage -->
+### Interim analysis stage
 
-<!-- We can also perform assurance calculations during the trial. This feels natural in a Bayesian paradigm; we have prior distributions (about $\theta_1$ and $\rho$) and some data, which we can combine together to obtain a posterior distribution.  -->
+We can also perform assurance calculations during the trial. This feels natural in a Bayesian paradigm; we have prior distributions (about $\theta_1$ and $\rho$) and some data, which we can combine together to obtain a posterior distribution.
 
-<!-- The following four plots show the four different scenarios; in each plot we have the power, the assurance at the design stage and the assurance at the interim analysis stage. The total sample sizes only reach a maximum of 360 (180 in each arm) here, as this was the number of patients planned to be enrolled in the trial. -->
+The following four plots show the four different scenarios; in each plot we have the power, the assurance at the design stage and the assurance at the interim analysis stage. The total sample sizes only reach a maximum of 360 (180 in each arm) here, as this was the number of patients planned to be enrolled in the trial.
+
+
+```{stan output.var="ex1"}
+data {
+  int<lower=0> cE;               // control events
+  int<lower=0> cN;               // number of patients in control group
+  int<lower=0> tE;               // treatment events
+  int<lower=0> tN;               // number of patients in treatment group
+}
+
+parameters {
+  real<lower=0, upper=1> theta1; // chance of success in control group
+  real rho;                      // difference between treatment and control (theta1-theta2)
+}
+
+transformed parameters{
+  real<lower=0, upper=1> theta2; // chance of success in treatment group
+  theta2 = theta1 - rho;
+}
+
+model {
+  theta1 ~ beta(10.7, 13.1);
+  rho ~ normal(0.15, 0.01);
+  cE ~ binomial(cN, theta1);
+  tE ~ binomial(tN, theta2);
+}
+
+generated quantities {
+  int<lower=0> controlevents;
+  int<lower=0> treatmentevents;
+  controlevents = binomial_rng(117, theta1);
+  treatmentevents = binomial_rng(102, theta2);
+}
+
+
+```
+
+
+```{r interim, echo=F}
+ MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) 
+ exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
+            tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
+ 
+ sampling_iterations <- 1e4
+ fit <- sampling(ex1,
+ data = exampleData,
+ chains = 1,
+ iter = sampling_iterations,
+ warmup = sampling_iterations/2)
+ 
+
+ controlevents <- rep(NA, 1e4)
+ treatmentevents <- rep(NA, 1e4)
+ for (i in 1:1e4){
+  controlevents[i] <- fit@sim$samples[[1]][[4]][i]
+  treatmentsevents[i] <- fit@sim$samples[[1]][[5]][i]
+ 
+   
+   
+ }
+ 
+```
+
+
+
+
+
+
+
+
+
+
+
 
 <!-- ```{r interim, message=F, warning=F, echo=F, results='hide'} -->
 
@@ -296,7 +369,7 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!--         control <- rbinom(1, n1, theta1) -->
 <!--         treatment <- rbinom(1, n2, theta2) -->
 <!--         MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                      NotRaisedcTni = c(n1 - control, n2 - treatment),  -->
+<!--                                      NotRaisedcTni = c(n1 - control, n2 - treatment), -->
 <!--                                      row.names = c("Control", "Treatment")) -->
 <!--         test <- chisq.test(MoxonidineData, correct = F) -->
 <!--         zvec[i] <- test$p.value<0.05 -->
@@ -326,7 +399,7 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!-- InterimAssuranceFunc <- function(mu, nu){ -->
 
 <!--   #Find the posterior dist. for theta1 and theta2 -->
-<!--   library(rstan) -->
+
 
 <!--   bern.stan = -->
 <!--     " -->
@@ -347,14 +420,14 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!--   theta2 = theta1 - rho; -->
 <!-- } -->
 <!-- model { -->
-<!--   theta1 ~ beta(10.7, 13.1);        -->
+<!--   theta1 ~ beta(10.7, 13.1); -->
 <!--   rho ~ normal(mu, sigma); -->
-<!--   cE ~ binomial(cN, theta1);         -->
+<!--   cE ~ binomial(cN, theta1); -->
 <!--   tE ~ binomial(tN, theta2); -->
 <!-- } -->
 <!-- " -->
 <!-- MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) -->
-<!-- data <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN,  -->
+<!-- data <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, -->
 <!--              tE = MoxonidineData$tE, tN = MoxonidineData$tN, mu = mu, sigma = sqrt(nu)) -->
 
 <!-- fit <- stan(model_code=bern.stan, data=data) -->
@@ -367,7 +440,7 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!--     control <- rbinom(1, n1, fit@sim[["samples"]][[1]][[1]][i]) -->
 <!--     treatment <- rbinom(1, n2, fit@sim[["samples"]][[1]][[3]][i]) -->
 <!--     MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                  NotRaisedcTni = c(n1 - control, n2 - treatment),  -->
+<!--                                  NotRaisedcTni = c(n1 - control, n2 - treatment), -->
 <!--                                  row.names = c("Control", "Treatment")) -->
 <!--     test <- chisq.test(MoxonidineData, correct = F) -->
 <!--     zvec[i] <- test$p.value < 0.05 -->
@@ -436,7 +509,7 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!--         control <- rbinom(1, n1, theta1) -->
 <!--         treatment <- rbinom(1, n2, theta2) -->
 <!--         MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                      NotRaisedcTni = c(n1 - control, n2 - treatment),  -->
+<!--                                      NotRaisedcTni = c(n1 - control, n2 - treatment), -->
 <!--                                      row.names = c("Control", "Treatment")) -->
 <!--         test <- chisq.test(MoxonidineData, correct = F) -->
 <!--         zvec[i] <- test$p.value<0.05 -->
@@ -462,8 +535,6 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!-- InterimAssuranceFuncNonInform <- function(){ -->
 
 <!--   #Find the posterior dist. for theta1 and theta2 -->
-<!--   library(rstan) -->
-
 <!--   bern.stan = -->
 <!--     " -->
 <!-- data { -->
@@ -481,14 +552,14 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!--   theta2 = theta1 - rho; -->
 <!-- } -->
 <!-- model { -->
-<!--   theta1 ~ beta(10.7, 13.1);        -->
+<!--   theta1 ~ beta(10.7, 13.1); -->
 <!--   rho ~ uniform(0, 1); -->
-<!--   cE ~ binomial(cN, theta1);         -->
+<!--   cE ~ binomial(cN, theta1); -->
 <!--   tE ~ binomial(tN, theta2); -->
 <!-- } -->
 <!-- " -->
 <!-- MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) -->
-<!-- data <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN,  -->
+<!-- data <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, -->
 <!--              tE = MoxonidineData$tE, tN = MoxonidineData$tN) -->
 
 <!-- fit <- stan(model_code=bern.stan, data=data) -->
@@ -501,7 +572,7 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!--     control <- rbinom(1, n1, fit@sim[["samples"]][[1]][[1]][i]) -->
 <!--     treatment <- rbinom(1, n2, fit@sim[["samples"]][[1]][[3]][i]) -->
 <!--     MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                  NotRaisedcTni = c(n1 - control, n2 - treatment),  -->
+<!--                                  NotRaisedcTni = c(n1 - control, n2 - treatment), -->
 <!--                                  row.names = c("Control", "Treatment")) -->
 <!--     test <- chisq.test(MoxonidineData, correct = F) -->
 <!--     zvec[i] <- test$p.value < 0.05 -->
@@ -535,6 +606,7 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 
 <!-- ``` -->
 
+
 <!-- Scenario 1: We have $\rho \sim N(0.15, 0.0001)$, which means that we are very confident that the experimental treatment truly is 33% more effective than the control treatment. This is evident in both the assurance at the design stage and at the interim analysis stage. The prior beliefs for $\rho$ are so strong that even the data (which shows that the treatment is no more effective than the placebo) does not change these beliefs. -->
 
 <!-- Scenario 2: We see that the assurance at the interim analysis stage is considerably lower than at the design stage. This indicates that the data has had an effect on the posterior distributions for $\theta_1$ and $\theta_2$ and we are not as confident that the experimental treatment is truly better than the placebo. The posterior captures this as the prior beliefs for $\rho$ is not as strong as in scenario 1 (potentially a more realistic situation). -->
@@ -544,7 +616,6 @@ In scenario 3, the prior for $\rho$ indicates that the treatment may not be as e
 <!-- Scenario 4: We see that at the interim analysis stage, the assurance only reaches a level of $\approx$ 20\%. This is because we have a non-informative prior here so the posterior distributions will be highly influenced by the data. The data does not show any statistical differences between $\theta_1$ and $\theta_2$, and this is reflected by the value for the assurance being low.  -->
 
 <!-- As highlighted in scenarios 2, 3 and 4, it is useful to calculate assurance at interim analyses, as well as in the design stage. The trial was stopped due to futility in the traditional way, but it is comforting to see that a Bayesian analysis of the data gives the same interpretation. The more informed the clinicians are about the results of the trial, the better-placed they are to make decisions about the continuation (or not) of a trial. -->
-
 
 
 
