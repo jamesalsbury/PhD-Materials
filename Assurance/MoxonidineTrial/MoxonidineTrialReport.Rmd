@@ -318,10 +318,7 @@ generated quantities {
  treatmentevents <- rep(NA, 1e4)
  for (i in 1:1e4){
   controlevents[i] <- fit@sim$samples[[1]][[4]][i]
-  treatmentsevents[i] <- fit@sim$samples[[1]][[5]][i]
- 
-   
-   
+  treatmentevents[i] <- fit@sim$samples[[1]][[5]][i]
  }
  
 ```

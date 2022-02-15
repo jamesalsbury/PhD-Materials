@@ -476,6 +476,16 @@ server = function(input, output, session) {
   
   
   observe({
+    controltime <<- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+    controlsurv <<- exp(-(input$lambda2*controltime)^input$gamma2)
+    
+   updateNumericInput(session, inputId = "minlength", value = floor(controltime[min(which((controlsurv<0.15)==T))]))
+   updateNumericInput(session, inputId = "maxlength", value = floor(controltime[min(which((controlsurv<0.05)==T))]))
+   updateNumericInput(session, inputId = "chosenlength", value = floor(controltime[min(which((controlsurv<0.05)==T))]))
+  })
+  
+  
+  observe({
     hide("chosenlength")
   })
   
