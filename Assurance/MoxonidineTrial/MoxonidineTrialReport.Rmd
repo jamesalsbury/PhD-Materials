@@ -19,12 +19,12 @@ library(rstan)
 
 ## Introduction
 
-This report outlines a clinical trial which can be found here: <https://pubmed.ncbi.nlm.nih.gov/17968979/>. The trial compared the drug moxonidine against a control in a double-blind trial. We will discuss the trial; how the sample size was calculated, how the trial was conducted and the results of the trial. We will also retrospectively compute assurance for this trial, both before and during (in the interim analysis). Using assurance would have helped the study team in this trial as they would have been able to give distributions for their beliefs about the control and also for the effect of the experimental treatment. If they were unsure of their beliefs about either then this could be modelled by the distributions and the assurance calculations would reflect this. Therefore everyone involved in the trial would be more informed, from the sponsors to the study team. 
+This report outlines a clinical trial which can be found [here](https://pubmed.ncbi.nlm.nih.gov/17968979/). The trial compared the drug moxonidine against a control in a double-blind trial. We will discuss the trial; how the sample size was calculated, how the trial was conducted and the results of the trial. We will also retrospectively compute assurance for this trial, both before and during (in the interim analysis). Using assurance would have helped the study team in this trial as they would have been able to give distributions for their beliefs about the control and also for the effect of the experimental treatment. If they were unsure of their beliefs about either then this could be modelled by the distributions and the assurance calculations would reflect this. Therefore everyone involved in the trial would be more informed, from the sponsors to the study team. 
 
 
 ## Background
 
-Myocardial ischaemia is the leading cause of morbidity and mortality after surgery on patients with coronary artery disease. Patients were randomly assigned the drug moxonidine or a control (with ratio 1:1) to be taken the morning before surgery and on days 1 to 4 after surgery. Study medication was administered by a member of the team blinded to treatment allocation. The endpoint of the trial was measuring the difference in levels of cTnI before surgery and 7 days post surgery, an increase of 2$\mu$g/l of cTnI was interpreted as being clinically significant in increasing the probability of myocardial ischaemia. Therefore, an increase of 2$\mu$g/l of cTnI is regarded as a failure (not desirable), any increase less than 2$\mu$g/l of cTnI is a success (desirable outcome). An incidence level of 45% was found in a previous investigation for the control and the clinicians believed the treatment (moxonidine) would decrease incidence levels to 30%. 
+Myocardial ischaemia is the leading cause of morbidity and mortality after surgery on patients with coronary artery disease. Patients were randomly assigned the drug moxonidine or a control (with ratio 1:1) to be taken the morning before surgery and on days 1 to 4 after surgery. Study medication was administered by a member of the team blinded to treatment allocation. The endpoint of the trial was measuring the difference in levels of cTnI before surgery and 7 days post surgery, an increase of 2$\mu$g/l of cTnI was interpreted as being clinically significant in increasing the probability of myocardial ischaemia. Therefore, an increase of 2$\mu$g/l of cTnI is an undesirable outcome and any increase less than 2$\mu$g/l of cTnI is a desirable outcome. An incidence level of 45% was found in a previous investigation for the control and the clinicians believed the treatment (moxonidine) would decrease incidence levels to 30%. 
 
 
 ## Trial Design
@@ -48,8 +48,8 @@ At the interim analysis, 141 patients had been recruited into the trial. There w
 ```{r table2, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 my_tbl <- tibble::tribble(
   ~"", ~"Control (n=63)", ~"Treatment (n=78)",
-                          "Success",     "40(63%)",         "47(60%)",              
-                            "Failure",       "23(37%)",    "31(40%)"           
+                          "Not raised cTnI (desirable)",     "40(63%)",         "47(60%)",              
+                            "Raised cTnI (undesirable)",       "23(37%)",    "31(40%)"           
                               
   )
 
@@ -77,11 +77,11 @@ We can see that the $p$-value calculated is 0.694, which clearly is not signific
 We will assume different scenarios here. The first scenario is assuming that the remaining data will follow the same pattern of the data accrued so far. We see that when we assume this, the conditional power drops to 0.
 
 ```{r cp, echo=F}
-testvec <- rep(NA, 1000)
+testvec <- rep(NA, 5000)
 for (i in 1:length(testvec)){
   remainingControl <- rbinom(117, size = 1, prob = 23/63)
 remainingTreatment <- rbinom(102, size = 1, prob = 31/78)
-MoxonidineData <- data.frame(RaisedcTni = c(23+sum(remainingControl==0), 31+sum(remainingControl==0)), NotRaisedcTni = c(40+sum(remainingControl==1), 47+sum(remainingTreatment==1)),
+MoxonidineData <- data.frame(RaisedcTni = c(23+sum(remainingControl==1), 31+sum(remainingTreatment==1)), NotRaisedcTni = c(40+sum(remainingControl==0), 47+sum(remainingTreatment==0)),
                              row.names = c("Control", "Treatment"))
 test <- chisq.test(MoxonidineData, correct = F)
 testvec[i] <- test$p.value<0.05
@@ -94,11 +94,11 @@ mean(testvec)
 In the following scenario, we assume the remaining data will follow that of the clinicians beliefs before the trial started: control will have an incidence rate of 45% and treatment will have a lower incidence rate of 30%. Even in this very optimistic scenario (as the data so far does not support these beliefs), the conditional power is very low.  This suggests that the trial should be stopped for futility. 
 
 ```{r cp1, echo=F}
-testvec <- rep(NA, 1000)
+testvec <- rep(NA, 5000)
 for (i in 1:length(testvec)){
-  remainingControl <- rbinom(117, size = 1, prob = 0.45)
+remainingControl <- rbinom(117, size = 1, prob = 0.45)
 remainingTreatment <- rbinom(102, size = 1, prob = 0.3)
-MoxonidineData <- data.frame(RaisedcTni = c(23+sum(remainingControl==0), 31+sum(remainingControl==0)), NotRaisedcTni = c(40+sum(remainingControl==1), 47+sum(remainingTreatment==1)),
+MoxonidineData <- data.frame(RaisedcTni = c(23+sum(remainingControl==1), 31+sum(remainingTreatment==1)), NotRaisedcTni = c(40+sum(remainingControl==0), 47+sum(remainingTreatment==0)),
                              row.names = c("Control", "Treatment"))
 test <- chisq.test(MoxonidineData, correct = F)
 testvec[i] <- test$p.value<0.05
@@ -265,7 +265,7 @@ We can also perform assurance calculations during the trial. This feels natural 
 The following four plots show the four different scenarios; in each plot we have the power, the assurance at the design stage and the assurance at the interim analysis stage. The total sample sizes only reach a maximum of 360 (180 in each arm) here, as this was the number of patients planned to be enrolled in the trial.
 
 
-```{stan output.var="ex1"}
+```{stan output.var="ex1", echo=F}
 data {
   int<lower=0> cE;               // control events
   int<lower=0> cN;               // number of patients in control group
@@ -306,20 +306,26 @@ generated quantities {
  exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
             tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
  
- sampling_iterations <- 1e4
+ sampling_iterations <- 1e5
  fit <- sampling(ex1,
  data = exampleData,
  chains = 1,
  iter = sampling_iterations,
- warmup = sampling_iterations/2)
+ warmup = sampling_iterations/4,
+ refresh=0)
  
 
- controlevents <- rep(NA, 1e4)
- treatmentevents <- rep(NA, 1e4)
- for (i in 1:1e4){
-  controlevents[i] <- fit@sim$samples[[1]][[4]][i]
-  treatmentevents[i] <- fit@sim$samples[[1]][[5]][i]
+ testvec <- rep(NA, 1e5)
+ for (i in 1:1e5){
+  controlevents <- fit@sim$samples[[1]][[4]][i]
+  treatmentevents <- fit@sim$samples[[1]][[5]][i]
+  MoxonidineData <- data.frame(RaisedcTni = c(23+controlevents, 31+treatmentevents), NotRaisedcTni 
+                               =c(40+(117-controlevents), 47+(102-treatmentevents)),
+                                   row.names = c("Control", "Treatment"))
+  test <- chisq.test(MoxonidineData, correct = F)
+  testvec[i] <- test$p.value<0.05
  }
+ mean(testvec)
  
 ```
 
