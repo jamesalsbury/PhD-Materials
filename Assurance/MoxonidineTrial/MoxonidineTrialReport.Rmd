@@ -19,12 +19,15 @@ library(rstan)
 
 ## Introduction
 
-This report outlines a clinical trial which can be found [here](https://pubmed.ncbi.nlm.nih.gov/17968979/). The trial compared the drug moxonidine against a control in a double-blind trial. We will discuss the trial; how the sample size was calculated, how the trial was conducted and the results of the trial. We will also retrospectively compute assurance for this trial, both before and during (in the interim analysis). Using assurance would have helped the study team in this trial as they would have been able to give distributions for their beliefs about the control and also for the effect of the experimental treatment. If they were unsure of their beliefs about either then this could be modelled by the distributions and the assurance calculations would reflect this. Therefore everyone involved in the trial would be more informed, from the sponsors to the study team. 
+This report outlines a clinical trial which can be found [\textcolor{blue}{here}](https://pubmed.ncbi.nlm.nih.gov/17968979/). The trial compared the drug moxonidine against a control in a double-blind trial. We will discuss the trial; how the sample size was calculated, how the trial was conducted and the results of the trial. 
+
+#Talk about what is in the report
+We will also retrospectively compute assurance for this trial, both before and during (in the interim analysis). Using assurance would have helped the study team in this trial as they would have been able to give distributions for their beliefs about the control and also for the effect of the experimental treatment. If they were unsure of their beliefs about either then this could be modelled by the distributions and the assurance calculations would reflect this. Therefore everyone involved in the trial would be more informed, from the sponsors to the study team. 
 
 
 ## Background
 
-Myocardial ischaemia is the leading cause of morbidity and mortality after surgery on patients with coronary artery disease. Patients were randomly assigned the drug moxonidine or a control (with ratio 1:1) to be taken the morning before surgery and on days 1 to 4 after surgery. Study medication was administered by a member of the team blinded to treatment allocation. The endpoint of the trial was measuring the difference in levels of cTnI before surgery and 7 days post surgery, an increase of 2$\mu$g/l of cTnI was interpreted as being clinically significant in increasing the probability of myocardial ischaemia. Therefore, an increase of 2$\mu$g/l of cTnI is an undesirable outcome and any increase less than 2$\mu$g/l of cTnI is a desirable outcome. An incidence level of 45% was found in a previous investigation for the control and the clinicians believed the treatment (moxonidine) would decrease incidence levels to 30%. 
+Myocardial ischaemia is the leading cause of mortality after surgery on patients with coronary artery disease. In the trial, patients were randomly assigned the treatment drug **moxonidine** or a control (with ratio 1:1) to be taken the morning before surgery and on days 1 to 4 after surgery. Study medication was administered by a member of the team blinded to treatment allocation. The endpoint of the trial was measuring the difference in levels of cTnI before surgery and 7 days post surgery, an increase of 2$\mu$g/l of cTnI was interpreted as being clinically significant in increasing the probability of myocardial ischaemia. Therefore, an increase of 2$\mu$g/l of cTnI is an undesirable outcome and any increase less than 2$\mu$g/l of cTnI is a desirable outcome. An incidence level of 45% was found in a previous investigation for the control and the clinicians believed the experimental treatment (moxonidine) would decrease incidence levels to 30%. 
 
 
 ## Trial Design
@@ -39,11 +42,11 @@ Here, we have $\pi_A = 0.45$ and $\pi_B = 0.30$. If we substitute these values i
 \end{align*}
 so we can see why the value of 180 patients in each arm was chosen.
 
-A blinded interim analysis was prospectively planned after one-third of the calculated study population had been enrolled. Futility was assessed by conditional power under the current trend of the data; if this was calculated to be less than 50% then the study would be considered futile.
+A blinded interim analysis was prospectively planned after one-third of the calculated study population had been enrolled. The decision-rules performed at the interim analysis are unknown, but the trial was stopped for futility (citing a high p-value). 
 
 ## Results
 
-At the interim analysis, 141 patients had been recruited into the trial. There were 78 patients in the treatment group and 63 patients in the control group, the results are given below:
+At the interim analysis, 141 patients had been recruited into the trial (just over the one-third of patients, as specified before the trial). There were 78 patients in the treatment group and 63 patients in the control group, the results are given below:
 
 ```{r table2, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 my_tbl <- tibble::tribble(
@@ -60,7 +63,7 @@ kable(my_tbl, digits = 3, row.names = FALSE, align = "c",
 ```
 
 
-At the interim analysis, We see that $\approx 40\%$ patients in the treatment group have higher levels of cTnI (higher levels indicate higher levels of myocardial ischaemia), compared to $\approx 37\%$ of patients in the control group. We see that the levels of increased cTnI is greater in the treatment group than the control group, which is clearly not desirable.
+At the interim analysis, We see that $\approx 40\%$ patients in the treatment group have higher levels of cTnI (higher levels indicate higher levels of myocardial ischaemia), compared to $\approx 37\%$ of patients in the control group. We see that the levels of increased cTnI is greater in the treatment group than the control group, which is clearly not desirable (nor what the study team had planned for).
 
 This can be analysed with a $\chi^2$ test, as seen below.
 
@@ -70,13 +73,18 @@ MoxonidineData <- data.frame(RaisedcTni = c(23, 31), NotRaisedcTni = c(40, 47),
 chisq.test(MoxonidineData, correct = F)
 ```
 
-We can see that the $p$-value calculated is 0.694, which clearly is not significant at all. We can calculate conditional power here.
+We can see that the $p$-value calculated is 0.694, which clearly is not significant at all. 
 
 ## Conditional power
 
-We will assume different scenarios here. The first scenario is assuming that the remaining data will follow the same pattern of the data accrued so far. We see that when we assume this, the conditional power drops to 0.
+As we have a trial with an interim analysis, we can calculate conditional power. To perform a conditional power calculation, the remaining unknown patient outcomes are simulated. It is not clear how these values should be simulated, there are (usually) three different options the statistician can make, we assume that the remaining patients will follow: 1) the same trend as the observed patients, 2) the trend elicited before the trial began and 3) the null hypothesis. We will calculate conditional power according to all three of these assumptions
 
-```{r cp, echo=F}
+### Assumption 1 (realistic)
+
+Here, we assume the remaining patients will follow the same trend as the data accrued so far. That is, the control group has an incidence level of 37% and the treatment group has an incidence level of 40%. We can simulate data according to this, and then calculate the proportion of the trials that have a "successful" outcome. 
+
+
+```{r cp1, echo=F}
 testvec <- rep(NA, 5000)
 for (i in 1:length(testvec)){
   remainingControl <- rbinom(117, size = 1, prob = 23/63)
@@ -90,10 +98,11 @@ mean(testvec)
 
 ```
 
+### Assumption 2 (optimistic)
 
-In the following scenario, we assume the remaining data will follow that of the clinicians beliefs before the trial started: control will have an incidence rate of 45% and treatment will have a lower incidence rate of 30%. Even in this very optimistic scenario (as the data so far does not support these beliefs), the conditional power is very low.  This suggests that the trial should be stopped for futility. 
+Here, we assume the remaining data will follow that of the clinicians beliefs before the trial started: control will have an incidence rate of 45% and treatment will have a lower incidence rate of 30%. 
 
-```{r cp1, echo=F}
+```{r cp2, echo=F}
 testvec <- rep(NA, 5000)
 for (i in 1:length(testvec)){
 remainingControl <- rbinom(117, size = 1, prob = 0.45)
@@ -106,16 +115,34 @@ testvec[i] <- test$p.value<0.05
 mean(testvec)
 ```
 
+### Assumption 3 (pessimistic)
+
+Here, we assume that the remaining data will come from the null hypothesis. That is, the control and treatment incidence rates will both be 45%. 
+
+```{r cp3, echo=F}
+testvec <- rep(NA, 5000)
+for (i in 1:length(testvec)){
+remainingControl <- rbinom(117, size = 1, prob = 0.45)
+remainingTreatment <- rbinom(102, size = 1, prob = 0.45)
+MoxonidineData <- data.frame(RaisedcTni = c(23+sum(remainingControl==1), 31+sum(remainingTreatment==1)), NotRaisedcTni = c(40+sum(remainingControl==0), 47+sum(remainingTreatment==0)),
+                             row.names = c("Control", "Treatment"))
+test <- chisq.test(MoxonidineData, correct = F)
+testvec[i] <- test$p.value<0.05
+}
+mean(testvec)
+```
 
 
+So, we see that in all three of the scenarios, the conditional power has greatly reduced from the original power planned for before the trial was conducted (80%). From these results, we can see why the trial was stopped for futility. 
 
-## Assurance for this trial
+
+## Making this trial Bayesian
 
 ### Trial design stage
 
 The design of this trial is very traditional, very frequentist. We have a placebo (for which we have a point-estimate), a treatment (for which we have an estimate of its effects in comparison to the placebo), we have the type I error rate ($\alpha = 0.05$) and we have some power that we wish to perform the trial at (here, $1-\beta = 0.8$). As a result, we saw how when we substitute these values into the equations, we obtain 180 patients in both of the two arms.
 
-However, this method is sub-optimal for a number of reasons. The first reason is that this calculation assumes that the treatment is in fact better than the placebo - which we cannot possibly know as we would not be doing the trial otherwise. Therefore, the power of the test (80\%) is the conditional probability that we will find an effect, if such an effect exists. In reality, there will be times where the treatment is no better than the placebo (as was the case in this trial) so the power is a misrepresentation of how effective a trial actually is.
+However, this method is sub-optimal for a number of reasons. The first reason is that this calculation assumes that the treatment is in fact better than the placebo - which we cannot possibly know as we would not be doing the trial otherwise. Therefore, the power of the test (80\%) is the conditional probability that we will find an effect, if such an effect exists. In reality, there will be times where the treatment is no better than the placebo (as it seemed was the case in this trial) so the power is a misrepresentation of how effective a trial actually is.
 
 The second reason is that we only have point-estimates for the placebo and the treatment effect. From historical data, we should be able to construct a distribution for the effectiveness of the placebo, and from possible phase II trials, pilot studies and in collaboration with clinical investigators, we should be able to construct a distribution for the effectiveness of the treatment.  Even if we are not very confident about our estimates in the effectiveness of the treatment, these prior beliefs can be incorporated into the distribution.
 
@@ -141,7 +168,7 @@ estBetaParams(0.45, 0.1^2)
 
 So we can see that these beliefs can be approximately captured by a Be(10.7, 13.1) distribution.
 
-To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_1 - \theta_2$. We prefer to think about the difference as $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an effect size of 33%, this indicates that $E[\theta_2] = 0.3$ and $E[\rho]= 0.15$. Therefore, we can model $\rho \sim N(0.15, \nu)$. Again, the trial investigators will be able to choose an appropriate value for $\nu$, so for illustration we will calculate the assurance under three different scenarios (note: the third scenario has different value for the mean):
+To elicit beliefs about $\theta_2$, we can instead think about the difference between the control treatment and the experimental treatment. Let $\rho = \theta_1 - \theta_2$. We prefer to think about the difference as $\theta_1$ and $\theta_2$ are not independent. From the trial setup, we know that the clinicians believe that the experimental treatment has an absolute effect size of 15%, this indicates that $E[\theta_2] = 0.3$ and $E[\rho]= 0.15$. Therefore, we can model $\rho \sim N(0.15, \nu)$. Again, the trial investigators will be able to choose an appropriate value for $\nu$, so for illustration we will calculate the assurance under four different scenarios (note: the third scenario has different value for the mean):
 
 Scenario 1: $\rho \sim N(0.15, 0.0001)$
 
@@ -149,7 +176,7 @@ Scenario 2: $\rho \sim N(0.15, 0.01)$
 
 Scenario 3: $\rho \sim N(0.10, 0.01)$
 
-Scenario 4: $\rho \sim Unif(\theta_1-1 \text{, } \theta1)$
+Scenario 4: $\rho \sim Unif(\theta_1-1 \text{, } \theta_1)$
 
 We can calculate assurance under the four scenarios. This can be seen in the figure below - alongside the traditional power curve.
 
@@ -165,7 +192,7 @@ for (i in 1:length(powervec)){
 
 
 plot(N1vec, powervec, type = "l", ylim = c(0,1), xlab = "Total sample size", xaxt = "n",
-     ylab = "Power/Assurance", lty=2)
+     ylab = "Power/Assurance", lty=1)
 axis(1, at = seq(0, 500,by = 100), labels = seq(0, 1000, by = 200))
 
 assurancefunc <- function(n1, n2, m, v){
@@ -192,7 +219,7 @@ for (i in 1:length(ass1)){
   ass1[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.0001)
 }
 lo1 <- loess(ass1~N1vec)
-lines(N1vec, predict(lo1), lty=3, col="blue")
+lines(N1vec, predict(lo1), lty=2, col="blue")
 
 #Scenario 2
 ass2 <- rep(NA, length=length(N1vec))
@@ -200,7 +227,7 @@ for (i in 1:length(ass2)){
   ass2[i] <- assurancefunc(N1vec[i], N2vec[i], m = 0.15, v = 0.01)
 }
 lo2 <- loess(ass2~N1vec)
-lines(N1vec, predict(lo2), lty=4, col="red")
+lines(N1vec, predict(lo2), lty=3, col="red")
 
 
 #Scenario 3
@@ -210,7 +237,7 @@ for (i in 1:length(ass3)){
 }
 
 lo3 <- loess(ass3~N1vec)
-lines(N1vec, predict(lo3), lty=5, col="green")
+lines(N1vec, predict(lo3), lty=4, col="green")
 
 DesignAssuranceFuncNonInform <- function(){
 
@@ -245,10 +272,10 @@ DesignAssuranceFuncNonInform <- function(){
   lo <- loess(assurance~N1vec)
   return(lo)
 }
-lines(N1vec, predict(DesignAssuranceFuncNonInform()), lty=6, col="yellow")
+lines(N1vec, predict(DesignAssuranceFuncNonInform()), lty=5, col="yellow")
 
 legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 3", "Scenario 4"),
-       col=c("black", "blue", "red", "green", "yellow"), lty=2:6)
+       col=c("black", "blue", "red", "green", "yellow"), lty=1:5)
 ```
 
 In scenario 1, the prior distribution for $\rho$ indicates a strong belief that the treatment is 33% more effective than the control. This is shown by the assurance essentially being the power curve (where we assume the treatment is better).
@@ -328,299 +355,6 @@ generated quantities {
  mean(testvec)
  
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-<!-- ```{r interim, message=F, warning=F, echo=F, results='hide'} -->
-
-<!-- powerfunc <- function(){ -->
-<!--   N1vec <- seq(1,180) -->
-<!--   N2vec <- seq(1,180) -->
-<!--   powervec <- vector(length = 180) -->
-<!--   for (i in 1:180){ -->
-<!--     power <- power.prop.test(n=N1vec[i],p1=0.45,p2=0.3) -->
-<!--     powervec[i] <- power$power -->
-<!--   } -->
-<!--   return(powervec) -->
-<!-- } -->
-
-<!-- #Assurance function for the moxonidine trial - at the design stage -->
-
-<!-- #We input mu and nu (the parameters for the rho distribution) -->
-<!-- DesignAssuranceFunc <- function(mu, nu){ -->
-
-<!--   #We calculate the assurance for user-specified n1 and n2 -->
-<!--   assurancefunc <- function(n1, n2, mu, nu){ -->
-<!--     n <- 10e1 -->
-<!--     zvec <- vector(length=n) -->
-<!--     for (i in 1:n){ -->
-<!--       theta1 <- rbeta(1, 10.7, 13.1) #Control -->
-<!--       rho <- rnorm(1, mu, sd = sqrt(nu)) -->
-<!--       theta2 <- theta1 - rho #Treatment -->
-<!--       if (theta2<0){ -->
-<!--         zvec[i] <- NA -->
-<!--       } else{ -->
-<!--         control <- rbinom(1, n1, theta1) -->
-<!--         treatment <- rbinom(1, n2, theta2) -->
-<!--         MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                      NotRaisedcTni = c(n1 - control, n2 - treatment), -->
-<!--                                      row.names = c("Control", "Treatment")) -->
-<!--         test <- chisq.test(MoxonidineData, correct = F) -->
-<!--         zvec[i] <- test$p.value<0.05 -->
-<!--       } -->
-<!--     } -->
-<!--     zvec <- na.omit(zvec) -->
-<!--     mean(zvec) -->
-<!--   } -->
-
-<!--   #We compute the assurance for a range of different n1, n2 values -->
-<!--   assurance <- vector(length = 180) -->
-<!--   N1vec <- 1:180 -->
-<!--   N2vec <- 1:180 -->
-<!--   for (i in 1:180){ -->
-<!--     assurance[i] <- assurancefunc(N1vec[i], N2vec[i], mu = mu, nu = nu) -->
-<!--   } -->
-
-<!--   #Smooth the output -->
-<!--   lo <- loess(assurance~N1vec) -->
-<!--   return(lo) -->
-<!-- } -->
-
-
-<!-- #Assurance at the interim analysis -->
-
-
-<!-- InterimAssuranceFunc <- function(mu, nu){ -->
-
-<!--   #Find the posterior dist. for theta1 and theta2 -->
-
-
-<!--   bern.stan = -->
-<!--     " -->
-<!-- data { -->
-<!--   int<lower=0> cE;               // control events -->
-<!--   int<lower=0> cN;               // number of patients in control group -->
-<!--   int<lower=0> tE;               // treatment events -->
-<!--   int<lower=0> tN;               // number of patients in treatment group -->
-<!--   real mu;                       // mean of rho -->
-<!--   real sigma;                    // sd of rho -->
-<!-- } -->
-<!-- parameters { -->
-<!--   real<lower=0, upper=1> theta1; // chance of success in control group -->
-<!--   real rho;                      // difference between treatment and control (theta1-theta2) -->
-<!-- } -->
-<!-- transformed parameters{ -->
-<!--   real<lower=0, upper=1> theta2; // chance of success in treatment group -->
-<!--   theta2 = theta1 - rho; -->
-<!-- } -->
-<!-- model { -->
-<!--   theta1 ~ beta(10.7, 13.1); -->
-<!--   rho ~ normal(mu, sigma); -->
-<!--   cE ~ binomial(cN, theta1); -->
-<!--   tE ~ binomial(tN, theta2); -->
-<!-- } -->
-<!-- " -->
-<!-- MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) -->
-<!-- data <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, -->
-<!--              tE = MoxonidineData$tE, tN = MoxonidineData$tN, mu = mu, sigma = sqrt(nu)) -->
-
-<!-- fit <- stan(model_code=bern.stan, data=data) -->
-
-
-<!-- #For a given n1 and n2, compute the assurance -->
-<!-- interimassfunc <- function(n1, n2, fit){ -->
-<!--   zvec <- vector(length=1000) -->
-<!--   for (i in 1:1000){ -->
-<!--     control <- rbinom(1, n1, fit@sim[["samples"]][[1]][[1]][i]) -->
-<!--     treatment <- rbinom(1, n2, fit@sim[["samples"]][[1]][[3]][i]) -->
-<!--     MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                  NotRaisedcTni = c(n1 - control, n2 - treatment), -->
-<!--                                  row.names = c("Control", "Treatment")) -->
-<!--     test <- chisq.test(MoxonidineData, correct = F) -->
-<!--     zvec[i] <- test$p.value < 0.05 -->
-<!--   } -->
-<!--   mean(zvec) -->
-<!-- } -->
-
-<!-- #Compute the assurance for a range of n1 and n2 values -->
-<!-- N1vec <- seq(10,180, by=5) -->
-<!-- N2vec <- seq(10,180, by=5) -->
-<!-- interimass <- vector(length = 35) -->
-<!-- for (i in 1:35){ -->
-<!--   interimass[i] <- interimassfunc(N1vec[i], N2vec[i], fit = fit) -->
-<!-- } -->
-<!-- lo <- loess(interimass~N1vec) -->
-<!-- return(lo) -->
-<!-- } -->
-
-
-<!-- #Plotting power, assurance before trial and interim assurance for different scenarios -->
-<!-- MoxonidineTrialPowerAndAssurance <- function(mu, nu, scenario){ -->
-<!--   plot(powerfunc(), type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size", -->
-<!--        ylab = "Power/Assurance", lty=2, -->
-<!--        main = bquote(phantom(0)["Scenario "*.(scenario)* ":" ~ rho  ~ "~ N(" *.(mu)*","*.(nu)*")"~.])) -->
-<!--   axis(1, at = seq(0, 200,by = 50), labels = seq(0, 400, by = 100)) -->
-<!--   lines(predict(DesignAssuranceFunc(mu, nu)), col="blue", lty=3) -->
-<!--   # x = predict(InterimAssuranceFunc(mu, nu)) -->
-<!--   # message(length(x)) -->
-<!--   # if (scenario==1){ -->
-<!--   #   N1vec <- seq(15,175, by=5) -->
-<!--   # } else if (scenario==2){ -->
-<!--   #   N1vec <- seq(10,175, by=5) -->
-<!--   # } else if (scenario==3){ -->
-<!--   #   N1vec <- seq(10,180, by=5) -->
-<!--   # } -->
-<!--   N1vec <- seq(10, 180, by=5) -->
-<!--   lines(N1vec, predict(InterimAssuranceFunc(mu, nu)), col='red', lty=4) -->
-<!--   legend("topleft", legend = c("Power", "Design assurance", "Interim assurance"), -->
-<!--       col=c("black", "blue", "red"), lty=2:4) -->
-<!-- } -->
-
-
-<!-- #Scenario 1 -->
-<!-- MoxonidineTrialPowerAndAssurance(mu = 0.15, nu = 0.0001, scenario = 1) -->
-
-<!-- #Scenario 2 -->
-<!-- MoxonidineTrialPowerAndAssurance(mu = 0.15, nu = 0.01, scenario = 2) -->
-
-<!-- #Scenario 3 -->
-<!-- MoxonidineTrialPowerAndAssurance(mu = 0.10, nu = 0.01, scenario = 3) -->
-
-
-<!-- DesignAssuranceFuncNonInform <- function(){ -->
-
-<!--   #We calculate the assurance for user-specified n1 and n2 -->
-<!--   assurancefunc <- function(n1, n2){ -->
-<!--     n <- 10e1 -->
-<!--     zvec <- vector(length=n) -->
-<!--     for (i in 1:n){ -->
-<!--       theta1 <- rbeta(1, 10.7, 13.1) #Control -->
-<!--       rho <- runif(1) -->
-<!--       theta2 <- theta1 - rho #Treatment -->
-<!--       if (theta2<0){ -->
-<!--         zvec[i] <- NA -->
-<!--       } else{ -->
-<!--         control <- rbinom(1, n1, theta1) -->
-<!--         treatment <- rbinom(1, n2, theta2) -->
-<!--         MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                      NotRaisedcTni = c(n1 - control, n2 - treatment), -->
-<!--                                      row.names = c("Control", "Treatment")) -->
-<!--         test <- chisq.test(MoxonidineData, correct = F) -->
-<!--         zvec[i] <- test$p.value<0.05 -->
-<!--       } -->
-<!--     } -->
-<!--     zvec <- na.omit(zvec) -->
-<!--     mean(zvec) -->
-<!--   } -->
-
-<!--   #We compute the assurance for a range of different n1, n2 values -->
-<!--   assurance <- vector(length = 500) -->
-<!--   N1vec <- 1:500 -->
-<!--   N2vec <- 1:500 -->
-<!--   for (i in 1:500){ -->
-<!--     assurance[i] <- assurancefunc(N1vec[i], N2vec[i]) -->
-<!--   } -->
-
-<!--   #Smooth the output -->
-<!--   lo <- loess(assurance~N1vec) -->
-<!--   return(lo) -->
-<!-- } -->
-
-<!-- InterimAssuranceFuncNonInform <- function(){ -->
-
-<!--   #Find the posterior dist. for theta1 and theta2 -->
-<!--   bern.stan = -->
-<!--     " -->
-<!-- data { -->
-<!--   int<lower=0> cE;               // control events -->
-<!--   int<lower=0> cN;               // number of patients in control group -->
-<!--   int<lower=0> tE;               // treatment events -->
-<!--   int<lower=0> tN;               // number of patients in treatment group -->
-<!-- } -->
-<!-- parameters { -->
-<!--   real<lower=0, upper=1> theta1; // chance of success in control group -->
-<!--   real rho;                      // difference between treatment and control (theta1-theta2) -->
-<!-- } -->
-<!-- transformed parameters{ -->
-<!--   real<lower=0, upper=1> theta2; // chance of success in treatment group -->
-<!--   theta2 = theta1 - rho; -->
-<!-- } -->
-<!-- model { -->
-<!--   theta1 ~ beta(10.7, 13.1); -->
-<!--   rho ~ uniform(0, 1); -->
-<!--   cE ~ binomial(cN, theta1); -->
-<!--   tE ~ binomial(tN, theta2); -->
-<!-- } -->
-<!-- " -->
-<!-- MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) -->
-<!-- data <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, -->
-<!--              tE = MoxonidineData$tE, tN = MoxonidineData$tN) -->
-
-<!-- fit <- stan(model_code=bern.stan, data=data) -->
-
-
-<!-- #For a given n1 and n2, compute the assurance -->
-<!-- interimassfunc <- function(n1, n2, fit){ -->
-<!--   zvec <- vector(length=1000) -->
-<!--   for (i in 1:1000){ -->
-<!--     control <- rbinom(1, n1, fit@sim[["samples"]][[1]][[1]][i]) -->
-<!--     treatment <- rbinom(1, n2, fit@sim[["samples"]][[1]][[3]][i]) -->
-<!--     MoxonidineData <- data.frame(RaisedcTni = c(control, treatment), -->
-<!--                                  NotRaisedcTni = c(n1 - control, n2 - treatment), -->
-<!--                                  row.names = c("Control", "Treatment")) -->
-<!--     test <- chisq.test(MoxonidineData, correct = F) -->
-<!--     zvec[i] <- test$p.value < 0.05 -->
-<!--   } -->
-<!--   mean(zvec) -->
-<!-- } -->
-
-<!-- #Compute the assurance for a range of n1 and n2 values -->
-<!-- N1vec <- seq(10,180, by=5) -->
-<!-- N2vec <- seq(10,180, by=5) -->
-<!-- interimass <- vector(length = 35) -->
-<!-- for (i in 1:35){ -->
-<!--   interimass[i] <- interimassfunc(N1vec[i], N2vec[i], fit = fit) -->
-<!-- } -->
-<!-- lo <- loess(interimass~N1vec) -->
-<!-- return(lo) -->
-<!-- } -->
-
-<!-- plot(powerfunc(), type = "l", ylim = c(0,1), xaxt = "n", xlab = "Total sample size", -->
-<!--        ylab = "Power/Assurance", lty=2, -->
-<!--        main = bquote(phantom(0)["Scenario 4:" ~ rho  ~ "~ U(0, 1)"~.])) -->
-<!--   axis(1, at = seq(0, 200,by = 50), labels = seq(0, 400, by = 100)) -->
-<!--   lines(predict(DesignAssuranceFuncNonInform()), col="blue", lty=3) -->
-<!--   N1vec <- seq(10, 180, by=5) -->
-<!--   # x = predict(InterimAssuranceFuncNonInform()) -->
-<!--   # message(length(x)) -->
-<!--   lines(N1vec, predict(InterimAssuranceFuncNonInform()), col='red', lty=4) -->
-<!--   legend("topleft", legend = c("Power", "Design assurance", "Interim assurance"), -->
-<!--     col=c("black", "blue", "red"), lty=2:4) -->
-
-
-<!-- ``` -->
-
-
-<!-- Scenario 1: We have $\rho \sim N(0.15, 0.0001)$, which means that we are very confident that the experimental treatment truly is 33% more effective than the control treatment. This is evident in both the assurance at the design stage and at the interim analysis stage. The prior beliefs for $\rho$ are so strong that even the data (which shows that the treatment is no more effective than the placebo) does not change these beliefs. -->
-
-<!-- Scenario 2: We see that the assurance at the interim analysis stage is considerably lower than at the design stage. This indicates that the data has had an effect on the posterior distributions for $\theta_1$ and $\theta_2$ and we are not as confident that the experimental treatment is truly better than the placebo. The posterior captures this as the prior beliefs for $\rho$ is not as strong as in scenario 1 (potentially a more realistic situation). -->
-
-<!-- Scenario 3: We have results similar to scenario 2 here. This is because we are not as confident that the treatment is better in the first place ($\rho$ has mean 0.10) and the variance of $\rho$ is the same as in scenario 2.  -->
-
-<!-- Scenario 4: We see that at the interim analysis stage, the assurance only reaches a level of $\approx$ 20\%. This is because we have a non-informative prior here so the posterior distributions will be highly influenced by the data. The data does not show any statistical differences between $\theta_1$ and $\theta_2$, and this is reflected by the value for the assurance being low.  -->
-
-<!-- As highlighted in scenarios 2, 3 and 4, it is useful to calculate assurance at interim analyses, as well as in the design stage. The trial was stopped due to futility in the traditional way, but it is comforting to see that a Bayesian analysis of the data gives the same interpretation. The more informed the clinicians are about the results of the trial, the better-placed they are to make decisions about the continuation (or not) of a trial. -->
-
-
 
 ###########################################################################
 ##Look at other priors for the BPP part!!
