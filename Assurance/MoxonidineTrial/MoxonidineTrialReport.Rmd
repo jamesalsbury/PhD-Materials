@@ -278,19 +278,25 @@ legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 
        col=c("black", "blue", "red", "green", "yellow"), lty=1:5)
 ```
 
-In scenario 1, the prior distribution for $\rho$ indicates a strong belief that the treatment is 33% more effective than the control. This is shown by the assurance essentially being the power curve (where we assume the treatment is better).
+In scenario 1, the prior distribution for $\rho$ indicates a strong belief that the treatment is 15% absolutely more effective than the control. This is shown by the assurance essentially being the power curve (where we assume the treatment is better).
 
 In scenario 2, the prior for $\rho$ indicates that the beliefs are not quite as strong as in scenario 1. This is modelled through the value of $\nu$ being larger and shown in the plot by the assurance being lower (reaches a maximum of around 80%)
 
-In scenario 3, the prior for $\rho$ indicates that the treatment may not be as effective as 33%. This is shown in the plot as the assurance is lower than both scenarios 1 and 2.
+In scenario 3, the prior for $\rho$ indicates that the treatment may only be 10% absolutely better than the control. This is shown in the plot as the assurance is lower than both scenarios 1 and 2.
 
+In scenario 4, the prior for $\rho$ indicates that we have no knowledge about how effective the treatment will be. 
 
-### Interim analysis stage
+## Interim analysis stage
 
-We can also perform assurance calculations during the trial. This feels natural in a Bayesian paradigm; we have prior distributions (about $\theta_1$ and $\rho$) and some data, which we can combine together to obtain a posterior distribution.
+At the interim analysis, we can combine the prior distributions with the data accrued so far to form posterior distributions for the parameters of interest, 
 
-The following four plots show the four different scenarios; in each plot we have the power, the assurance at the design stage and the assurance at the interim analysis stage. The total sample sizes only reach a maximum of 360 (180 in each arm) here, as this was the number of patients planned to be enrolled in the trial.
+### Predictive probabilities
 
+We can then use these posterior distributions to calculate Bayesian Predictive Probabilities that the trial will be a "success".
+
+#### Prior 1
+
+Here, we assume that the prior distribution for $\rho$ is: $\rho \sim N(0.15, 0.0001)$
 
 ```{stan output.var="ex1", echo=F}
 data {
@@ -312,7 +318,7 @@ transformed parameters{
 
 model {
   theta1 ~ beta(10.7, 13.1);
-  rho ~ normal(0.15, 0.01);
+  rho ~ normal(0.15, sqrt(0.0001));
   cE ~ binomial(cN, theta1);
   tE ~ binomial(tN, theta2);
 }
@@ -328,7 +334,7 @@ generated quantities {
 ```
 
 
-```{r interim, echo=F}
+```{r interim1, echo=F}
  MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) 
  exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
             tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
@@ -356,7 +362,214 @@ generated quantities {
  
 ```
 
-###########################################################################
-##Look at other priors for the BPP part!!
-###########################################################################
+#### Prior 2
+
+Here, we assume that the prior distribution for $\rho$ is: $\rho \sim N(0.15, 0.01)$
+
+
+```{stan output.var="ex2", echo=F}
+data {
+  int<lower=0> cE;               // control events
+  int<lower=0> cN;               // number of patients in control group
+  int<lower=0> tE;               // treatment events
+  int<lower=0> tN;               // number of patients in treatment group
+}
+
+parameters {
+  real<lower=0, upper=1> theta1; // chance of success in control group
+  real rho;                      // difference between treatment and control (theta1-theta2)
+}
+
+transformed parameters{
+  real<lower=0, upper=1> theta2; // chance of success in treatment group
+  theta2 = theta1 - rho;
+}
+
+model {
+  theta1 ~ beta(10.7, 13.1);
+  rho ~ normal(0.15, sqrt(0.01));
+  cE ~ binomial(cN, theta1);
+  tE ~ binomial(tN, theta2);
+}
+
+generated quantities {
+  int<lower=0> controlevents;
+  int<lower=0> treatmentevents;
+  controlevents = binomial_rng(117, theta1);
+  treatmentevents = binomial_rng(102, theta2);
+}
+
+
+```
+
+
+```{r interim2, echo=F}
+ MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) 
+ exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
+            tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
+ 
+ sampling_iterations <- 1e5
+ fit <- sampling(ex2,
+ data = exampleData,
+ chains = 1,
+ iter = sampling_iterations,
+ warmup = sampling_iterations/4,
+ refresh=0)
+ 
+
+ testvec <- rep(NA, 1e5)
+ for (i in 1:1e5){
+  controlevents <- fit@sim$samples[[1]][[4]][i]
+  treatmentevents <- fit@sim$samples[[1]][[5]][i]
+  MoxonidineData <- data.frame(RaisedcTni = c(23+controlevents, 31+treatmentevents), NotRaisedcTni 
+                               =c(40+(117-controlevents), 47+(102-treatmentevents)),
+                                   row.names = c("Control", "Treatment"))
+  test <- chisq.test(MoxonidineData, correct = F)
+  testvec[i] <- test$p.value<0.05
+ }
+ mean(testvec)
+ 
+```
+
+
+#### Prior 3
+
+Here, we assume that the prior distribution for $\rho$ is: $\rho \sim N(0.10, 0.01)$.
+
+
+```{stan output.var="ex3", echo=F}
+data {
+  int<lower=0> cE;               // control events
+  int<lower=0> cN;               // number of patients in control group
+  int<lower=0> tE;               // treatment events
+  int<lower=0> tN;               // number of patients in treatment group
+}
+
+parameters {
+  real<lower=0, upper=1> theta1; // chance of success in control group
+  real rho;                      // difference between treatment and control (theta1-theta2)
+}
+
+transformed parameters{
+  real<lower=0, upper=1> theta2; // chance of success in treatment group
+  theta2 = theta1 - rho;
+}
+
+model {
+  theta1 ~ beta(10.7, 13.1);
+  rho ~ normal(0.10, sqrt(0.01));
+  cE ~ binomial(cN, theta1);
+  tE ~ binomial(tN, theta2);
+}
+
+generated quantities {
+  int<lower=0> controlevents;
+  int<lower=0> treatmentevents;
+  controlevents = binomial_rng(117, theta1);
+  treatmentevents = binomial_rng(102, theta2);
+}
+
+
+```
+
+
+```{r interim3, echo=F}
+ MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78) 
+ exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
+            tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
+ 
+ sampling_iterations <- 1e5
+ fit <- sampling(ex3,
+ data = exampleData,
+ chains = 1,
+ iter = sampling_iterations,
+ warmup = sampling_iterations/4,
+ refresh=0)
+ 
+
+ testvec <- rep(NA, 1e5)
+ for (i in 1:1e5){
+  controlevents <- fit@sim$samples[[1]][[4]][i]
+  treatmentevents <- fit@sim$samples[[1]][[5]][i]
+  MoxonidineData <- data.frame(RaisedcTni = c(23+controlevents, 31+treatmentevents), NotRaisedcTni 
+                               =c(40+(117-controlevents), 47+(102-treatmentevents)),
+                                   row.names = c("Control", "Treatment"))
+  test <- chisq.test(MoxonidineData, correct = F)
+  testvec[i] <- test$p.value<0.05
+ }
+ mean(testvec)
+ 
+```
+
+#### Prior 4
+
+<!-- Here, we assume that the prior distribution for $\rho$ is: $\rho \sim Unif(\theta_1-1 \text{, } \theta_1)$.  -->
+
+<!-- ```{stan output.var="ex4", echo=F} -->
+<!-- data { -->
+<!--   int<lower=0> cE;               // control events -->
+<!--   int<lower=0> cN;               // number of patients in control group -->
+<!--   int<lower=0> tE;               // treatment events -->
+<!--   int<lower=0> tN;               // number of patients in treatment group -->
+<!-- } -->
+
+<!-- parameters { -->
+<!--   real<lower=0, upper=1> theta1; // chance of success in control group -->
+<!--   real rho;                      // difference between treatment and control (theta1-theta2) -->
+<!-- } -->
+
+<!-- transformed parameters{ -->
+<!--   real<lower=0, upper=1> theta2; // chance of success in treatment group -->
+<!--   theta2 = theta1 - rho; -->
+<!-- } -->
+
+<!-- model { -->
+<!--   theta1 ~ beta(10.7, 13.1); -->
+<!--   rho ~ uniform(theta1-1, theta1) -->
+<!--   cE ~ binomial(cN, theta1); -->
+<!--   tE ~ binomial(tN, theta2); -->
+<!-- } -->
+
+<!-- generated quantities { -->
+<!--   int<lower=0> controlevents; -->
+<!--   int<lower=0> treatmentevents; -->
+<!--   controlevents = binomial_rng(117, theta1); -->
+<!--   treatmentevents = binomial_rng(102, theta2); -->
+<!-- } -->
+
+
+<!-- ``` -->
+
+
+<!-- ```{r interim4, echo=F} -->
+<!--  MoxonidineData <- data.frame(cE = 23, tE = 31, cN = 63, tN = 78)  -->
+<!--  exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN,  -->
+<!--             tE = MoxonidineData$tE, tN = MoxonidineData$tN)  -->
+
+<!--  sampling_iterations <- 1e5 -->
+<!--  fit <- sampling(ex4, -->
+<!--  data = exampleData, -->
+<!--  chains = 1, -->
+<!--  iter = sampling_iterations, -->
+<!--  warmup = sampling_iterations/4, -->
+<!--  refresh=0) -->
+
+
+<!--  testvec <- rep(NA, 1e5) -->
+<!--  for (i in 1:1e5){ -->
+<!--   controlevents <- fit@sim$samples[[1]][[4]][i] -->
+<!--   treatmentevents <- fit@sim$samples[[1]][[5]][i] -->
+<!--   MoxonidineData <- data.frame(RaisedcTni = c(23+controlevents, 31+treatmentevents), NotRaisedcTni  -->
+<!--                                =c(40+(117-controlevents), 47+(102-treatmentevents)), -->
+<!--                                    row.names = c("Control", "Treatment")) -->
+<!--   test <- chisq.test(MoxonidineData, correct = F) -->
+<!--   testvec[i] <- test$p.value<0.05 -->
+<!--  } -->
+<!--  mean(testvec) -->
+
+<!-- ``` -->
+
+
+
+
 
