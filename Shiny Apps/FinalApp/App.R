@@ -133,12 +133,10 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Survival Curves (0.1 and 0.9)")),
-                 #numericInput("triallength", "How long do you expect to run the trial for? (months)", value=18),
-                 numericInput("clinicaldiff", "What is the minimum clinical difference you need to see here?", value = 10)
                ),
                mainPanel = mainPanel(
                  plotOutput("plotFeedback"),
-                 htmlOutput("TrialFeedback")
+                 htmlOutput("errorFeedback")
                )
              ),
     ),
@@ -313,22 +311,6 @@ server = function(input, output, session) {
   
 # Functions for the HR tab ---------------------------------
   
-  # output$TrialFeedback <- renderUI({
-  #   
-  #   gamma1 <- input$gamma2
-  #   controlcurve <- exp(-(input$lambda2*input$triallength)^input$gamma2)
-  #   bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
-  #   HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
-  #   lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
-  #   treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(input$triallength^gamma1-bigTMedian^gamma1))
-  #   
-  #   str1 <- paste0("If the trial runs for ", input$triallength, " months, we expect:")
-  #   str2 <- paste0(round(controlcurve*100, 1), "% of patients to be alive in the control group")
-  #   str3 <- paste0(round(treatmentsurv2*100, 1), "% of patients to be alive in the treatment group")
-  #   str4 <- paste0("This means there should be an absolute treatment effect of ", round((treatmentsurv2-controlcurve)*100, 1), "% after ", input$triallength, " months" )
-  #   HTML(paste(str1, str2, str3, str4, sep = '<br/>'))
-  #   
-  # })
   
   output$distPlot2 <- renderPlot({
     
@@ -421,6 +403,12 @@ server = function(input, output, session) {
     #col=c("green", "blue", "red"), lty=c(1), cex=0.75)
     
     
+    zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
+    
+    if (zeroval<0){
+      
+    } else {
+    
     bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
     HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
     lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
@@ -470,6 +458,17 @@ server = function(input, output, session) {
       }
     }
     print(p1)
+    }
+  })
+  
+  output$errorFeedback <- renderUI({
+
+    zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
+    
+    if (zeroval<0){
+      paste0("Your elicited distribution of T includes values that are less than 0, please change your limits or choose another distribution.")
+    }
+
   })
   
 # Functions for the Assurance tab ---------------------------------
@@ -494,6 +493,15 @@ server = function(input, output, session) {
   })
   
   calculateSSvMonths <- eventReactive(input$drawSSvMonths, {
+    
+    ###Need to look at T < 0
+    
+    zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
+    
+    if (zeroval<0){
+      return()
+    } else {
+      
     
     gamma1 <- input$gamma2
     conc.probs <- matrix(0, 2, 2)
@@ -573,31 +581,47 @@ server = function(input, output, session) {
     eventssmooth <- loess(eventsneededvec~triallengthvec)
     
     return(list(triallengthvec=triallengthvec, asssmooth=asssmooth, eventssmooth=eventssmooth))
-    
+    }
   })    
 
 
   output$samplesizerequired <- renderUI({
     
-    str1 <- paste0("If you run the trial for ", input$chosenlength, " months, you will require a total sample size of ", round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength)))
-    str2 <- paste0("This is ", floor(input$n1*(round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength))/(input$n1+input$n2))), " patients in the control group and ", ceiling(input$n2*(round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength))/(input$n1+input$n2))), " patients in the treatment group")
-    HTML(paste(str1, str2, sep = '<br/>'))
+    if (is.null(calculateSSvMonths())){
+      paste0("Your elicited distribution of T includes values that are less than 0, please change your limits or choose another distribution.")
+      
+    } else {
+      str1 <- paste0("If you run the trial for ", input$chosenlength, " months, you will require a total sample size of ", round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength)))
+      str2 <- paste0("This is ", floor(input$n1*(round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength))/(input$n1+input$n2))), " patients in the control group and ", ceiling(input$n2*(round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength))/(input$n1+input$n2))), " patients in the treatment group")
+      HTML(paste(str1, str2, sep = '<br/>'))
+    }
+    
+    
+ 
   })
   
 
   output$eventsrequired <- renderUI({
     
+    if (is.null(calculateSSvMonths())){
+      
+    } else {
     str1 <- paste0("If you run the trial for ", input$chosenlength, " months, you will require  ", round(predict(calculateSSvMonths()$eventssmooth, newdata = input$chosenlength)), " number of events")
     HTML(paste(str1, sep = '<br/>'))
+    }
   })
   
   output$eventsPlot <- renderPlot({
     
+    if (is.null(calculateSSvMonths())){
+      
+    } else {
     theme_set(theme_grey(base_size = input$fs))
     assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$eventssmooth))
     p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Trial length") +
       ylab("No. of events needed")
     print(p1) 
+    }
     
     
   })
@@ -605,11 +629,17 @@ server = function(input, output, session) {
   
   output$samplevmonths <- renderPlot({
     
+    
+    if (is.null(calculateSSvMonths())){
+      
+    } else {
+    
     theme_set(theme_grey(base_size = input$fs))
     assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$asssmooth))
     p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Trial length") +
      ylab("Sample size needed")
     print(p1)    
+    }
     
     
   })
@@ -660,5 +690,5 @@ server = function(input, output, session) {
 
 shinyApp(ui, server)
 
-###Breaks when T is allowed to be less than 0 - need to fix
+
 

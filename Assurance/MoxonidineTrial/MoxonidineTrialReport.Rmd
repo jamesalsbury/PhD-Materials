@@ -15,6 +15,8 @@ library(dplyr)
 library(RColorBrewer)
 library(truncnorm)
 library(rstan)
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
 ```
 
 ## Introduction
@@ -501,7 +503,7 @@ generated quantities {
 
 ## How informative will the trial be?
 
-Using Section 6 of [\textcolor{blue}{Jeremy's paper}](https://onlinelibrary.wiley.com/doi/full/10.1002/pst.2040), we can work out the distribution of assurance at the interim analysis. We assume that the trial sponsor chooses some threshold $c$ of interest, from the elicited distribution(s) we have $Pr(\rho>c|D) = x$, which is prior to the interim analysis. For this example, we assume that $c$ = 0.  
+Using Section 6 of [\textcolor{blue}{Jeremy's paper}](https://onlinelibrary.wiley.com/doi/full/10.1002/pst.2040), we can work out the distribution of assurance at the interim analysis. We assume that the trial sponsor chooses some threshold $c$ of interest, from the elicited distribution(s) we have $Pr(\rho>c|D) = x$, which is prior to the interim analysis. For this example, we assume that $c$ = 0.1.  
 
 We now consider whether at the interim analysis, this uncertainty would be resolved: given the data $D$ at the interim analysis, whether $Pr(\rho>c) = x$ would be close to either 0 or 1. Before the study is conducted, we clearly do not know what the data $D$ would be, so we can think of $Pr(\rho>c|D) = x$ as a random variable of the unknown data $D$. 
 
@@ -523,10 +525,151 @@ where $I()$ is the indicator sample.
 
 Recall that prior 1 for $\rho$ is: $\rho \sim N(0.15, 0.0001)$. Therefore before the study:
 
-$$Pr(\rho>0) = 1$$
-Using the above algorithm, we can assess how much more confident we would be that $\rho> 0 $, given the data at the interim analysis $D$.  
+$$Pr(\rho>0.1) = 1$$
+Using the above algorithm, we can assess whether our beliefs change, given the data at the interim analysis $D$. We will say that a study is "informative" if   $Pr(\rho>0|D) > 0.95$ or $<0.05$.
 
 ```{stan output.var="informstan1", echo=F}
+data {
+  int<lower=0> cE;               // control events
+  int<lower=0> cN;               // number of patients in control group
+  int<lower=0> tE;               // treatment events
+  int<lower=0> tN;               // number of patients in treatment group
+}
+
+parameters {
+  real<lower=0, upper=1> theta1; // chance of success in control group
+  real rho;                      // difference between treatment and control (theta1-theta2)
+}
+
+transformed parameters{
+  real<lower=0, upper=1> theta2; // chance of success in treatment group
+  theta2 = theta1 - rho;
+}
+
+model {
+  theta1 ~ beta(10.7, 13.1);
+  rho ~ normal(0.15, sqrt(0.0001));
+  cE ~ binomial(cN, theta1);
+  tE ~ binomial(tN, theta2);
+}
+
+
+```
+
+```{r inform1, echo=F, warning=F}
+
+informvec <- rep(NA, 500)
+for (j in 1:500){
+  
+  theta1 <- rbeta(1, 10.7, 13.1)
+  rho <- rtruncnorm(1, mean = 0.15, sd = 0.01, a = theta1 - 1, b = theta1)
+  theta2 <- theta1 - rho
+
+  controlData <- rbinom(60, 1, prob = theta1)
+  treatmentData <- rbinom(60, 1, prob = theta2)
+
+ 
+  MoxonidineData <- data.frame(cE = sum(controlData), tE = sum(treatmentData), cN = 60, tN = 60) 
+  exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
+            tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
+ 
+
+  sampling_iterations <- 1e3
+   fit <- sampling(informstan1,
+  data = exampleData,
+  chains = 1,
+  iter = sampling_iterations,
+  warmup = sampling_iterations/4,
+  refresh=0)
+
+  treatmentdifferences <- fit@sim$samples[[1]]$rho
+  informvec[j] <- mean(treatmentdifferences>0.1)
+}
+  
+hist(informvec, xlim=c(0,1), main="", xlab=expression(paste("Pr(", rho, ">0.1|D)")), ylab="density")
+
+mean(informvec>0.95|informvec<0.05)
+ 
+```
+
+### Prior 2
+
+Recall that prior 2 for $\rho$ is: $\rho \sim N(0.15, 0.01)$. Therefore before the study:
+
+$$Pr(\rho>0.1) = 0.69146$$
+Using the above algorithm, we can assess whether our beliefs change, given the data at the interim analysis $D$,
+
+```{stan output.var="informstan2", echo=F}
+data {
+  int<lower=0> cE;               // control events
+  int<lower=0> cN;               // number of patients in control group
+  int<lower=0> tE;               // treatment events
+  int<lower=0> tN;               // number of patients in treatment group
+}
+
+parameters {
+  real<lower=0, upper=1> theta1; // chance of success in control group
+  real rho;                      // difference between treatment and control (theta1-theta2)
+}
+
+transformed parameters{
+  real<lower=0, upper=1> theta2; // chance of success in treatment group
+  theta2 = theta1 - rho;
+}
+
+model {
+  theta1 ~ beta(10.7, 13.1);
+  rho ~ normal(0.15, sqrt(0.01));
+  cE ~ binomial(cN, theta1);
+  tE ~ binomial(tN, theta2);
+}
+
+
+```
+
+```{r inform2, echo=F, warning=F}
+
+informvec <- rep(NA, 500)
+for (j in 1:500){
+  
+  theta1 <- rbeta(1, 10.7, 13.1)
+  rho <- rtruncnorm(1, mean = 0.15, sd = 0.1, a = theta1 - 1, b = theta1)
+  theta2 <- theta1 - rho
+
+  controlData <- rbinom(60, 1, prob = theta1)
+  treatmentData <- rbinom(60, 1, prob = theta2)
+
+ 
+  MoxonidineData <- data.frame(cE = sum(controlData), tE = sum(treatmentData), cN = 60, tN = 60) 
+  exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
+            tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
+ 
+
+  sampling_iterations <- 1e3
+   fit <- sampling(informstan2,
+  data = exampleData,
+  chains = 1,
+  iter = sampling_iterations,
+  warmup = sampling_iterations/4,
+  refresh=0)
+
+  treatmentdifferences <- fit@sim$samples[[1]]$rho
+  informvec[j] <- mean(treatmentdifferences>0.1)
+}
+  
+hist(informvec, xlim=c(0,1), main="", xlab=expression(paste("Pr(", rho, ">0.1|D)")), ylab="density")
+
+mean(informvec>0.95|informvec<0.05) 
+```
+
+### Prior 3
+
+Recall that prior 3 for $\rho$ is: $\rho \sim N(0.1, 0.01)$. Therefore before the study:
+
+$$Pr(\rho>0.1) = 0.5$$
+Using the above algorithm, we can assess whether our beliefs change, given the data at the interim analysis $D$.
+
+```{stan output.var="informstan3", echo=F}
 data {
   int<lower=0> cE;               // control events
   int<lower=0> cN;               // number of patients in control group
@@ -551,55 +694,55 @@ model {
   tE ~ binomial(tN, theta2);
 }
 
-generated quantities {
-  int<lower=0> controlevents;
-  int<lower=0> treatmentevents;
-  controlevents = binomial_rng(117, theta1);
-  treatmentevents = binomial_rng(102, theta2);
-}
-
 
 ```
 
-```{r inform1, echo=F}
+```{r inform3, echo=F, warning=F}
 
-theta1 <- rbeta(1, 10.7, 13.1)
-rho <- rtruncnorm(1, mean = 0.15, sd = 0.01, a = theta1 - 1, b = theta1)
-theta2 <- theta1 - rho
+informvec <- rep(NA, 500)
+for (j in 1:500){
+  
+  theta1 <- rbeta(1, 10.7, 13.1)
+  rho <- rtruncnorm(1, mean = 0.1, sd = 0.1, a = theta1 - 1, b = theta1)
+  theta2 <- theta1 - rho
 
-controlData <- rbinom(60, 1, prob = theta1)
-treatmentData <- rbinom(60, 1, prob = theta2)
+  controlData <- rbinom(60, 1, prob = theta1)
+  treatmentData <- rbinom(60, 1, prob = theta2)
 
  
- MoxonidineData <- data.frame(cE = sum(controlData), tE = sum(treatmentData), cN = 60, tN = 60) 
- exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
+  MoxonidineData <- data.frame(cE = sum(controlData), tE = sum(treatmentData), cN = 60, tN = 60) 
+  exampleData <- list(cE = MoxonidineData$cE, cN = MoxonidineData$cN, 
             tE = MoxonidineData$tE, tN = MoxonidineData$tN) 
  
 
- 
- sampling_iterations <- 1e5
- fit <- sampling(informstan1,
- data = exampleData,
- chains = 1,
- iter = sampling_iterations,
- warmup = sampling_iterations/4,
- refresh=0)
- 
+  sampling_iterations <- 1e3
+   fit <- sampling(informstan3,
+  data = exampleData,
+  chains = 1,
+  iter = sampling_iterations,
+  warmup = sampling_iterations/4,
+  refresh=0)
+
+  treatmentdifferences <- fit@sim$samples[[1]]$rho
+  informvec[j] <- mean(treatmentdifferences>0.1)
+}
+  
+hist(informvec, xlim=c(0,1), main="", xlab=expression(paste("Pr(", rho, ">0.1|D)")), ylab="density")
+
+mean(informvec>0.95|informvec<0.05)
+
 ```
 
- testvec <- rep(NA, 1e5)
- for (i in 1:1e5){
-  controlevents <- fit@sim$samples[[1]][[4]][i]
-  treatmentevents <- fit@sim$samples[[1]][[5]][i]
-  MoxonidineData <- data.frame(RaisedcTni = c(23+controlevents, 31+treatmentevents), NotRaisedcTni 
-                               =c(40+(117-controlevents), 47+(102-treatmentevents)),
-                                   row.names = c("Control", "Treatment"))
-  test <- chisq.test(MoxonidineData, correct = F)
-  testvec[i] <- test$p.value<0.05
- }
- mean(testvec)
- 
-```
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -5,7 +5,10 @@ account: jamesalsbury
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5476186
-bundleId: 5489551
+bundleId: 5637076
 url: https://jamesalsbury.shinyapps.io/finalapp/
-when: 1642696004.32143
-lastSyncTime: 1642696004.32143
+when: 1646309347.09134
+lastSyncTime: 1646309347.09136
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: DrawingSamples.R
