@@ -132,7 +132,7 @@ ui <- fluidPage(
     tabPanel("Feedback", 
              sidebarLayout(
                sidebarPanel = sidebarPanel(
-                 checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Survival Curves (0.1 and 0.9)")),
+                 checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Treatment Curve (0.1 and 0.9)")),
                ),
                mainPanel = mainPanel(
                  plotOutput("plotFeedback"),
@@ -146,23 +146,21 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  useShinyjs(),
-                 numericInput("minlength", "Minimum trial length?", value=24),
-                 numericInput("maxlength", "Maximum trial length?", value=48),
+                 numericInput("numofpatients", "How many patients could you enrol into the trial?", value=1000),
+                 numericInput("rectime", "How long would it take to enrol all of these patients?", value=6),
+                 
                  box(width = 10, title = "Ratio of patients in each group?",
                      splitLayout(
                        numericInput("n1", "Control", value=1, min=1),
                        numericInput("n2", "Treatment", value=1, min=1)
                      )
                  ),
-                 numericInput("chosenassurance", "What assurance do we want?", value=0.5),
-                 actionButton("drawSSvMonths", "Produce plot"),
-                 numericInput("chosenlength", "How long will you run the trial for?", value=45)
+                 numericInput("chosenLength", "How long do you want to run the trial for? (Including recruitment time)", value=60),
+                 actionButton("drawAssurance", "Produce plot")
                ), 
                mainPanel = mainPanel(
-                 plotOutput("samplevmonths"),
-                 htmlOutput("samplesizerequired"),
-                 plotOutput("eventsPlot"),
-                 htmlOutput("eventsrequired")
+                 plotOutput("assurancePlot"),
+                 htmlOutput("assuranceText")
                )
              ),
              
@@ -440,7 +438,7 @@ server = function(input, output, session) {
             p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") 
           } else {
             mediandf <- data.frame(x = seq(0, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), y = rep(0.5, 2))
-            mediandf1 <<- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
+            mediandf1 <- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
             mediandf2 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
             p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
               geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed")
@@ -448,7 +446,7 @@ server = function(input, output, session) {
         } else if (addfeedback[i]=="95% CI for T"){
           p1 <- p1 + geom_point(aes(x = feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4) +
             geom_point(aes(x = feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4)
-        } else if (addfeedback[i]=="CI for Survival Curves (0.1 and 0.9)"){
+        } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           #Function to draw simulated lines
           simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
           simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
@@ -474,177 +472,118 @@ server = function(input, output, session) {
 # Functions for the Assurance tab ---------------------------------
   
   
-  observe({
-    controltime <<- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
-    controlsurv <<- exp(-(input$lambda2*controltime)^input$gamma2)
-    
-   updateNumericInput(session, inputId = "minlength", value = floor(controltime[min(which((controlsurv<0.15)==T))]))
-   updateNumericInput(session, inputId = "maxlength", value = floor(controltime[min(which((controlsurv<0.05)==T))]))
-   updateNumericInput(session, inputId = "chosenlength", value = floor(controltime[min(which((controlsurv<0.05)==T))]))
-  })
-  
-  
-  observe({
-    hide("chosenlength")
-  })
-  
-  observeEvent(input$drawSSvMonths, {
-   show("chosenlength")
-  })
-  
-  calculateSSvMonths <- eventReactive(input$drawSSvMonths, {
-    
-    ###Need to look at T < 0
-    
-    zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
-    
-    if (zeroval<0){
-      return()
-    } else {
-      
+  calculateAssurance <- eventReactive(input$drawAssurance, {
     
     gamma1 <- input$gamma2
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
-    assnum <- 50
+    assnum <- 100
+    assvec <- rep(NA, assnum)
+    eventsvec <- rep(NA, assnum)
+    controlevents <- rep(NA, assnum)
+    treatmentevents <- rep(NA, assnum)
     
-    triallengthvec <- floor(seq(input$minlength, input$maxlength, length=8))
-    ssneededvec <- rep(NA, length(triallengthvec))
-    eventsneededvec <- rep(NA, length(triallengthvec))
     
-    
-    AssFunc <- function(n1, n2, months){
+    assFunc <- function(n1, n2){
       
-      assvec <- rep(NA, assnum)
-      eventvec <- rep(NA, assnum)
-      mySample <<- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+      mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
       
-      if (sum(mySample$X1<0)>0){
-        negative <- which(mySample$X1<0)
-      } else {
-        negative <- 0
-      }
-    
       
       for (i in 1:assnum){
-        
-        if (i %in% negative){
-          
-        } else {
+        mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
         
         bigT <- mySample[i,1]
         HR <- mySample[i,2]
+        
         lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
         
         controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
         
         CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
         u <- runif(n2)
+        
         suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
         
-        treatmentdata <- data.frame(time = z)
-        DataCombined <- data.frame(time = c(controldata$time, treatmentdata$time),
-                                   group = c(rep("Control", n1), rep("Treatment", n2)), cens = rep(1, n1+n2))
+        DataCombined <- data.frame(time = c(controldata$time, z),
+                                   group = c(rep("Control", n1), rep("Treatment", n2)))
         
-        DataCombined <- DataCombined %>%
-          filter(time<months)
+        
+        DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
+        
+        DataCombined$cens <- DataCombined$time < input$chosenLength
+        
+        DataCombined$cens <- DataCombined$cens*1
         
         test <- survdiff(Surv(time, cens)~group, data = DataCombined)
         assvec[i] <- test$chisq > qchisq(0.95, 1)
-        eventvec[i] <- nrow(DataCombined)
-      } 
-    }
-      
-      
-      return(list(assurance = mean(na.omit(assvec)), events = mean(na.omit(eventvec))))
-      
-    } 
-    
-    for (i in 1:length(triallengthvec)){
-      calcass <- 0
-      ratiosum <- input$n1+input$n2
-      total <- 500
-      n1 <- round((total/ratiosum)*input$n1)
-      n2 <- round((total/ratiosum)*input$n2)
-      while (calcass<input$chosenassurance){
-        calcass <- AssFunc(n1, n2, triallengthvec[i])$assurance
-        total <- total + 300
-        n1 <- round((total/ratiosum)*input$n1)
-        n2 <- round((total/ratiosum)*input$n2)
+        
+        eventsseen <- DataCombined %>%
+          filter(time < input$chosenLength)
+        
+        controlevents[i] <- sum(eventsseen$group=="Control")
+        
+        treatmentevents[i] <- sum(eventsseen$group=="Treatment")
+        
+        eventsvec[i] <- sum(DataCombined$cens==1)
       }
-      ssneededvec[i] <- total
-      eventsneededvec[i] <- AssFunc(n1, n2, triallengthvec[i])$events
+      
+      return(list(assvec = mean(assvec), eventvec = mean(eventsvec), controlevents = mean(controlevents), treatmentevents = mean(treatmentevents)))
     }
     
     
-    asssmooth <- loess(ssneededvec~triallengthvec)
-    eventssmooth <- loess(eventsneededvec~triallengthvec)
+    samplesizevec <- seq(30, input$numofpatients, length=10)
     
-    return(list(triallengthvec=triallengthvec, asssmooth=asssmooth, eventssmooth=eventssmooth))
-    }
+    n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
+    n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
+    calcassvec <- rep(NA, length = length(samplesizevec))
+    
+    
+    withProgress(message = "Calculating assurance", value = 0, {
+      for (i in 1:length(n1vec)){
+        calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
+        incProgress(1/length(n1vec))
+      }
+    })
+    
+    
+    eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
+    
+    controlevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$controlevents
+    
+    treatmentevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$treatmentevents
+    
+    asssmooth <- loess(calcassvec~samplesizevec)
+    
+    return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
+                eventsseen = eventsseen, controlevents = controlevents, treatmentevents = treatmentevents))
+    
+   
   })    
-
-
-  output$samplesizerequired <- renderUI({
-    
-    if (is.null(calculateSSvMonths())){
-      paste0("Your elicited distribution of T includes values that are less than 0, please change your limits or choose another distribution.")
-      
-    } else {
-      str1 <- paste0("If you run the trial for ", input$chosenlength, " months, you will require a total sample size of ", round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength)))
-      str2 <- paste0("This is ", floor(input$n1*(round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength))/(input$n1+input$n2))), " patients in the control group and ", ceiling(input$n2*(round(predict(calculateSSvMonths()$asssmooth, newdata = input$chosenlength))/(input$n1+input$n2))), " patients in the treatment group")
-      HTML(paste(str1, str2, sep = '<br/>'))
-    }
-    
-    
- 
-  })
   
-
-  output$eventsrequired <- renderUI({
+  output$assurancePlot <- renderPlot({
     
-    if (is.null(calculateSSvMonths())){
-      
-    } else {
-    str1 <- paste0("If you run the trial for ", input$chosenlength, " months, you will require  ", round(predict(calculateSSvMonths()$eventssmooth, newdata = input$chosenlength)), " number of events")
-    HTML(paste(str1, sep = '<br/>'))
-    }
-  })
-  
-  output$eventsPlot <- renderPlot({
-    
-    if (is.null(calculateSSvMonths())){
-      
-    } else {
     theme_set(theme_grey(base_size = input$fs))
-    assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$eventssmooth))
-    p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Trial length") +
-      ylab("No. of events needed")
+    assurancedf <- data.frame(x = calculateAssurance()$samplesizevec, y = predict(calculateAssurance()$asssmooth))
+    p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Number of patients") +
+      ylab("Assurance") + ylim(0, 1.05)
     print(p1) 
-    }
-    
-    
-  })
+
 
   
-  output$samplevmonths <- renderPlot({
-    
-    
-    if (is.null(calculateSSvMonths())){
-      
-    } else {
-    
-    theme_set(theme_grey(base_size = input$fs))
-    assurancedf <- data.frame(x = calculateSSvMonths()$triallengthvec, y = predict(calculateSSvMonths()$asssmooth))
-    p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Trial length") +
-     ylab("Sample size needed")
-    print(p1)    
-    }
-    
-    
+  })
+
+
+  output$assuranceText  <- renderUI({
+
+      str1 <- paste0("On average, ", calculateAssurance()$eventsseen, " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
+      #str2 <- paste0(calculateAssurance()$controlevents, " events are seen in the control group")
+      #str3 <- paste0(calculateAssurance()$treatmentevents, "events are seen in the treatment group")
+      HTML(paste(str1, sep = '<br/>'))
+
+
   })
   
-  
+
   # observeEvent(input$exit, {
   #   stopApp(list(parameter1 = myfit1(), parameter2 = myfit2(), 
   #                cp = input$concProb))
