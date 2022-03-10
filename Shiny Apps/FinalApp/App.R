@@ -490,8 +490,7 @@ server = function(input, output, session) {
       
       
       for (i in 1:assnum){
-        mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
-        
+
         bigT <- mySample[i,1]
         HR <- mySample[i,2]
         
