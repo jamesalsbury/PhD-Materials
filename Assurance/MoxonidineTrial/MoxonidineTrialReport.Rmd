@@ -735,6 +735,9 @@ mean(informvec>0.95|informvec<0.05)
 
 
 
+## Including a point-mass that the treatment is not effective
+
+So far, we have assumed that the distribution for the treatment effect comes from a Normal($m, \nu$) distribution, with different values chosen for $m$ and $\nu$. However, in practice, the clinicians might believe that some of the time, the treatment has no effect at all. We can write Pr$(\rho=0) = x)$ and by changing the value of $x$ we can determine how this affects our beliefs for the trial, 
 
 
 
