@@ -137,7 +137,7 @@ server = function(input, output, session) {
       controltime <- seq(0, exp((1.527/inputData()$gamma2)-log(inputData()$lambda2))*2, by=0.01)
       controlsurv <- exp(-(inputData()$lambda2*controltime)^inputData()$gamma2)
 
-      plot(controltime, controlsurv, type="l", col="blue")
+      plot(controltime, controlsurv, type="l", col="blue", xlab = "Time", ylab = "Survival")
       
       controldata <- data.frame(time = inputData()$controltime, cens =  inputData()$controlcens)
       
@@ -178,106 +178,188 @@ server = function(input, output, session) {
   })
   
   
+  calculateAssurance1param <- eventReactive(input$drawAssurance, {
+
+    gamma1 <- inputData()$gamma2
+    
+    assnum <- 100
+    assvec <- rep(NA, assnum)
+    eventsvec <- rep(NA, assnum)
+    controlevents <- rep(NA, assnum)
+    treatmentevents <- rep(NA, assnum)
+
+
+    assFunc <- function(n1, n2){
+
+
+      for (i in 1:assnum){
+
+        bigT <- 3
+        
+        lambda1 <- inputData()$lambda1only
+
+        controldata <- data.frame(time = rweibull(n1, inputData()$gamma2, 1/inputData()$lambda2))
+
+        CP <- exp(-(inputData()$lambda2*bigT)^inputData()$gamma2)[[1]]
+        u <- runif(n2)
+
+        suppressWarnings(z <- ifelse(u>CP, (1/inputData()$lambda2)*exp(1/inputData()$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(inputData()$lambda2*bigT)^inputData()$gamma2+lambda1^gamma1*bigT*gamma1)))))
+
+        DataCombined <- data.frame(time = c(controldata$time, z),
+                                   group = c(rep("Control", n1), rep("Treatment", n2)))
+
+
+        DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
+
+        DataCombined$cens <- DataCombined$time < input$chosenLength
+
+        DataCombined$cens <- DataCombined$cens*1
+
+        test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+        assvec[i] <- test$chisq > qchisq(0.95, 1)
+
+        eventsseen <- DataCombined %>%
+          filter(time < input$chosenLength)
+
+        controlevents[i] <- sum(eventsseen$group=="Control")
+
+        treatmentevents[i] <- sum(eventsseen$group=="Treatment")
+
+        eventsvec[i] <- sum(DataCombined$cens==1)
+      }
+
+      return(list(assvec = mean(assvec), eventvec = mean(eventsvec), controlevents = mean(controlevents), treatmentevents = mean(treatmentevents)))
+    }
+
+
+    samplesizevec <- seq(30, input$numofpatients, length=10)
+
+    n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
+    n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
+    calcassvec <- rep(NA, length = length(samplesizevec))
+
+
+    withProgress(message = "Calculating assurance (1/2)", value = 0, {
+      for (i in 1:length(n1vec)){
+        calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
+        incProgress(1/length(n1vec))
+      }
+    })
+
+
+    eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
+
+    controlevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$controlevents
+
+    treatmentevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$treatmentevents
+
+    asssmooth <- loess(calcassvec~samplesizevec)
+
+    return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec,
+                eventsseen = eventsseen, controlevents = controlevents, treatmentevents = treatmentevents))
+
+
+  })
   
-  # calculateAssurance1param <- eventReactive(input$drawAssurance, {
-  #   
-  #   gamma1 <- input$gamma2
-  #   conc.probs <- matrix(0, 2, 2)
-  #   conc.probs[1, 2] <- 0.5
-  #   assnum <- 100
-  #   assvec <- rep(NA, assnum)
-  #   eventsvec <- rep(NA, assnum)
-  #   controlevents <- rep(NA, assnum)
-  #   treatmentevents <- rep(NA, assnum)
-  #   
-  #   
-  #   assFunc <- function(n1, n2){
-  #     
-  #     mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
-  #     
-  #     
-  #     for (i in 1:assnum){
-  #       mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
-  #       
-  #       bigT <- mySample[i,1]
-  #       HR <- mySample[i,2]
-  #       
-  #       lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
-  #       
-  #       controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
-  #       
-  #       CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
-  #       u <- runif(n2)
-  #       
-  #       suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
-  #       
-  #       DataCombined <- data.frame(time = c(controldata$time, z),
-  #                                  group = c(rep("Control", n1), rep("Treatment", n2)))
-  #       
-  #       
-  #       DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
-  #       
-  #       DataCombined$cens <- DataCombined$time < input$chosenLength
-  #       
-  #       DataCombined$cens <- DataCombined$cens*1
-  #       
-  #       test <- survdiff(Surv(time, cens)~group, data = DataCombined)
-  #       assvec[i] <- test$chisq > qchisq(0.95, 1)
-  #       
-  #       eventsseen <- DataCombined %>%
-  #         filter(time < input$chosenLength)
-  #       
-  #       controlevents[i] <- sum(eventsseen$group=="Control")
-  #       
-  #       treatmentevents[i] <- sum(eventsseen$group=="Treatment")
-  #       
-  #       eventsvec[i] <- sum(DataCombined$cens==1)
-  #     }
-  #     
-  #     return(list(assvec = mean(assvec), eventvec = mean(eventsvec), controlevents = mean(controlevents), treatmentevents = mean(treatmentevents)))
-  #   }
-  #   
-  #   
-  #   samplesizevec <- seq(30, input$numofpatients, length=10)
-  #   
-  #   n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
-  #   n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
-  #   calcassvec <- rep(NA, length = length(samplesizevec))
-  #   
-  #   
-  #   withProgress(message = "Calculating assurance", value = 0, {
-  #     for (i in 1:length(n1vec)){
-  #       calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
-  #       incProgress(1/length(n1vec))
-  #     }
-  #   })
-  #   
-  #   
-  #   eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
-  #   
-  #   controlevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$controlevents
-  #   
-  #   treatmentevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$treatmentevents
-  #   
-  #   asssmooth <- loess(calcassvec~samplesizevec)
-  #   
-  #   return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-  #               eventsseen = eventsseen, controlevents = controlevents, treatmentevents = treatmentevents))
-  #   
-  #   
-  # })    
-  
-  # output$assurancePlot <- renderPlot({
-  #   
-  #   theme_set(theme_grey(base_size = input$fs))
-  #   assurancedf <- data.frame(x = calculateAssurance()$samplesizevec, y = predict(calculateAssurance()$asssmooth))
-  #   p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Number of patients") +
-  #     ylab("Assurance") + ylim(0, 1.05)
-  #   print(p1) 
-  #   
-  #   
-  #   
-  # })
+  calculateAssurance2params <- eventReactive(input$drawAssurance, {
+    
+    gamma1 <- inputData()$gamma1
+    
+    assnum <- 100
+    assvec <- rep(NA, assnum)
+    eventsvec <- rep(NA, assnum)
+    controlevents <- rep(NA, assnum)
+    treatmentevents <- rep(NA, assnum)
+    
+    
+    assFunc <- function(n1, n2){
+      
+      
+      for (i in 1:assnum){
+        
+        bigT <- 3
+        
+        lambda1 <- inputData()$lambda1
+        
+        controldata <- data.frame(time = rweibull(n1, inputData()$gamma2, 1/inputData()$lambda2))
+        
+        CP <- exp(-(inputData()$lambda2*bigT)^inputData()$gamma2)[[1]]
+        u <- runif(n2)
+        
+        suppressWarnings(z <- ifelse(u>CP, (1/inputData()$lambda2)*exp(1/inputData()$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(inputData()$lambda2*bigT)^inputData()$gamma2+lambda1^gamma1*bigT*gamma1)))))
+        
+        DataCombined <- data.frame(time = c(controldata$time, z),
+                                   group = c(rep("Control", n1), rep("Treatment", n2)))
+        
+        
+        DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
+        
+        DataCombined$cens <- DataCombined$time < input$chosenLength
+        
+        DataCombined$cens <- DataCombined$cens*1
+        
+        test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+        assvec[i] <- test$chisq > qchisq(0.95, 1)
+        
+        eventsseen <- DataCombined %>%
+          filter(time < input$chosenLength)
+        
+        controlevents[i] <- sum(eventsseen$group=="Control")
+        
+        treatmentevents[i] <- sum(eventsseen$group=="Treatment")
+        
+        eventsvec[i] <- sum(DataCombined$cens==1)
+      }
+      
+      return(list(assvec = mean(assvec), eventvec = mean(eventsvec), controlevents = mean(controlevents), treatmentevents = mean(treatmentevents)))
+    }
+    
+    
+    samplesizevec <- seq(30, input$numofpatients, length=10)
+    
+    n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
+    n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
+    calcassvec <- rep(NA, length = length(samplesizevec))
+    
+    
+    withProgress(message = "Calculating assurance (2/2)", value = 0, {
+      for (i in 1:length(n1vec)){
+        calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
+        incProgress(1/length(n1vec))
+      }
+    })
+    
+    
+    eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
+    
+    controlevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$controlevents
+    
+    treatmentevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$treatmentevents
+    
+    asssmooth <- loess(calcassvec~samplesizevec)
+    
+    return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec,
+                eventsseen = eventsseen, controlevents = controlevents, treatmentevents = treatmentevents))
+    
+    
+  })
+
+  output$assurancePlot <- renderPlot({
+
+    theme_set(theme_grey(base_size = 12))
+    assurancedf1param <- data.frame(x = calculateAssurance1param()$samplesizevec, y = predict(calculateAssurance1param()$asssmooth))
+    p1 <- ggplot(data = assurancedf1param) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Number of patients") +
+      ylab("Assurance") + ylim(0, 1.05)
+    
+    assurancedf2params <- data.frame(x = calculateAssurance2params()$samplesizevec, y = predict(calculateAssurance2params()$asssmooth))
+    
+    
+    p1 <- p1 + geom_line(data = assurancedf2params, aes(x = x, y = y), colour = "green") 
+    print(p1)
+
+
+
+  })
   
   
 
@@ -285,5 +367,7 @@ server = function(input, output, session) {
 
 shinyApp(ui, server)
 
+##Need to write-up about how all this works
+#Tidy up some of the plots, maybe put a legend and stuff?
 
 
