@@ -26,7 +26,6 @@ ui <- fluidPage(
                  useShinyjs(),
                  fileInput("uploadSample", "Upload your data", accept = ".rds"),
                  numericInput("numofpatients", "How many patients could you enrol into the trial?", value=1000),
-                 numericInput("rectime", "How long would it take to enrol all of these patients?", value=6),
                  
                  box(width = 10, title = "Ratio of patients in each group?",
                      splitLayout(
@@ -34,8 +33,8 @@ ui <- fluidPage(
                        numericInput("n2", "Treatment", value=1, min=1)
                      )
                  ),
-                 numericInput("chosenLength", "How long do you want to run the trial for? (Including recruitment time)", value=60),
-                 actionButton("drawAssurance", "Produce plot")
+                 numericInput("chosenLength", "How long do you want to run the trial for?", value=60),
+                 actionButton("drawAssurance", "Plot assurance")
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotSurvival"),
@@ -78,7 +77,7 @@ server = function(input, output, session) {
         gamma1 <- gamma2
         se <- 0
         
-        for (i in 1:150){
+        for (i in 1:(sum(kmtreatment$time<input$chosenLength))){
           if (kmtreatment$time[i]<3){
             y <- exp(-(lambda2*kmtreatment$time[i])^gamma2)
             se <- se + (y-kmtreatment$surv[i])^2
@@ -101,7 +100,7 @@ server = function(input, output, session) {
         
         se <- 0
         
-        for (i in 1:150){
+        for (i in 1:(sum(kmtreatment$time<input$chosenLength))){
           if (kmtreatment$time[i]<3){
             y <- exp(-(lambda2*kmtreatment$time[i])^gamma2)
             se <- se + (y-kmtreatment$surv[i])^2
@@ -209,8 +208,6 @@ server = function(input, output, session) {
                                    group = c(rep("Control", n1), rep("Treatment", n2)))
 
 
-        DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
-
         DataCombined$cens <- DataCombined$time < input$chosenLength
 
         DataCombined$cens <- DataCombined$cens*1
@@ -292,8 +289,6 @@ server = function(input, output, session) {
                                    group = c(rep("Control", n1), rep("Treatment", n2)))
         
         
-        DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
-        
         DataCombined$cens <- DataCombined$time < input$chosenLength
         
         DataCombined$cens <- DataCombined$cens*1
@@ -357,8 +352,6 @@ server = function(input, output, session) {
     p1 <- p1 + geom_line(data = assurancedf2params, aes(x = x, y = y), colour = "green") 
     print(p1)
 
-
-
   })
   
   
@@ -367,7 +360,6 @@ server = function(input, output, session) {
 
 shinyApp(ui, server)
 
-##Need to write-up about how all this works
 #Tidy up some of the plots, maybe put a legend and stuff?
 
 
