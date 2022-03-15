@@ -136,7 +136,7 @@ server = function(input, output, session) {
       controltime <- seq(0, exp((1.527/inputData()$gamma2)-log(inputData()$lambda2))*2, by=0.01)
       controlsurv <- exp(-(inputData()$lambda2*controltime)^inputData()$gamma2)
 
-      plot(controltime, controlsurv, type="l", col="blue", xlab = "Time", ylab = "Survival")
+      plot(controltime, controlsurv, type="l", col="purple", xlab = "Time", ylab = "Survival", lty=1)
       
       controldata <- data.frame(time = inputData()$controltime, cens =  inputData()$controlcens)
       
@@ -162,14 +162,16 @@ server = function(input, output, session) {
       #The case where gamma1 = gamma2
       treatmenttime2 <- seq(3, exp((1.527/inputData()$gamma2)-log(inputData()$lambda2))*2, by=0.01)
       treatmentsurv2 <- exp(-(inputData()$lambda2*3)^inputData()$gamma2 - inputData()$lambda1only^inputData()$gamma2*(treatmenttime2^inputData()$gamma2-3^inputData()$gamma2))
-      lines(treatmenttime2, treatmentsurv2, col="red")
+      lines(treatmenttime2, treatmentsurv2, col="yellow")
       
       #The case where we allow gamma1 to vary
       
       
       treatmenttime3 <- seq(3, exp((1.527/inputData()$gamma2)-log(inputData()$lambda2))*2, by=0.01)
       treatmentsurv3 <- exp(-(inputData()$lambda2*3)^inputData()$gamma2 - inputData()$lambda1^inputData()$gamma1*(treatmenttime3^inputData()$gamma1-3^inputData()$gamma1))
-      lines(treatmenttime3, treatmentsurv3, col="red")
+      lines(treatmenttime3, treatmentsurv3)
+      
+      legend("topright", legend = c("Same", "Weibull control", "KM control", "KM treatment", "Gamma1 = gamma2", "gamma1 varies"), col=c("green", "purple", "blue", "red", "yellow", "black"), lty=1)
       
     }
     
@@ -181,7 +183,7 @@ server = function(input, output, session) {
 
     gamma1 <- inputData()$gamma2
     
-    assnum <- 100
+    assnum <- 50
     assvec <- rep(NA, assnum)
     eventsvec <- rep(NA, assnum)
     controlevents <- rep(NA, assnum)
@@ -262,7 +264,7 @@ server = function(input, output, session) {
     
     gamma1 <- inputData()$gamma1
     
-    assnum <- 100
+    assnum <- 50
     assvec <- rep(NA, assnum)
     eventsvec <- rep(NA, assnum)
     controlevents <- rep(NA, assnum)
@@ -341,16 +343,11 @@ server = function(input, output, session) {
 
   output$assurancePlot <- renderPlot({
 
-    theme_set(theme_grey(base_size = 12))
-    assurancedf1param <- data.frame(x = calculateAssurance1param()$samplesizevec, y = predict(calculateAssurance1param()$asssmooth))
-    p1 <- ggplot(data = assurancedf1param) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Number of patients") +
-      ylab("Assurance") + ylim(0, 1.05)
+    plot(calculateAssurance1param()$samplesizevec, predict(calculateAssurance1param()$asssmooth), col="red", ylim=c(0, 1.05), xlab="Number of patients", ylab = "Assurance", type="l")
     
-    assurancedf2params <- data.frame(x = calculateAssurance2params()$samplesizevec, y = predict(calculateAssurance2params()$asssmooth))
+    lines(calculateAssurance2params()$samplesizevec,predict(calculateAssurance2params()$asssmooth), col="blue")
     
-    
-    p1 <- p1 + geom_line(data = assurancedf2params, aes(x = x, y = y), colour = "green") 
-    print(p1)
+    legend("bottomright", legend = c("Gamma1 = Gamma2", "Gamma1 varies"), col=c("red", "blue"), lty = 1)
 
   })
   
