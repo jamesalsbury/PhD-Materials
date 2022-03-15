@@ -343,11 +343,11 @@ server = function(input, output, session) {
 
   output$assurancePlot <- renderPlot({
 
-    plot(calculateAssurance1param()$samplesizevec, predict(calculateAssurance1param()$asssmooth), col="red", ylim=c(0, 1.05), xlab="Number of patients", ylab = "Assurance", type="l")
+    plot(calculateAssurance1param()$samplesizevec, predict(calculateAssurance1param()$asssmooth), col="yellow", ylim=c(0, 1.05), xlab="Number of patients", ylab = "Assurance", type="l")
     
-    lines(calculateAssurance2params()$samplesizevec,predict(calculateAssurance2params()$asssmooth), col="blue")
+    lines(calculateAssurance2params()$samplesizevec,predict(calculateAssurance2params()$asssmooth), col="black")
     
-    legend("bottomright", legend = c("Gamma1 = Gamma2", "Gamma1 varies"), col=c("red", "blue"), lty = 1)
+    legend("bottomright", legend = c("Gamma1 = Gamma2", "Gamma1 varies"), col=c("yellow", "black"), lty = 1)
 
   })
   
