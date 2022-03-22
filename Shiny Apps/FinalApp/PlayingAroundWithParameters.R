@@ -357,6 +357,5 @@ server = function(input, output, session) {
 
 shinyApp(ui, server)
 
-#Tidy up some of the plots, maybe put a legend and stuff?
 
 
