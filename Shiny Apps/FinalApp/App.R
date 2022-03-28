@@ -165,6 +165,7 @@ ui <- fluidPage(
              ),
              
   ),
+  ),
   wellPanel(
     fluidRow(
       column(3, selectInput("outFormat", label = "Report format",
@@ -184,7 +185,6 @@ ui <- fluidPage(
       )
     )
     
-  )
   )
   )
 )

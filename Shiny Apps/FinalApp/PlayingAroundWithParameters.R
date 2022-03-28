@@ -162,7 +162,7 @@ server = function(input, output, session) {
       #The case where gamma1 = gamma2
       treatmenttime2 <- seq(3, exp((1.527/inputData()$gamma2)-log(inputData()$lambda2))*2, by=0.01)
       treatmentsurv2 <- exp(-(inputData()$lambda2*3)^inputData()$gamma2 - inputData()$lambda1only^inputData()$gamma2*(treatmenttime2^inputData()$gamma2-3^inputData()$gamma2))
-      lines(treatmenttime2, treatmentsurv2, col="yellow")
+      lines(treatmenttime2, treatmentsurv2, col="green")
       
       #The case where we allow gamma1 to vary
       
@@ -171,7 +171,7 @@ server = function(input, output, session) {
       treatmentsurv3 <- exp(-(inputData()$lambda2*3)^inputData()$gamma2 - inputData()$lambda1^inputData()$gamma1*(treatmenttime3^inputData()$gamma1-3^inputData()$gamma1))
       lines(treatmenttime3, treatmentsurv3)
       
-      legend("topright", legend = c("Same", "Weibull control", "KM control", "KM treatment", "Gamma1 = gamma2", "gamma1 varies"), col=c("green", "purple", "blue", "red", "yellow", "black"), lty=1)
+      legend("topright", legend = c("Same", "Weibull control", "KM control", "KM treatment", "Gamma1 = gamma2", "gamma1 varies"), col=c("green", "purple", "blue", "red", "green", "black"), lty=1)
       
     }
     
@@ -343,11 +343,11 @@ server = function(input, output, session) {
 
   output$assurancePlot <- renderPlot({
 
-    plot(calculateAssurance1param()$samplesizevec, predict(calculateAssurance1param()$asssmooth), col="yellow", ylim=c(0, 1.05), xlab="Number of patients", ylab = "Assurance", type="l")
+    plot(calculateAssurance1param()$samplesizevec, predict(calculateAssurance1param()$asssmooth), col="green", ylim=c(0, 1.05), xlab="Number of patients", ylab = "Assurance", type="l")
     
     lines(calculateAssurance2params()$samplesizevec,predict(calculateAssurance2params()$asssmooth), col="black")
     
-    legend("bottomright", legend = c("Gamma1 = Gamma2", "Gamma1 varies"), col=c("yellow", "black"), lty = 1)
+    legend("bottomright", legend = c("Gamma1 = Gamma2", "Gamma1 varies"), col=c("green", "black"), lty = 1)
 
   })
   

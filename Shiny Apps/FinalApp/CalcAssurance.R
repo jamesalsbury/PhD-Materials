@@ -1,5 +1,6 @@
 
-
+library(nleqslv)
+library(survival)
 #Need to look at what we actually need to compute assurance??
 #We are sampling from the control and treatment curves
 #But maybe we only need number of events that occur (or do not occur) by the time-point that the assurance is going to take place>
@@ -39,9 +40,6 @@ gamma1 <- gamma2
 treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
 treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
 
-timecombined <- c(controltime, treatmenttime)
-survcombined <- c(controlsurv, treatmentsurv)
-
 lines(treatmenttime, treatmentsurv, col="red")
 
 #Calculate assurance the way we have been doing
@@ -53,10 +51,13 @@ lines(treatmenttime, treatmentsurv, col="red")
 n1 <- 100
 n2 <- 100
 assvec <- rep(NA, 10000)
+lambda2 <- 0.06
+gamma2 <- 0.8
 gamma1 <- gamma2
+triallength <-15
 
 for (i in 1:10000){
-  bigT <- rnorm(1, 3, sd = sqrt(0.01))
+  bigT <- rnorm(1, 3, sd = sqrt(0.1))
   HR <- rbeta(1, 6, 4)
   lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
   CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
@@ -67,10 +68,11 @@ for (i in 1:10000){
   dataCombined <- data.frame(Time = c(rweibull(n1, gamma2, 1/lambda2), z), Group = c(rep("Control", n1), rep("Treatment", n2)), 
                              Cens = rep(1, n1+n2))
   
-  dataCombined$Cens <-  dataCombined$Time < 40
+  dataCombined$Cens <-  dataCombined$Time < triallength
   dataCombined$Cens <- dataCombined$Cens*1
   test <- survdiff(Surv(Time, Cens)~Group, data = dataCombined)
-  assvec[i] <-test$chisq > qchisq(0.95, 1)
+  pvalue <- 1-pchisq(test$chisq, 1)
+  assvec[i] <-pvalue< 0.05
 }
 
 mean(assvec)
@@ -81,33 +83,160 @@ mean(assvec)
 
 #We can calculate how many patients we expect to be alive after 40 months in the control group fairly easily
 
-n1 <- 100
-n2 <- 100
-lambda2 <- 0.06
-gamma2 <- 0.8
-gamma1 <- gamma2
-bigT <- rnorm(1, 3, sd = sqrt(0.01))
+
+
+
+
+#Have the same process for elicitation but see whether we can make assurance more flexible by allowing gamma1 to vary in the confidence intervals
+bigT <- rnorm(1, 3, sd = sqrt(0.1))
 HR <- rbeta(1, 6, 4)
 lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
 
-controlprob <- exp(-(lambda2*40)^gamma2)*n1
-treatmentprob <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(40^gamma1-bigT^gamma1))
+lambda2 <- 0.06
+gamma2 <- 0.8
+
+bigTMedian <- qnorm(0.5, 3, sqrt(0.1))
+HRMedian <- qbeta(0.5, 6, 4)
+lambda1Median <- exp((log(HRMedian)/gamma2)+log(lambda2))
+
+controltime <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+controlsurv <- exp(-(lambda2*controltime)^gamma2)
+plot(controltime, controlsurv, type="l", col="blue", ylab="Survival", xlab = "Time")
+
+gamma1 <- gamma2
+
+treatmenttime <- seq(bigTMedian, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+treatmentsurv <- exp(-(lambda2*bigTMedian)^gamma2 - lambda1Median^gamma1*(treatmenttime^gamma1-bigTMedian^gamma1))
+
+lines(treatmenttime, treatmentsurv, col="red")
 
 
-treatmentprob <- rep(NA, 10000)
+##Drawing sim curves
+gamma1 <- gamma2
 
-for (i in 1:10000){
-  bigT <- rnorm(1, 3, sd = sqrt(0.01))
+bigTVec <- rnorm(500, 3, sd = sqrt(0.1))
+HRVec <- rbeta(500, 6, 4)
+
+time <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
+
+for (i in 1:500){
+  bigT <- bigTVec[i]
+  HR <- HRVec[i]
+  lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
+  
+  controltime <- seq(0, bigT, by=0.01)
+  controlsurv <- exp(-(lambda2*controltime)^gamma2)
+  
+  treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+  treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
+  
+  timecombined <- c(controltime, treatmenttime)[1:length(time)]
+  survcombined <- c(controlsurv, treatmentsurv)[1:length(time)]
+  
+  
+  SimMatrix[i,] <- survcombined
+  
+}
+
+lowerbound <- rep(NA, length(time))
+upperbound <- rep(NA, length(time))
+for (j in 1:length(time)){
+  lowerbound[j] <- quantile(SimMatrix[,j], 0.1)
+  upperbound[j] <- quantile(SimMatrix[,j], 0.9)
+}
+
+lines(time, lowerbound)
+lines(time, upperbound)
+
+#Now sample a random y axis from time = 40? For example
+
+timechosen <- 40
+
+#hist(SimMatrix[,which(time==timechosen)], breaks = 50, xlim=c(0,0.8))
+
+sampledpoint <- sample(SimMatrix[,which(time==timechosen)], 1)
+
+bigT <- rnorm(1, 3, sd = sqrt(0.1))
+
+sampledlambda1 <- exp((1/gamma1)*(log((-log(sampledpoint) - (lambda2*bigT)^gamma2)/(timechosen^gamma1-bigT^gamma1))))
+
+points(timechosen, sampledpoint)
+
+treatmenttime <- seq(3, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+treatmentsurv <- exp(-(lambda2*3)^gamma2 - sampledlambda1^gamma1*(treatmenttime^gamma1-3^gamma1))
+lines(treatmenttime, treatmentsurv)
+
+#Now we sample two time points, at time = 30 and time  = 60
+
+timechosen1 <- 30
+timechosen2 <- 60
+
+sampledpoint1 <- sample(SimMatrix[,which(time==timechosen1)], 1)
+sampledpoint2 <- sample(SimMatrix[,which(time==timechosen2)], 1)
+
+points(timechosen1, sampledpoint1)
+points(timechosen2, sampledpoint2)
+
+bigT <- rnorm(1, 3, sd = sqrt(0.1))
+
+dslnex <- function(x) {
+  y <- numeric(2)
+  y[1] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
+  y[2] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen2^x[2]-bigT^x[2])) - sampledpoint2
+  y
+}
+
+
+xstart <- c(0.05,1)
+
+output <- nleqslv(xstart, dslnex, control=list(trace=1,btol=.01,delta="newton"))
+
+treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - output$x[1]^output$x[2]*(treatmenttime^output$x[2]-bigT^output$x[2]))
+
+lines(treatmenttime, treatmentsurv, col="red")
+
+
+#Now time to actually calculate assurance
+
+#We have 5 simulated data sets, calculate assurance in each case
+
+#Firstly we will calculate assurance with not letting gamma1 vary in both elicitation and assurance
+
+
+inputtedData <- simData1
+
+n1 <- 100
+n2 <- 100
+assvec <- rep(NA, 100)
+controldata <- inputtedData[inputtedData$group=="control",]
+weibcontrolfit <- survreg(Surv(time, cens)~1, data = controldata, dist = "weibull")
+gamma2 <- as.numeric(exp(-weibcontrolfit$icoef[2]))
+lambda2 <- as.numeric(1/(exp(weibcontrolfit$icoef[1])))
+gamma1 <- gamma2
+triallength <-40
+
+for (i in 1:100){
+  bigT <- rnorm(1, 3, sd = sqrt(0.1))
   HR <- rbeta(1, 6, 4)
   lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
-  treatmentprob[i] <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(40^gamma1-bigT^gamma1))
+  CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+  u <- runif(n2)
+  
+  suppressWarnings(z <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+  
+  dataCombined <- data.frame(Time = c(rweibull(n1, gamma2, 1/lambda2), z), Group = c(rep("Control", n1), rep("Treatment", n2)), 
+                             Cens = rep(1, n1+n2))
+  
+  dataCombined$Cens <-  dataCombined$Time < triallength
+  dataCombined$Cens <- dataCombined$Cens*1
+  test <- survdiff(Surv(Time, Cens)~Group, data = dataCombined)
+  pvalue <- 1-pchisq(test$chisq, 1)
+  assvec[i] <-pvalue< 0.05
 }
-hist(treatmentprob, breaks = 100, xlim=c(0,0.8))
 
-
-
-
-
+mean(assvec)
 
 
 
