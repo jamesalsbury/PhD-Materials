@@ -11,7 +11,7 @@ lambda2 <- 0.06
 gamma2 <- 0.8
 
 lambda1 <- 0.02
-gamma1 <- 1.2
+gamma1 <- 1.5
 
 chosenLength <- 60
 
@@ -35,7 +35,7 @@ gamma2 <- 0.8
 
 bigTVec <- rnorm(500, 3, sd = sqrt(0.1))
 lambda1vec <- rnorm(500, 0.02, sd = sqrt(0.00005))
-gamma1vec <- rnorm(500, 1.2, sd = sqrt(0.01))
+gamma1vec <- rnorm(500, gamma1, sd = sqrt(0.01))
 
 time <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
 SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
@@ -73,7 +73,7 @@ lines(time, upperbound, col="red", lty=3)
 #Resetting gamma1 and lambda1
 #This is now the situation where we are optimising the treatment curve - but we are not allowing gamma1 to vary anymore
 
-gamma1 <- 1.2
+gamma1 <- 1.5
 lambda1 <- 0.02 
 
 
@@ -154,8 +154,8 @@ assFunc <- function(n1, n2){
   assvec <- rep(NA, 100)
   for (i in 1:100){
     bigT <- rnorm(1, 3, sd = sqrt(0.1))
-    lambda1 <- rnorm(1, 0.02, sd = sqrt(0.00005))
-    gamma1 <- rnorm(1, 1.2, sd = sqrt(0.01))
+    lambda1 <- truncnorm::rtruncnorm(1, a = 0, mean = 0.02, sd = sqrt(0.00005))
+    gamma1 <- rnorm(1, 1.5, sd = sqrt(0.01))
     
     controldata <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
     
@@ -172,6 +172,13 @@ assFunc <- function(n1, n2){
     
     DataCombined$cens <- DataCombined$cens*1
     
+    if (sum(DataCombined$cens)==(n1+n2)){
+      
+    } else {
+      DataCombined[DataCombined$cens==0,]$time <- chosenLength
+    }
+    
+
     test <- survdiff(Surv(time, cens)~group, data = DataCombined)
     assvec[i] <- test$chisq > qchisq(0.95, 1)
   }
@@ -202,9 +209,8 @@ assFunc <- function(n1, n2){
   assvec <- rep(NA, 100)
   for (i in 1:100){
     bigT <- rnorm(1, 3, sd = sqrt(0.1))
-    lambda1 <- rnorm(1, optimoutput1, sd = sqrt(0.00005))
-    
-    
+    lambda1 <- truncnorm::rtruncnorm(1, a = 0, mean = optimoutput1, sd = sqrt(0.00005))
+
     controldata <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
     
     CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
@@ -219,6 +225,12 @@ assFunc <- function(n1, n2){
     DataCombined$cens <- DataCombined$time < chosenLength
     
     DataCombined$cens <- DataCombined$cens*1
+    
+    if (sum(DataCombined$cens)==(n1+n2)){
+      
+    } else {
+      DataCombined[DataCombined$cens==0,]$time <- chosenLength
+    }
     
     test <- survdiff(Surv(time, cens)~group, data = DataCombined)
     assvec[i] <- test$chisq > qchisq(0.95, 1)
@@ -248,7 +260,7 @@ lines(ssvec, predict(asssmooth), col = "green")
 #But we can pick two time-points and sample the treatment curves from these
 #Then fit a Weibull parameterisation where gamma1 does not equal gamma2
 
-#This section shows what goes on behind the scenes 
+#This section shows what goes on behind the scenes
 
 # timechosen1 <- 20
 # timechosen2 <- 50
@@ -285,8 +297,9 @@ lines(ssvec, predict(asssmooth), col = "green")
 #Performs a log-rank test with these data
 
 
-timechosen1 <- 20
-timechosen2 <- 50
+timechosen1 <- floor(0.4*chosenLength)
+timechosen2 <- floor(0.75*chosenLength)
+
 
 assFunc <- function(n1, n2){
   assvec <- rep(NA, 100)
@@ -311,6 +324,10 @@ assFunc <- function(n1, n2){
     lambda1 <- output$x[1]
     gamma1 <- output$x[2]
     
+   if (lambda1<0){
+     lambda1 <- 0.000001
+   }
+    
     controldata <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
     
     CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
@@ -324,6 +341,12 @@ assFunc <- function(n1, n2){
     DataCombined$cens <- DataCombined$time < chosenLength
     
     DataCombined$cens <- DataCombined$cens*1
+    
+    if (sum(DataCombined$cens)==(n1+n2)){
+      
+    } else {
+      DataCombined[DataCombined$cens==0,]$time <- chosenLength
+    }
     
     test <- survdiff(Surv(time, cens)~group, data = DataCombined)
     assvec[i] <- test$chisq > qchisq(0.95, 1)
@@ -345,6 +368,8 @@ asssmooth <- loess(assVec~ssvec)
 
 lines(ssvec, predict(asssmooth), col = "orange")
 
+legend("bottomright", legend = c("Benchmark", "Gamma1 not varying", "Two timepoints"), col=c("red", "green", "orange"), lty=1)
+
 
 ##Now we need to do the non parametric case
 #We split the x-axis up into 20 slices, from 20 to 60?
@@ -365,6 +390,31 @@ for (i in 2:length(xvec)){
 
 
 lines(xvec, yvec)
+
+#Looks like we are doing the right thing, but we are much more likely to hit the bottom of the confidence interval
+#It only takes 1 random y-axis draw to be low and then we are stuck being low
+
+#Maybe we can sample the y-axis in the same way as when we allow gamma1 to vary in the assurance, but plot a non-parametric line instead of a Weibull line
+
+timechosen1 <- floor(0.4*chosenLength)
+timechosen2 <- chosenLength
+
+sampledpoint1 <- sample(na.omit(SimMatrix1[,which(time==timechosen1)]), 1)
+sampledpoint2 <- sample(na.omit(SimMatrix1[,which(time==timechosen2)]), 1)
+
+if (sampledpoint1>sampledpoint2){
+  points(timechosen1, sampledpoint1)
+  points(timechosen2, sampledpoint2)
+  xvec <- seq(timechosen1, timechosen2, by=5)
+  yvec <- rep(NA, length(xvec))
+  yvec[1] <- sampledpoint1
+  
+  for (i in 2:(length(xvec)-1)){
+    yvec[i] <- runif(1, min = sampledpoint2, max =  yvec[i-1])
+  }
+  yvec[length(xvec)] <- sampledpoint2
+  lines(xvec, yvec)
+}
 
 
 

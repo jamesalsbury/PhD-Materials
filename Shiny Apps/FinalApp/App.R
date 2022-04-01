@@ -477,7 +477,7 @@ server = function(input, output, session) {
     gamma1 <- input$gamma2
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
-    assnum <- 100
+    assnum <- 200
     assvec <- rep(NA, assnum)
     eventsvec <- rep(NA, assnum)
     controlevents <- rep(NA, assnum)
@@ -512,6 +512,15 @@ server = function(input, output, session) {
         DataCombined$cens <- DataCombined$time < input$chosenLength
         
         DataCombined$cens <- DataCombined$cens*1
+        
+       
+        
+        if (sum(DataCombined$cens)==(n1+n2)){
+          
+        } else {
+          DataCombined[DataCombined$cens==0,]$time <- input$chosenLength
+        }
+        
         
         test <- survdiff(Surv(time, cens)~group, data = DataCombined)
         assvec[i] <- test$chisq > qchisq(0.95, 1)
