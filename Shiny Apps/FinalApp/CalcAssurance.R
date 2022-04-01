@@ -5,10 +5,7 @@ library(survival)
 
 # Uncertainty -------------------------------------------------------------
 
-
-#Or maybe we could put uncertainty around gamma1 and lambda1 and draw the same simulation curves to see how that would look? 
-#Will probably look similar to the stuff I have been looking at 
-
+#Plotting the control 
 bigT <- 3
 lambda2 <- 0.06
 gamma2 <- 0.8
@@ -22,12 +19,17 @@ controltime <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
 controlsurv <- exp(-(lambda2*controltime)^gamma2)
 plot(controltime, controlsurv, type="l", col="blue", ylab="Survival", xlab = "Time")
 
+#Plotting the median treatment lines
+
+#This situation is where gamma1 is allowed to vary (we are using this as a control - for example a clinician might think this is appropriate 
+#so we are seeing what we are losing by enforcing gamma1 = gamma2)
+
 treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
 treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
 
 lines(treatmenttime, treatmentsurv, col="red")
 
-#Drawing sim curves
+#Calculating the confidence intervals in this situation
 lambda2 <- 0.06
 gamma2 <- 0.8
 
@@ -64,12 +66,12 @@ for (j in 1:length(time)){
   upperbound[j] <- quantile(SimMatrix[,j], 0.9, na.rm = T)
 }
 
-lines(time, lowerbound)
-lines(time, upperbound)
+lines(time, lowerbound, col="red", lty=3)
+lines(time, upperbound, col="red", lty=3)
 
 
-#How can we best approximate this with setting gamma1 = gamma2?
-#We can use least squares to approximate this?
+#Resetting gamma1 and lambda1
+#This is now the situation where we are optimising the treatment curve - but we are not allowing gamma1 to vary anymore
 
 gamma1 <- 1.2
 lambda1 <- 0.02 
@@ -87,17 +89,15 @@ optimfunc1 <- function(par){
   return(diff)
 }
 
-
+#We are finding the lambda1 which corresponds to the closest median treatment curve as above
 optimoutput1 <-  optimize(f = optimfunc1, interval = c(0,1))$minimum
 
 treatmenttime1 <- seq(3, 120, by=0.01)
 treatmentsurv1 <- exp(-(lambda2*3)^gamma2 - 0.02^gamma2*(treatmenttime1^gamma2-3^gamma2))
 
-#plot(controltime, controlsurv, type="l", col="blue", ylab="Survival", xlab = "Time")
-
 lines(treatmenttime1, treatmentsurv1, col="green")
 
-#Draw sim lines
+#Calculating the confidence intervals for this situation where gamma1 = gamma2
 lambda2 <- 0.06
 gamma2 <- 0.8
 
@@ -134,23 +134,25 @@ for (j in 1:length(time)){
   upperbound[j] <- quantile(SimMatrix1[,j], 0.9, na.rm = T)
 }
 
-lines(time, lowerbound, col= "orange")
-lines(time, upperbound,col= "orange")
+lines(time, lowerbound, col= "green", lty=3)
+lines(time, upperbound,col= "green", lty=3)
 
+legend("topright", legend = c("Control", "Gamma1 not varying", "Gamma1 varying"), col=c("blue", "green", "red"), lty=1)
 
 # Assurance ---------------------------------------------------------------
 
+#The only one we will have access to is the green simulation lines
+#SimMatrix1
 
-#Now do assurance for both of the situations
-
-#Do assurance for when we allow gamma1 to vary first
+#We calculate assurance for the situation where gamma1 is allowed to vary
+#We would not normally know this - but we are calculating as a benchmark
 
 lambda2 <- 0.06
 gamma2 <- 0.8
 
 assFunc <- function(n1, n2){
-  assvec <- rep(NA, 500)
-  for (i in 1:500){
+  assvec <- rep(NA, 100)
+  for (i in 1:100){
     bigT <- rnorm(1, 3, sd = sqrt(0.1))
     lambda1 <- rnorm(1, 0.02, sd = sqrt(0.00005))
     gamma1 <- rnorm(1, 1.2, sd = sqrt(0.01))
@@ -189,14 +191,16 @@ ssvec <- n1vec + n2vec
 
 asssmooth <- loess(assVec~ssvec)
 
-plot(ssvec, predict(asssmooth), type="l", ylim=c(0,1), xlab="Sample size", ylab="Assurance")
+plot(ssvec, predict(asssmooth), type="l", ylim=c(0,1), xlab="Sample size", ylab="Assurance", col="red")
 
-#Now do the situation where we do not allow gamma1 to vary
+#Now do the situation where we do not allow gamma1 to vary in the elicitation
+#This is the calculation we have been doing thus far
+
 gamma1 <- gamma2
 
 assFunc <- function(n1, n2){
-  assvec <- rep(NA, 500)
-  for (i in 1:500){
+  assvec <- rep(NA, 100)
+  for (i in 1:100){
     bigT <- rnorm(1, 3, sd = sqrt(0.1))
     lambda1 <- rnorm(1, optimoutput1, sd = sqrt(0.00005))
     
@@ -234,14 +238,51 @@ ssvec <- n1vec + n2vec
 
 asssmooth <- loess(assVec~ssvec)
 
-lines(ssvec, predict(asssmooth), col = "red")
+lines(ssvec, predict(asssmooth), col = "green")
 
 
 # Flexible ----------------------------------------------------------------
 
+#We can look at more flexible models to calculate assurance
+#In this situation we have enforced gamma1 = gamma2 in the elicitation
+#But we can pick two time-points and sample the treatment curves from these
+#Then fit a Weibull parameterisation where gamma1 does not equal gamma2
 
-##Now we can look at assurance when we only elicit lambda1 (through the HR), but we allow gamma1 to vary in the assurance 
-#This will hopefully give us a more flexible family of curves
+#This section shows what goes on behind the scenes 
+
+# timechosen1 <- 20
+# timechosen2 <- 50
+# 
+# sampledpoint1 <- sample(na.omit(SimMatrix1[,which(time==timechosen1)]), 1)
+# sampledpoint2 <- sample(na.omit(SimMatrix1[,which(time==timechosen2)]), 1)
+# 
+# points(timechosen1, sampledpoint1, pch=19)
+# points(timechosen2, sampledpoint2, pch=19)
+# 
+# dslnex <- function(x) {
+#   y <- numeric(2)
+#   y[1] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
+#   y[2] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen2^x[2]-bigT^x[2])) - sampledpoint2
+#   y
+# }
+# 
+# 
+# xstart <- c(0.05,1)
+# 
+# output <- nleqslv(xstart, dslnex)
+# 
+# lambda1 <- output$x[1]
+# gamma1 <- output$x[2]
+# 
+# 
+# treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+# treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
+# 
+# lines(treatmenttime, treatmentsurv, col="yellow")
+
+#This section does the same as above but calculates assurance in this case
+#Picks two random y points at t=20 and t=50 and then draws a survival curve according to this
+#Performs a log-rank test with these data
 
 
 timechosen1 <- 20
@@ -250,8 +291,8 @@ timechosen2 <- 50
 assFunc <- function(n1, n2){
   assvec <- rep(NA, 100)
   for (i in 1:100){
-    sampledpoint1 <- sample(na.omit(SimMatrix[,which(time==timechosen1)]), 1)
-    sampledpoint2 <- sample(na.omit(SimMatrix[,which(time==timechosen2)]), 1)
+    sampledpoint1 <- sample(na.omit(SimMatrix1[,which(time==timechosen1)]), 1)
+    sampledpoint2 <- sample(na.omit(SimMatrix1[,which(time==timechosen2)]), 1)
     
     bigT <- rnorm(1, 3, sd = sqrt(0.1))
     
@@ -302,11 +343,28 @@ ssvec <- n1vec + n2vec
 
 asssmooth <- loess(assVec~ssvec)
 
-lines(ssvec, predict(asssmooth), col = "green")
+lines(ssvec, predict(asssmooth), col = "orange")
 
 
+##Now we need to do the non parametric case
+#We split the x-axis up into 20 slices, from 20 to 60?
+#Uniformly sample from the slice between the 0.1 and 0.9 confidence intervals
+#Make it a monotonically decreasing function by bounding it above by the previous y value sampled
 
 
+#Show it on a graph to ensure we are doing the right thing throughout
+
+xvec <- seq(20, 100, by=10)
+yvec <- rep(NA, length(xvec))
+
+yvec[1] <- runif(1, min = quantile(na.omit(SimMatrix1[,which(time==xvec[1])]), 0.1), max = quantile(na.omit(SimMatrix1[,which(time==xvec[1])]), 0.9))
+
+for (i in 2:length(xvec)){
+  yvec[i] <- runif(1, min = quantile(na.omit(SimMatrix1[,which(time==xvec[i])]), 0.1), max =  yvec[i-1])
+}
+
+
+lines(xvec, yvec)
 
 
 
