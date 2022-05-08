@@ -11,7 +11,7 @@ lambda2 <- 0.06
 gamma2 <- 0.8
 
 lambda1 <- 0.02
-gamma1 <- 1.5
+gamma1 <- 1.8
 
 chosenLength <- 60
 
@@ -28,6 +28,8 @@ treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
 treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
 
 lines(treatmenttime, treatmentsurv, col="red")
+
+legend("topright", legend = c("Control", "Treatment"), lty=1, col=c("blue", "red"))
 
 #Calculating the confidence intervals in this situation
 lambda2 <- 0.06
@@ -73,7 +75,7 @@ lines(time, upperbound, col="red", lty=3)
 #Resetting gamma1 and lambda1
 #This is now the situation where we are optimising the treatment curve - but we are not allowing gamma1 to vary anymore
 
-gamma1 <- 1.5
+gamma1 <- 1.1
 lambda1 <- 0.02 
 
 
@@ -155,7 +157,7 @@ assFunc <- function(n1, n2){
   for (i in 1:100){
     bigT <- rnorm(1, 3, sd = sqrt(0.1))
     lambda1 <- truncnorm::rtruncnorm(1, a = 0, mean = 0.02, sd = sqrt(0.00005))
-    gamma1 <- rnorm(1, 1.5, sd = sqrt(0.01))
+    gamma1 <- rnorm(1, 1.1, sd = sqrt(0.01))
     
     controldata <- data.frame(time = rweibull(n1, gamma2, 1/lambda2))
     
