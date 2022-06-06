@@ -6,18 +6,23 @@ library(survival)
 # Uncertainty -------------------------------------------------------------
 
 #Plotting the control 
-bigT <- 3
-lambda2 <- 0.06
-gamma2 <- 0.8
+bigT <- 5
+lambda2 <- 0.08
+gamma2 <- 1
 
-lambda1 <- 0.02
-gamma1 <- 1.8
+lambda1 <- 0.04
+gamma1 <- 1.2
 
 chosenLength <- 60
 
 controltime <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
 controlsurv <- exp(-(lambda2*controltime)^gamma2)
 plot(controltime, controlsurv, type="l", col="blue", ylab="Survival", xlab = "Time")
+
+sharedtime <- seq(0, bigT, by=0.01)
+sharedsurv <- exp(-(lambda2*sharedtime)^gamma2)
+
+lines(sharedtime, sharedsurv, col="green")
 
 #Plotting the median treatment lines
 
@@ -29,7 +34,7 @@ treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamm
 
 lines(treatmenttime, treatmentsurv, col="red")
 
-legend("topright", legend = c("Control", "Treatment"), lty=1, col=c("blue", "red"))
+legend("topright", legend = c("Delay", "Control", "Treatment"), lty=1, col=c("green", "blue", "red"))
 
 #Calculating the confidence intervals in this situation
 lambda2 <- 0.06
@@ -264,35 +269,35 @@ lines(ssvec, predict(asssmooth), col = "green")
 
 #This section shows what goes on behind the scenes
 
-# timechosen1 <- 20
-# timechosen2 <- 50
-# 
-# sampledpoint1 <- sample(na.omit(SimMatrix1[,which(time==timechosen1)]), 1)
-# sampledpoint2 <- sample(na.omit(SimMatrix1[,which(time==timechosen2)]), 1)
-# 
-# points(timechosen1, sampledpoint1, pch=19)
-# points(timechosen2, sampledpoint2, pch=19)
-# 
-# dslnex <- function(x) {
-#   y <- numeric(2)
-#   y[1] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
-#   y[2] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen2^x[2]-bigT^x[2])) - sampledpoint2
-#   y
-# }
-# 
-# 
-# xstart <- c(0.05,1)
-# 
-# output <- nleqslv(xstart, dslnex)
-# 
-# lambda1 <- output$x[1]
-# gamma1 <- output$x[2]
-# 
-# 
-# treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
-# treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
-# 
-# lines(treatmenttime, treatmentsurv, col="yellow")
+timechosen1 <- 20
+timechosen2 <- 50
+
+sampledpoint1 <- sample(na.omit(SimMatrix1[,which(time==timechosen1)]), 1)
+sampledpoint2 <- sample(na.omit(SimMatrix1[,which(time==timechosen2)]), 1)
+
+points(timechosen1, sampledpoint1, pch=19)
+points(timechosen2, sampledpoint2, pch=19)
+
+dslnex <- function(x) {
+  y <- numeric(2)
+  y[1] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
+  y[2] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen2^x[2]-bigT^x[2])) - sampledpoint2
+  y
+}
+
+
+xstart <- c(0.05,1)
+
+output <- nleqslv(xstart, dslnex)
+
+lambda1 <- output$x[1]
+gamma1 <- output$x[2]
+
+
+treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
+
+lines(treatmenttime, treatmentsurv, col="yellow")
 
 #This section does the same as above but calculates assurance in this case
 #Picks two random y points at t=20 and t=50 and then draws a survival curve according to this
