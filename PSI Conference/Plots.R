@@ -20,29 +20,36 @@ lines(nvec*2, powervec3, col="red")
 legend("bottomright", legend = c(expression(paste(delta, " = 1.0")), expression(paste(delta, " = 0.5")),
                                  expression(paste(delta, " = 0.2")) ), col=c("black", "blue", "red"), lty=1, cex=1.5)
 
-##Plots for the uncertainty about variances plots85
+##Plots for the uncertainty about variances plots
 #diastolic blood pressure
 
 
 x <- seq(30, 150, by = 0.01)
 controly <- dnorm(x, 90, sd = 10)
-treatmenty <- dnorm(x, 88, sd = 3.95)
-plot(x, controly, type="l", ylim=c(0, 0.25), col="blue", xlab="Diastolic blood pressure", ylab = "Density")
+treatmenty <- dnorm(x, 88, sd = sqrt(15.6))
+plot(x, controly, type="l", ylim=c(0, 0.25), col="blue", xlab="Diastolic blood pressure", ylab = "Density", font=2, cex=1.5)
 lines(x, treatmenty, col="red")
 legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
 
 notbenefitx <- seq(80, 140, by=0.1)
-nottreatmenty <- dnorm(notbenefitx, 88, sd = 3.95)
+nottreatmenty <- dnorm(notbenefitx, 88, sd = sqrt(15.6))
 
 polygon(c(notbenefitx[notbenefitx>=89], max(notbenefitx), 89), c(nottreatmenty[notbenefitx>=89], 0, 0), col="green")
 
-1 - pnorm(89, 88, sd = 1000)
+axis(1, at = 89,
+     labels = 89, col="green", col.axis = "red")
+
+
+
+
+1 - pnorm(89, 88, sd = 15.65)
 
 sdvec <- seq(1, 20, by=0.01)
 
 areaundercurve <- rep(NA, length = length(sdvec))
 
 areaundercurve  <- (1 - pnorm(89, 88, sd = sdvec))
+
 
 
 plot(sdvec, areaundercurve, type="l", xlab = expression(paste(sigma[t])), ylab= expression(paste("Area [80, ", infinity, "]")))
