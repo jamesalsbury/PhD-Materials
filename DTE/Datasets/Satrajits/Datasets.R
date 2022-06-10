@@ -1,7 +1,7 @@
 #Data sets that Satrajit sent me for DTE
 library(survival)
 #First data set
-DTEDataSet1 <- read.csv(file = "DTE/CM017PFS.csv")
+DTEDataSet1 <- read.csv(file = "DTE/Datasets/Satrajits/CM017PFS.csv")
 
 TreatmentData <- data.frame(time = DTEDataSet1$NIVO_Time[1:135], cens = DTEDataSet1$NIVO_Event_Flag[1:135])
  
@@ -112,7 +112,7 @@ legend("topright", legend = c("Control", "Treatment (best fit)", "Treatment (fix
 
 
 #Second data set
-DTEDataSet2 <- read.csv(file = "DTE/CM141OS.csv")
+DTEDataSet2 <- read.csv(file = "DTE/Datasets/Satrajits/CM141OS.csv")
 
 
 TreatmentData <- data.frame(time = DTEDataSet2$Nivolumab_Time, cens = DTEDataSet2$Nivolumab_Event)
