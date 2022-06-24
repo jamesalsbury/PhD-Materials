@@ -79,7 +79,7 @@ We can see that the $p$-value calculated is 0.694, which clearly is not signific
 
 ## Conditional power
 
-As we have a trial with an interim analysis, we can calculate conditional power. To perform a conditional power calculation, the remaining unknown patient outcomes are simulated. It is not clear how these values should be simulated, there are (usually) three different options the statistician can make, we assume that the remaining patients will follow: 1) the same trend as the observed patients, 2) the trend elicited before the trial began and 3) the null hypothesis. We will calculate conditional power according to all three of these assumptions
+As we have a trial with an interim analysis, we can calculate conditional power. To perform a conditional power calculation, the remaining unknown patient outcomes are simulated. It is not clear how these values should be simulated, there are (usually) three different options the statistician can make, we assume that the remaining patients will follow: 1) the same trend as the observed patients, 2) the trend elicited before the trial began and 3) the null hypothesis. We will calculate conditional power according to all three of these assumptions.
 
 ### Assumption 1 (realistic)
 
@@ -241,43 +241,43 @@ for (i in 1:length(ass3)){
 lo3 <- loess(ass3~N1vec)
 lines(N1vec, predict(lo3), lty=4, col="green")
 
-DesignAssuranceFuncNonInform <- function(){
+# DesignAssuranceFuncNonInform <- function(){
+# 
+#   #We calculate the assurance for user-specified n1 and n2
+#   assurancefunc <- function(n1, n2){
+#     n <- 20e1
+#     zvec <- vector(length=n)
+#     for (i in 1:n){
+#       theta1 <- rbeta(1, 10.7, 13.1) #Control
+#       rho <- runif(n = 1, min = theta1-1, max = theta1)
+#       theta2 <- theta1 - rho #Treatment
+#       control <- rbinom(1, n1, theta1)
+#       treatment <- rbinom(1, n2, theta2)
+#       MoxonidineData <- data.frame(RaisedcTni = c(control, treatment),
+#                                      NotRaisedcTni = c(n1 - control, n2 - treatment),
+#                                      row.names = c("Control", "Treatment"))
+#       test <- chisq.test(MoxonidineData, correct = F)
+#       zvec[i] <- test$p.value<0.05
+#     }
+#     mean(zvec)
+#   }
+# 
+#   #We compute the assurance for a range of different n1, n2 values
+#   assurance <- rep(NA, length = 50)
+#   N1vec <- floor(seq(50, 500, length=50))
+#   N2vec <- floor(seq(50,500, length = 50))
+#   for (i in 1:length(N1vec)){
+#     assurance[i] <- assurancefunc(N1vec[i], N2vec[i])
+#   }
+# 
+#   #Smooth the output
+#   lo <- loess(assurance~N1vec)
+#   return(lo)
+# }
+# lines(N1vec, predict(DesignAssuranceFuncNonInform()), lty=5, col="yellow")
 
-  #We calculate the assurance for user-specified n1 and n2
-  assurancefunc <- function(n1, n2){
-    n <- 20e1
-    zvec <- vector(length=n)
-    for (i in 1:n){
-      theta1 <- rbeta(1, 10.7, 13.1) #Control
-      rho <- runif(n = 1, min = theta1-1, max = theta1)
-      theta2 <- theta1 - rho #Treatment
-      control <- rbinom(1, n1, theta1)
-      treatment <- rbinom(1, n2, theta2)
-      MoxonidineData <- data.frame(RaisedcTni = c(control, treatment),
-                                     NotRaisedcTni = c(n1 - control, n2 - treatment),
-                                     row.names = c("Control", "Treatment"))
-      test <- chisq.test(MoxonidineData, correct = F)
-      zvec[i] <- test$p.value<0.05
-    }
-    mean(zvec)
-  }
-
-  #We compute the assurance for a range of different n1, n2 values
-  assurance <- rep(NA, length = 50)
-  N1vec <- floor(seq(50, 500, length=50))
-  N2vec <- floor(seq(50,500, length = 50))
-  for (i in 1:length(N1vec)){
-    assurance[i] <- assurancefunc(N1vec[i], N2vec[i])
-  }
-
-  #Smooth the output
-  lo <- loess(assurance~N1vec)
-  return(lo)
-}
-lines(N1vec, predict(DesignAssuranceFuncNonInform()), lty=5, col="yellow")
-
-legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 3", "Scenario 4"),
-       col=c("black", "blue", "red", "green", "yellow"), lty=1:5)
+legend("bottomright", legend = c("Power", "Scenario 1", "Scenario 2", "Scenario 3"),
+       col=c("black", "blue", "red", "green"), lty=1:4)
 ```
 
 In scenario 1, the prior distribution for $\rho$ indicates a strong belief that the treatment is 15% absolutely more effective than the control. This is shown by the assurance essentially being the power curve (where we assume the treatment is better).
