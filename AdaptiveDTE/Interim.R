@@ -1,6 +1,7 @@
 #Libraries
 library(plyr)
 library(survival)
+library(tidyverse)
 
 #We have the following parameters for the control
 lambda2 <- 0.08
@@ -9,7 +10,7 @@ gamma2 <- 0.8
 #We draw the control group
 controltime <- seq(0, 100, by=0.01)
 controlsurv <- exp(-(lambda2*controltime)^gamma2)
-plot(controltime, controlsurv, type="l", col="blue", ylim=c(0,1), xlim=c(0, 20))
+plot(controltime, controlsurv, type="l", col="blue", ylim=c(0,1))
 
 #We have the following parameters for the treatment
 gamma1 <- 0.8
@@ -18,7 +19,7 @@ gamma1 <- 0.8
 #bigT <- normal(6, 1)
 #HR <- beta(10, 6)
 
-#Therefore, using the mean values from the above distribtuions, we have the following treatment curve
+#Therefore, using the mean values from the above distributions, we have the following treatment curve
 bigTMean <- 6
 HRMean <- 10/16
 
@@ -86,7 +87,7 @@ for (j in 1:length(n1vec)){
 
 nvec <- n1vec+n2vec
 asssmooth <- loess(assvec~nvec)
-par(mar = c(10, 10, 10, 10))
+par(mar = c(5, 5, 5, 5))
 plot(nvec, predict(asssmooth), ylim=c(0,1), ylab = "Assurance", xlab="Total sample size", type="l")
 
 eventsmooth <- loess(eventvec~nvec)
@@ -107,12 +108,6 @@ npatients <- round_any(i, 2)
 events <- round(predict(eventsmooth, newdata = npatients))
 
 #We need to determine when is best to perform any IA
-
-#We require 458 events for 80% assurance, 496 patients
-
-#Lets simulate some data, we look at 50% through the information fraction, so we look when 229 events have happened
-#We simulate the delay to be 8 months, but keep the HR the same
-#We can combine the data with the prior to compute BPP
 
 
 n1 <- npatients/2
@@ -137,7 +132,7 @@ DataCombined <- data.frame(time = c(controldata$time, z),
 
 IATime <- DataCombined[order(DataCombined$time),][events*0.75,]$time
 
-#We are performing tha IA at 75% through thr IF
+#We are performing the IA at 75% through the IF
 
 #What will the data set look like here?
 
@@ -160,15 +155,24 @@ if (bigT<bigTMean){
 
 #How to estimate the HR
 
-#We need to use the control data to esimtate lambda2 and gamma2
-controlSample <- read_excel(chosenFile$datapath, sheet=1)
+#We need to use the control data to estimate lambda2 and gamma2
+controlSample <- DataCombined %>%
+  filter(group=="Control")
 weibfit <- survreg(Surv(time, cens)~1, data = controlSample, dist = "weibull")
-updateTextInput(session, "lambda2", value = round(as.numeric(1/(exp(weibfit$icoef[1]))), 3))
-updateTextInput(session, "gamma2", value = round(as.numeric(exp(-weibfit$icoef[2])), 3))
+lambda2est <- as.numeric(1/(exp(weibfit$icoef[1])))
+gamma2est <- as.numeric(exp(-weibfit$icoef[2]))
 
+gamma1est <- gamma2est
 
+#We now need to estimate lambda1, which in turn estimates the HR
 
+kmfit <- survfit(Surv(time, cens)~group, data = DataCombined)
+plot(kmfit, col=c("blue", "red"))
+abline(v = bigT)
 
+controltimeest <- seq(0, IATime, by=0.01)
+controlsurvest <- exp(-(lambda2est*controltimeest)^gamma2est)
+lines(controltimeest, controlsurvest)
 
 
 
