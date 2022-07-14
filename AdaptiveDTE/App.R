@@ -130,20 +130,20 @@ server = function(input, output, session) {
     
     
       
-      # bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
-      # HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
-      # lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
-      # 
-      # treatmenttime1 <- seq(0, bigTMedian, by=0.01)
-      # treatmentsurv1 <- exp(-(input$lambda2*treatmenttime1)^input$gamma2)
-      # treatmenttime1df <- data.frame(treatmenttime1 = treatmenttime1, treatmentsurv1 = treatmentsurv1)
-      # p1 <-  p1 + geom_line(data = treatmenttime1df, aes(x = treatmenttime1, y = treatmentsurv1), colour = "green") 
-      # 
-      # 
-      # treatmenttime2 <- seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
-      # treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMedian^gamma1))
-      # treatmenttime2df <- data.frame(treatmenttime2 = treatmenttime2, treatmentsurv2 = treatmentsurv2)
-      # p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red")
+      bigTMedian <- input$DelayMean
+      HRMedian <- (input$HRa)/(input$HRa+input$HRb)
+      lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
+
+      treatmenttime1 <- seq(0, bigTMedian, by=0.01)
+      treatmentsurv1 <- exp(-(input$lambda2*treatmenttime1)^input$gamma2)
+      treatmenttime1df <- data.frame(treatmenttime1 = treatmenttime1, treatmentsurv1 = treatmentsurv1)
+      p1 <-  p1 + geom_line(data = treatmenttime1df, aes(x = treatmenttime1, y = treatmentsurv1), colour = "green")
+
+
+      treatmenttime2 <- seq(bigTMedian, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+      treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMedian^gamma1))
+      treatmenttime2df <- data.frame(treatmenttime2 = treatmenttime2, treatmentsurv2 = treatmentsurv2)
+      p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red")
       #scale_color_manual(name='James', breaks=c('Same fit before changepoint', 'Control', 'Treatment'),
       # values=c('Same fit before changepoint'='green', 'Control'='blue', 'Treatment'='red'))
       
