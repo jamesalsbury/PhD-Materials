@@ -2,6 +2,8 @@ library(shiny)
 library(shinyjs)
 library(shinydashboard)
 library(ggplot2)
+library(survival)
+library(tidyverse)
 ui <- fluidPage(
   
   # Application title
@@ -19,8 +21,8 @@ ui <- fluidPage(
     tabPanel("Set up", 
              sidebarLayout(
                sidebarPanel = sidebarPanel(
-                 numericInput("lambda2", "lambda2", value=0.05),
-                 numericInput("gamma2", "gamma2", value=1),
+                 numericInput("lambda2", "lambda2", value=0.08),
+                 numericInput("gamma2", "gamma2", value=0.8),
                  box(width = 10, title = "Delay",
                      splitLayout(
                        numericInput("DelayMean", "Mean", value=6, min=0),
@@ -48,16 +50,10 @@ ui <- fluidPage(
                sidebarPanel = sidebarPanel(
                  useShinyjs(),
                  numericInput("numofpatients", "How many patients could you enrol into the trial?", value=1000),
-                 numericInput("rectime", "How long would it take to enrol all of these patients?", value=6),
-                 
-                 box(width = 10, title = "Ratio of patients in each group?",
-                     splitLayout(
-                       numericInput("n1", "Control", value=1, min=1),
-                       numericInput("n2", "Treatment", value=1, min=1)
-                     )
-                 ),
-                 numericInput("chosenLength", "How long do you want to run the trial for? (Including recruitment time)", value=60),
-                 actionButton("drawAssurance", "Produce plot")
+                 numericInput("chosenLength", "How long do you want to run the trial for?", value=60),
+                 actionButton("drawAssurance", "Produce plot"),
+                 numericInput("chosenAss", "What assurance do you want to aim for?", value=0.8),
+                 numericInput("chosenIA", "When do you want to perform the interim analysis?", value=0.75)
                ), 
                mainPanel = mainPanel(
                  plotOutput("assurancePlot"),
@@ -79,9 +75,7 @@ server = function(input, output, session) {
   drawsimlines <- reactive({
     
     gamma1 <- input$gamma2
-    conc.probs <- matrix(0, 2, 2)
-    conc.probs[1, 2] <- 0.5
-    mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 500, d = c(input$dist1, input$dist2)))
+    mySample <- data.frame(t = rnorm(500, input$DelayMean, sd = input$DelaySD), HR = rbeta(500, input$HRa, input$HRb))
     
     time <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
     SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
@@ -124,12 +118,7 @@ server = function(input, output, session) {
     controldf <- data.frame(controltime = controltime, controlcurve = controlcurve)
     p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) +
       geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
-    
-    #legend("topright", legend = c("Same fit before changepoint", "Control", "Treatment"),
-    #col=c("green", "blue", "red"), lty=c(1), cex=0.75)
-    
-    
-      
+
       bigTMedian <- input$DelayMean
       HRMedian <- (input$HRa)/(input$HRa+input$HRb)
       lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
@@ -144,8 +133,6 @@ server = function(input, output, session) {
       treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMedian^gamma1))
       treatmenttime2df <- data.frame(treatmenttime2 = treatmenttime2, treatmentsurv2 = treatmentsurv2)
       p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red")
-      #scale_color_manual(name='James', breaks=c('Same fit before changepoint', 'Control', 'Treatment'),
-      # values=c('Same fit before changepoint'='green', 'Control'='blue', 'Treatment'='red'))
       
       print(p1)
       
@@ -167,8 +154,8 @@ server = function(input, output, session) {
                 geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed")
             }
           } else if (addfeedback[i]=="95% CI for T"){
-            p1 <- p1 + geom_point(aes(x = feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4) +
-              geom_point(aes(x = feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4)
+            p1 <- p1 + geom_point(aes(x =  qnorm(0.025, input$DelayMean, sd = input$DelaySD), y = controlcurve[sum(controltime< qnorm(0.025, input$DelayMean, sd = input$DelaySD))]), colour="orange", size = 4) +
+              geom_point(aes(x =  qnorm(0.975, input$DelayMean, sd = input$DelaySD), y = controlcurve[sum(controltime< qnorm(0.975, input$DelayMean, sd = input$DelaySD))]), colour="orange", size = 4)
           } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
             #Function to draw simulated lines
             simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
@@ -181,6 +168,7 @@ server = function(input, output, session) {
     }
   })
   
+
   
   # Functions for the Assurance tab ---------------------------------
   
@@ -188,18 +176,14 @@ server = function(input, output, session) {
   calculateAssurance <- eventReactive(input$drawAssurance, {
     
     gamma1 <- input$gamma2
-    conc.probs <- matrix(0, 2, 2)
-    conc.probs[1, 2] <- 0.5
     assnum <- 200
-    assvec <- rep(NA, assnum)
-    eventsvec <- rep(NA, assnum)
-    controlevents <- rep(NA, assnum)
-    treatmentevents <- rep(NA, assnum)
     
     
     assFunc <- function(n1, n2){
       
-      mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+      assvec <- rep(NA, assnum)
+      eventsvec <- rep(NA, assnum)
+      mySample <- data.frame(t = rnorm(assnum, input$DelayMean, sd = input$DelaySD), HR = rbeta(assnum, input$HRa, input$HRb))
       
       
       for (i in 1:assnum){
@@ -220,8 +204,6 @@ server = function(input, output, session) {
                                    group = c(rep("Control", n1), rep("Treatment", n2)))
         
         
-        DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
-        
         DataCombined$cens <- DataCombined$time < input$chosenLength
         
         DataCombined$cens <- DataCombined$cens*1
@@ -234,56 +216,44 @@ server = function(input, output, session) {
           DataCombined[DataCombined$cens==0,]$time <- input$chosenLength
         }
         
-        
+
         test <- survdiff(Surv(time, cens)~group, data = DataCombined)
         assvec[i] <- test$chisq > qchisq(0.95, 1)
-        
-        eventsseen <- DataCombined %>%
-          filter(time < input$chosenLength)
-        
-        controlevents[i] <- sum(eventsseen$group=="Control")
-        
-        treatmentevents[i] <- sum(eventsseen$group=="Treatment")
         
         eventsvec[i] <- sum(DataCombined$cens==1)
       }
       
-      return(list(assvec = mean(assvec), eventvec = mean(eventsvec), controlevents = mean(controlevents), treatmentevents = mean(treatmentevents)))
+      return(list(assvec = mean(assvec), eventvec = mean(eventsvec)))
     }
     
     
     samplesizevec <- seq(30, input$numofpatients, length=10)
     
-    n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
-    n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
+    n1vec <- round(samplesizevec/2)
+    n2vec <- round(samplesizevec/2)
     calcassvec <- rep(NA, length = length(samplesizevec))
-    
+    eventvec <- rep(NA, length(samplesizevec))
     
     withProgress(message = "Calculating assurance", value = 0, {
-      for (i in 1:length(n1vec)){
-        calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
+      for (i in 1:length(samplesizevec)){
+        output <- assFunc(n1vec[i], n2vec[i])
+        calcassvec[i] <- output$assvec
+        eventvec[i] <- output$eventvec
         incProgress(1/length(n1vec))
       }
     })
     
-    
-    eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
-    
-    controlevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$controlevents
-    
-    treatmentevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$treatmentevents
-    
     asssmooth <- loess(calcassvec~samplesizevec)
+    eventsmooth <- loess(eventvec~samplesizevec)
     
     return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-                eventsseen = eventsseen, controlevents = controlevents, treatmentevents = treatmentevents))
+                eventsmooth = eventsmooth))
     
     
   })    
   
   output$assurancePlot <- renderPlot({
     
-    theme_set(theme_grey(base_size = input$fs))
     assurancedf <- data.frame(x = calculateAssurance()$samplesizevec, y = predict(calculateAssurance()$asssmooth))
     p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Number of patients") +
       ylab("Assurance") + ylim(0, 1.05)
@@ -296,15 +266,27 @@ server = function(input, output, session) {
   
   output$assuranceText  <- renderUI({
     
-    str1 <- paste0("On average, ", calculateAssurance()$eventsseen, " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
-    #str2 <- paste0(calculateAssurance()$controlevents, " events are seen in the control group")
-    #str3 <- paste0(calculateAssurance()$treatmentevents, "events are seen in the treatment group")
-    HTML(paste(str1, sep = '<br/>'))
+    for (i in 50:1000){
+      if (predict(calculateAssurance()$asssmooth, newdata = i)>input$chosenAss){
+        break
+      }
+    }
+
+    npatients <- round_any(i, 2)
+
+    events <- round(predict(calculateAssurance()$eventsmooth, newdata = npatients))
+
+
+    str1 <- paste0("For ", input$chosenAss*100, "% assurance and for a trial which lasts ",input$chosenLength ," months, we require ", npatients, " patients.")
+    str2 <- paste0("On average, ", events, " events will be seen.")
+    str3 <- paste0("An IA will be performed at ", input$chosenIA*100, "% of the information fraction, this is when ", events*input$chosenIA, " events have occured.")
+    str4 <- paste0("We will invesigate the optimal time to perform an IA when the delay ranges from ", round(qnorm(0.025, input$DelayMean, sd = input$DelaySD),2), " to ", round(qnorm(0.975, input$DelayMean, sd = input$DelaySD),2),
+                   " months and the post-delay HR ranges from ", round(qbeta(0.025, input$HRa, input$HRb),2), " to ", round(qbeta(0.975, input$HRa, input$HRb), 2))
+    HTML(paste(str1, str2, str3, str4, sep = '<br/>'))
     
     
   })
-  
-  
+
   
 }
 
