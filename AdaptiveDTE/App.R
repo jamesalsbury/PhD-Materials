@@ -4,6 +4,9 @@ library(shinydashboard)
 library(ggplot2)
 library(survival)
 library(tidyverse)
+library(plyr)
+library(truncnorm)
+library(fields)
 ui <- fluidPage(
   
   # Application title
@@ -51,13 +54,15 @@ ui <- fluidPage(
                  useShinyjs(),
                  numericInput("numofpatients", "How many patients could you enrol into the trial?", value=1000),
                  numericInput("chosenLength", "How long do you want to run the trial for?", value=60),
-                 actionButton("drawAssurance", "Produce plot"),
+                 actionButton("drawAssurance", "Produce assurance plot"),
                  numericInput("chosenAss", "What assurance do you want to aim for?", value=0.8),
-                 numericInput("chosenIA", "When do you want to perform the interim analysis?", value=0.75)
+                 numericInput("chosenIA", "When do you want to perform the interim analysis?", value=0.75),
+                 actionButton("drawIA", "Produce IA plot")
                ), 
                mainPanel = mainPanel(
                  plotOutput("assurancePlot"),
-                 htmlOutput("assuranceText")
+                 htmlOutput("assuranceText"),
+                 plotOutput("IAPlot")
                )
              ),
              
@@ -176,7 +181,7 @@ server = function(input, output, session) {
   calculateAssurance <- eventReactive(input$drawAssurance, {
     
     gamma1 <- input$gamma2
-    assnum <- 200
+    assnum <- 500
     
     
     assFunc <- function(n1, n2){
@@ -227,7 +232,7 @@ server = function(input, output, session) {
     }
     
     
-    samplesizevec <- seq(30, input$numofpatients, length=10)
+    samplesizevec <- seq(30, input$numofpatients, length=20)
     
     n1vec <- round(samplesizevec/2)
     n2vec <- round(samplesizevec/2)
@@ -259,8 +264,6 @@ server = function(input, output, session) {
       ylab("Assurance") + ylim(0, 1.05)
     print(p1) 
     
-    
-    
   })
   
   
@@ -276,7 +279,6 @@ server = function(input, output, session) {
 
     events <- round(predict(calculateAssurance()$eventsmooth, newdata = npatients))
 
-
     str1 <- paste0("For ", input$chosenAss*100, "% assurance and for a trial which lasts ",input$chosenLength ," months, we require ", npatients, " patients.")
     str2 <- paste0("On average, ", events, " events will be seen.")
     str3 <- paste0("An IA will be performed at ", input$chosenIA*100, "% of the information fraction, this is when ", events*input$chosenIA, " events have occured.")
@@ -284,10 +286,188 @@ server = function(input, output, session) {
                    " months and the post-delay HR ranges from ", round(qbeta(0.025, input$HRa, input$HRb),2), " to ", round(qbeta(0.975, input$HRa, input$HRb), 2))
     HTML(paste(str1, str2, str3, str4, sep = '<br/>'))
     
+  })
+  
+  calculateIA <- eventReactive(input$drawIA, {
+
+    lambda2 <- input$lambda2
+    gamma2 <- input$gamma2
+    gamma1 <- gamma2
+    totalLength <- input$chosenLength
     
+    for (i in 50:1000){
+      if (predict(calculateAssurance()$asssmooth, newdata = i)>input$chosenAss){
+        break
+      }
+    }
+    
+    npatients <- round_any(i, 2)
+    
+    n1 <- npatients/2
+    n2 <- npatients/2
+    
+    
+    events <- round(predict(calculateAssurance()$eventsmooth, newdata = npatients)*input$chosenIA)
+    
+    IAFunc <- function(bigT, HRa, HRb){
+      IAVec <- rep(NA, 100)
+      for (i in 1:100){
+        
+        sampledbigT <- rtruncnorm(1, a = 0, mean = bigT, sd = input$DelaySD)
+        sampledHR <- rbeta(1, HRa, HRb)
+        lambda1 <- exp((log(sampledHR)/gamma2)+log(lambda2))
+        
+        #Generate the initial data
+        CP <- exp(-(lambda2*sampledbigT)^gamma2)[[1]]
+        u <- runif(n2)
+        
+        suppressWarnings(z <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*sampledbigT)^gamma2+lambda1^gamma1*sampledbigT*gamma1)))))
+        
+        DataCombined <- data.frame(time = c(rweibull(n1, gamma2, 1/lambda2),z),
+                                   group = c(rep("Control", n1), rep("Treatment", n2)))
+        
+        
+        
+        DataCombined <- DataCombined[order(DataCombined$time),]
+        
+        IATime <- DataCombined[events+1,]$time
+        
+        DataCombined$event <- DataCombined$time<IATime
+        
+        DataCombined[DataCombined$event==0,]$time <- IATime
+        
+        
+        #Extract the control group
+        controlSample <- DataCombined %>%
+          filter(group=="Control")
+        weibfit <- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
+        #Estimate gamma2 and lambda2 from the control group
+        lambda2est <- as.numeric(1/(exp(weibfit$icoef[1])))
+        gamma2est <- as.numeric(exp(-weibfit$icoef[2]))
+        
+      
+        
+        #We can use these estimated parameters to simulate the remaining control data
+        
+        controleventsremaining <- n1 - sum(controlSample$time<IATime)
+        
+        u <- runif(controleventsremaining, 0, controleventsremaining/n1)
+        
+        remainingcontroltimes <- exp((1/gamma2est)*log(-log(u))-log(lambda2est))
+        
+        finalcontrolsample <- data.frame(time = c(controlSample$time[1:(sum(controlSample$time<IATime))], remainingcontroltimes), group = rep("Control", n1), event = rep(0, n1))
+        
+        finalcontrolsample$event <- finalcontrolsample$time<totalLength
+        
+        gamma1est <- gamma2est
+        
+        treatmentSample <- DataCombined %>%
+          filter(group=="Treatment")
+        
+        #We need to go down two different paths here, depending on whether we have observed T (or not)
+        
+        if (IATime>sampledbigT){
+          #This is when we have observed T
+
+          #We now need to estimate parameters
+        
+          kmtreatment <- survfit(Surv(time, event)~1, data = treatmentSample)
+          
+          estT <- seq(sampledbigT, IATime, by = 0.5)
+          
+          findlambda1 <- function(par){
+            diff <- 0
+            for (i in 1:length(estT)){
+              diff <- diff + (summary(kmtreatment,time=estT[i])$surv - exp(-(lambda2est*sampledbigT)^gamma2est - par[1]^gamma1est*(estT[i]^gamma1est-sampledbigT^gamma1est)))^2
+            }
+            return(diff)
+          }
+          
+          lambda1est <-  optimise(findlambda1, c(0.005,0.15))$minimum
+          
+          
+        } else {
+          #This is when we have not observed T
+          
+          sampledbigT <- rtruncnorm(1, a = IATime, mean = bigT, sd = input$DelaySD)
+          
+          HR <- rbeta(1, input$HRa, input$HRb)
+          
+          lambda1est <- exp((log(HR)/gamma2est)+log(lambda2est))
+          
+        }
+        
+        #We now use the estimated parameters to simulate the remaining data
+        treatmenteventsremaining <- n2 - sum(treatmentSample$time<IATime)
+        
+        u <- runif(treatmenteventsremaining, 0, treatmenteventsremaining/n2)
+        
+        remainingtreatmenttimes <- exp((1/gamma1est)*log(1/(lambda1est^gamma1est)*(-log(u)-(lambda2est*sampledbigT)^gamma2est+lambda1est^gamma1est*sampledbigT*gamma1est)))
+        
+        finaltreatmentsample <- data.frame(time = c(treatmentSample$time[1:(sum(treatmentSample$time<IATime))], remainingtreatmenttimes), group = rep("Treatment", n2), event = rep(0, n2))
+        
+        finaltreatmentsample$event <- finaltreatmentsample$time<totalLength
+        
+
+        #Combine the two groups
+        finalDataCombined <- rbind(finalcontrolsample, finaltreatmentsample)
+        test <- survdiff(Surv(time, event)~group, data = finalDataCombined)
+        
+        IAVec[i] <- test$chisq > qchisq(0.95, 1)
+        
+      }
+      return(mean(IAVec))
+    }
+    
+    #ttimes <- seq(qnorm(0.025, input$DelayMean, sd = input$DelaySD), qnorm(0.975, input$DelayMean, sd = input$DelaySD), length=10)
+     ttimes <- seq(0, 40, by=2)
+     
+     estBetaParams <- function(mu, var) {
+       alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+       beta <- alpha * (1 / mu - 1)
+       return(params = list(alpha = alpha, beta = beta))
+     }
+     
+     HRMeans <- seq(0.3, 0.9, by=0.05)
+     
+     HRVar <- (input$HRa*input$HRb)/(((input$HRa+input$HRb)^2)*(input$HRa+input$HRb+1))
+     
+     HRVar <- 0.01378676
+     
+    HRInputs <- estBetaParams(HRMeans, HRVar) 
+    
+    IAMat <- matrix(NA, nrow = length(HRMeans), ncol = length(ttimes))
+      
+    
+    withProgress(message = "Calculating conditional power", value = 0, {
+      for (k in 1:length(HRMeans)){
+        for (j in 1:length(ttimes)){
+          IAMat[k, j] <- IAFunc(ttimes[j], HRInputs$alpha[k], HRInputs$beta[k])    
+        }
+        incProgress(1/length(HRMeans))
+      }
+      
+    })
+    
+    print(ttimes)
+    print(HRMeans)
+    print(IAMat)
+    
+   return(list(ttimes = ttimes, HRMeans = HRMeans, IAMat = IAMat))
+
+
   })
 
   
+  output$IAPlot <- renderPlot({
+
+    image.plot(x = calculateIA()$ttimes, y= calculateIA()$HRMeans, z = t(calculateIA()$IAMat), 
+               col = rev(heat.colors(20)), xlab="Delay Mean", ylab="Hazard Ratio (Mean)")
+    
+
+  })
+
 }
 
 shinyApp(ui, server)
+
