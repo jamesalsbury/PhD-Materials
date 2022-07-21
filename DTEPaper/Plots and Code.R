@@ -2,6 +2,7 @@
 
 #This finds the assurance for the example in Section 2.1
 library(truncnorm)
+library(survival)
 n1 <- 1092
 n2 <- 1092
 Nsim <- 10e4
@@ -176,6 +177,7 @@ lines(samplesizevec, predict(asssmooth), lty=2, col="red")
 legend("bottomright", legend =c("Power", "Assurance"), col=c("blue", "red"), lty=1:2)
 
 dev.off()
+
 
 
 
