@@ -1,6 +1,8 @@
 #Data sets that Satrajit sent me for DTE
 library(survival)
 #First data set
+
+png("DS2.png", units="in", width=5, height=5, res=700)
 DTEDataSet1 <- read.csv(file = "DTE/Datasets/Satrajits/CM017PFS.csv")
 
 TreatmentData <- data.frame(time = DTEDataSet1$NIVO_Time[1:135], cens = DTEDataSet1$NIVO_Event_Flag[1:135])
@@ -11,11 +13,12 @@ TreatmentFit <- survfit(Surv(time, cens)~1, data = TreatmentData)
 
 ControlFit <- survfit(Surv(time, cens)~1, data = ControlData)
 
-plot(TreatmentFit, conf.int = F, col="red")
+plot(TreatmentFit, conf.int = F, col="red", xlim=c(0,18), xlab="Time (months)", ylab="Survival")
 
 lines(ControlFit, conf.int = F, col="blue")
 
 legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty=1)
+
 
 ##Fitting Weibull model to the data
 
@@ -109,7 +112,7 @@ treatmentsurv1 <- exp(-(lambda2*3)^gamma2 - lambda1only^gamma2*(treatmenttime1^g
 
 lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
 
-legend("topright", legend = c("Control", "Treatment (best fit)", "Treatment (fixed)"), col=c("blue", "red", "red"), lty=c(1, 1, 2))
+legend("topright", legend = c("Delay", "Control", "Treatment (best fit)", "Treatment (fixed)"), col=c("green", "blue", "red", "red"), lty=c(1, 1, 2))
 
 
 #Second data set
