@@ -1,0 +1,13 @@
+---
+title: "Likelihood"
+output: html_document
+date: '2022-07-22'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{$
