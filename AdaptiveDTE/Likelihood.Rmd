@@ -8,6 +8,8 @@ date: '2022-07-22'
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(survival)
+library(stats4)
 ```
 
 ## R Markdown
@@ -37,58 +39,84 @@ p(\textbf{x}|\lambda_c, \lambda_t,T) &= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \tim
 
 where $x_{t,j}$ is the largest observed $x$ in the treatment group before T.
 
-Therefore, the joint likelihood is 
+The joint likelihood is 
 
 \begin{align}
-\mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^l_{k=1} \lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=l+1} \lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
-&= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^l\text{exp}(-\lambda_c \sum^l_{k=1}x_{t,k}) \times \lambda_t^{m-l-1}\text{exp}\{(m-l-1)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=l+1}x_{t,p}\}
+\mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^j_{k=1} \lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=j+1} \lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
+&= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times \lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}\}
 \end{align}
 
 We find the log-likelihood
 
 \begin{align}
-\text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n \text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+l\text{log}\lambda_c-\lambda_c\sum^l_{k=1}x_{t,k}+(m-l-1)\text{log}\lambda_t+(m-l-1)(\lambda_t T-\lambda_c T)-\lambda_t\sum^m_{p=l+1}x_{t,p} \\
-&= (n+l)\text{log}\lambda_c - \lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^l_{k=1}x_{t,k}\big) +(m-l-1)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)+\lambda_t \sum^m_{p=l+1}x_{t,p}
+\text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n \text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+j\text{log}\lambda_c-\lambda_c\sum^j_{k=1}x_{t,k}+(m-j)\text{log}\lambda_t+(m-j)(\lambda_t T-\lambda_c T)-\lambda_t\sum^m_{p=j+1}x_{t,p} \\
+&= (n+j)\text{log}\lambda_c - \lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^j_{k=1}x_{t,k}\big) +(m-j)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}
 \end{align}
 
+We can ensure that this is the correct log-likelihood with the following code
+
 ```{r}
-#Setting up the correct parameters
+#Setting up the correct parameters - we would not know this in practice
+
 lambda1 <- 0.04
 lambda2 <- 0.08
-gamma2 <- 1
-gamma1 <- 1
-n1 <- 1000
-n2 <- 1000
 bigT <- 6
 
-#Simulating the data
-controlData <- rweibull(n1, gamma2, 1/lambda2)
-CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+#Sample sizes in each group
+n1 <- 100
+n2 <- 100
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controlData <- data.frame(time = rexp(n1, lambda2))
+#Treatment
+CP <- exp(-(lambda2*bigT))[[1]]
 u <- runif(n2)
-suppressWarnings(treatmentData <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
-        
+suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
 
+#Using the data to find the parameters we have defined
+n <- length(controlData$time)
+m <- length(treatmentData)
+treatmentData <- sort(treatmentData)
 
-
-
-
-
-
-
-nll <- function(bigTEst, lambdac, lambdat){
-  n <- length(controlData)
-  m <- length(treatmentData)
-  treatmentData <- sort(treatmentData)
-  l <- sum(treatmentData < bigTEst)
- -((n+l)*log(lambdac)-lambdac*(sum(controlData[1:n])+sum(treatmentData[1:l]))+(m-l-1)*(log(lambdat)+lambdat*bigTEst-lambdac*bigTEst)+lambdat*sum(treatmentData[(l+1):m]))
+#Coding the log-likelihood function we derived
+nll <- function(bigTEst, lambda2Est, lambda1Est){
+  j <- sum(treatmentData < bigTEst)
+  loglikelihood <- (n+j)*log(lambda2Est)-lambda2Est*(sum(controlData$time)+sum(treatmentData[1:j]))+
+  (m-j)*(log(lambda1Est)+lambda1Est*bigTEst-lambda2Est*bigTEst) - lambda1Est*sum(treatmentData[(j+1):m])
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
 }
 
-est <- stats4::mle(minuslogl = nll, start = list(bigTEst=3, lambdac = 0.06, lambdat = 0.03))
+#Finding the maximum likelihood estimators for T, lambda2 and lambda1
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
 
+#Showing the output of the mle() function
+#Seems pretty good!
 est
+
 ```
 
+```{stan output.var=}
 
+functions {
+  real expmodel_log(vector control, vector treatment, real lambdac, real lambdat, real bigT) {
+    real loglik;
+    int j;
+    int n;
+    int m;
+    j <- sum(treatment<bigT);
+    n <- length(control)
+    m <- length(treatment)
+    loglik <- (n+j)*log(lambdac)-lambdac*(sum(control)+sum(treatment[1:j]))+
+  (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT) - lambdat*sum(treatment[(j+1):m])
+    return loglik;
+  }
+}
+
+```
+
+https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf
 
 
 

@@ -255,6 +255,7 @@ if (window.hljs) {
 
 
 
+
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -275,6 +276,9 @@ button.code-folding-btn:focus {
 }
 summary {
   display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
 }
 pre code {
   padding: 0;
@@ -395,30 +399,80 @@ p(x_{t,j+1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T),
 <p>where <span class="math inline">\(x_{t,j}\)</span> is the largest
 observed <span class="math inline">\(x\)</span> in the treatment group
 before T.</p>
-<p>Therefore, the joint likelihood is</p>
+<p>The joint likelihood is</p>
 <p><span class="math display">\[\begin{align}
 \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1},
 \ldots, x_{t, m}) &amp;= \prod^n_{i=1}
-\lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^l_{k=1}
-\lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=l+1}
+\lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^j_{k=1}
+\lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=j+1}
 \lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
 &amp;= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times
-\lambda_c^l\text{exp}(-\lambda_c \sum^l_{k=1}x_{t,k}) \times
-\lambda_t^{m-l-1}\text{exp}\{(m-l-1)(\lambda_t T-\lambda_c T)-\lambda_t
-\sum^m_{p=l+1}x_{t,p}\}
+\lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times
+\lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t
+\sum^m_{p=j+1}x_{t,p}\}
 \end{align}\]</span></p>
 <p>We find the log-likelihood</p>
 <p><span class="math display">\[\begin{align}
 \text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n},
 x_{t,1}, \ldots, x_{t, m}) &amp;= n
-\text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+l\text{log}\lambda_c-\lambda_c\sum^l_{k=1}x_{t,k}+(m-l-1)\text{log}\lambda_t+(m-l-1)(\lambda_t
-T-\lambda_c T)-\lambda_t\sum^m_{p=l+1}x_{t,p} \\
-&amp;= (n+l)\text{log}\lambda_c -
-\lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^l_{k=1}x_{t,k}\big)
-+(m-l-1)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)+\lambda_t
-\sum^m_{p=l+1}x_{t,p}
+\text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+j\text{log}\lambda_c-\lambda_c\sum^j_{k=1}x_{t,k}+(m-j)\text{log}\lambda_t+(m-j)(\lambda_t
+T-\lambda_c T)-\lambda_t\sum^m_{p=j+1}x_{t,p} \\
+&amp;= (n+j)\text{log}\lambda_c -
+\lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^j_{k=1}x_{t,k}\big)
++(m-j)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)-\lambda_t
+\sum^m_{p=j+1}x_{t,p}
 \end{align}\]</span></p>
-<pre class="r"><code># logLikelihood &lt;- (n+l)*log(lambdac)-lambdac*(sum(controlData[1:n])+sum(treatmentData[1:l]))+(m-l-1)*(log(lambdat)+lambdat*bigT-lambdac*bigT)+lambdat*sum(treatmentData[(l+1):m])</code></pre>
+<p>We can ensure that this is the correct log-likelihood with the
+following code</p>
+<pre class="r"><code>#Setting up the correct parameters - we would not know this in practice
+
+lambda1 &lt;- 0.04
+lambda2 &lt;- 0.08
+bigT &lt;- 6
+
+#Sample sizes in each group
+n1 &lt;- 100
+n2 &lt;- 100
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but 
+#for illustration this is okay
+#Control
+controlData &lt;- data.frame(time = rexp(n1, lambda2))
+#Treatment
+CP &lt;- exp(-(lambda2*bigT))[[1]]
+u &lt;- runif(n2)
+suppressWarnings(treatmentData &lt;- ifelse(u&gt;CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+
+#Using the data to find the parameters we have defined
+n &lt;- length(controlData$time)
+m &lt;- length(treatmentData)
+treatmentData &lt;- sort(treatmentData)
+
+
+#Coding the log-likelihood function we derived
+nll &lt;- function(bigTEst, lambda2Est, lambda1Est){
+  j &lt;- sum(treatmentData &lt; bigTEst)
+  loglikelihood &lt;- (n+j)*log(lambda2Est)-lambda2Est*(sum(controlData$time)+sum(treatmentData[1:j]))+
+  (m-j)*(log(lambda1Est)+lambda1Est*bigTEst-lambda2Est*bigTEst) - lambda1Est*sum(treatmentData[(j+1):m])
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
+
+#Finding the maximum likelihood estimators for T, lambda2 and lambda1
+est &lt;- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
+
+#Showing the output of the MLE
+#Seems pretty good!
+est</code></pre>
+<pre><code>## 
+## Call:
+## stats4::mle(minuslogl = nll, start = list(bigTEst = 6, lambda2Est = 0.01, 
+##     lambda1Est = 0.01), lower = list(bigTEst = 0.5, lambda2Est = 1e-04, 
+##     lambda1Est = 1e-04), upper = list(bigTEst = 60))
+## 
+## Coefficients:
+##    bigTEst lambda2Est lambda1Est 
+## 5.84223209 0.09089617 0.03608573</code></pre>
 </div>
 
 
