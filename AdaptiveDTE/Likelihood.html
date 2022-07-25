@@ -255,7 +255,6 @@ if (window.hljs) {
 
 
 
-
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -276,9 +275,6 @@ button.code-folding-btn:focus {
 }
 summary {
   display: list-item;
-}
-details > summary > p:only-child {
-  display: inline;
 }
 pre code {
   padding: 0;
@@ -370,8 +366,59 @@ pre code {
 
 <div id="r-markdown" class="section level2">
 <h2>R Markdown</h2>
-<p>We have some data <span class="math inline">\(\underline{x} =
-(x_{c,1},\ldots,x_{c,n}, x_{t,1}\)</span></p>
+<p>We have some data <span class="math inline">\(\textbf{x}=
+(x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})\)</span>. We are
+tasked with finding the most likely values for the parameters <span class="math inline">\(\lambda_c\)</span>, <span class="math inline">\(\lambda_t\)</span> and <span class="math inline">\(T\)</span> if we assume they come from the
+following survival functions</p>
+<p><span class="math display">\[S_c(t) =
+\text{exp}\{-\lambda_ct\}\]</span></p>
+<p><span class="math display">\[S_t(t) =
+\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq
+T}+\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t&gt;T}\]</span></p>
+<p>We have the relationship</p>
+<p><span class="math display">\[f(t) = \frac{d}{dt}[1-S(t)]\]</span></p>
+<p>Therefore, the above survival probabilities can be manipulated to
+give the following densities</p>
+<p><span class="math display">\[f_c(t) =
+\lambda_c\text{exp}\{-\lambda_ct\}\]</span> <span class="math display">\[f_t(t) =
+\lambda_c\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq
+T}+\lambda_t\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t&gt;T}\]</span></p>
+<p>Therefore, the joint density is</p>
+<p><span class="math display">\[\begin{align}
+p(\textbf{x}|\lambda_c, \lambda_t,T) &amp;=
+p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times
+p(x_{t,1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T) \\
+&amp;= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times
+p(x_{t,1},\ldots,x_{t,j}|\lambda_c) \times
+p(x_{t,j+1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T),
+\end{align}\]</span></p>
+<p>where <span class="math inline">\(x_{t,j}\)</span> is the largest
+observed <span class="math inline">\(x\)</span> in the treatment group
+before T.</p>
+<p>Therefore, the joint likelihood is</p>
+<p><span class="math display">\[\begin{align}
+\mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1},
+\ldots, x_{t, m}) &amp;= \prod^n_{i=1}
+\lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^l_{k=1}
+\lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=l+1}
+\lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
+&amp;= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times
+\lambda_c^l\text{exp}(-\lambda_c \sum^l_{k=1}x_{t,k}) \times
+\lambda_t^{m-l-1}\text{exp}\{(m-l-1)(\lambda_t T-\lambda_c T)-\lambda_t
+\sum^m_{p=l+1}x_{t,p}\}
+\end{align}\]</span></p>
+<p>We find the log-likelihood</p>
+<p><span class="math display">\[\begin{align}
+\text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n},
+x_{t,1}, \ldots, x_{t, m}) &amp;= n
+\text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+l\text{log}\lambda_c-\lambda_c\sum^l_{k=1}x_{t,k}+(m-l-1)\text{log}\lambda_t+(m-l-1)(\lambda_t
+T-\lambda_c T)-\lambda_t\sum^m_{p=l+1}x_{t,p} \\
+&amp;= (n+l)\text{log}\lambda_c -
+\lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^l_{k=1}x_{t,k}\big)
++(m-l-1)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)+\lambda_t
+\sum^m_{p=l+1}x_{t,p}
+\end{align}\]</span></p>
+<pre class="r"><code># logLikelihood &lt;- (n+l)*log(lambdac)-lambdac*(sum(controlData[1:n])+sum(treatmentData[1:l]))+(m-l-1)*(log(lambdat)+lambdat*bigT-lambdac*bigT)+lambdat*sum(treatmentData[(l+1):m])</code></pre>
 </div>
 
 

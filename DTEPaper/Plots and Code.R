@@ -174,10 +174,72 @@ asssmooth <- loess(finalassvec~samplesizevec)
 #Plotting the output
 lines(samplesizevec, predict(asssmooth), lty=2, col="red")
 
-legend("bottomright", legend =c("Power", "Assurance"), col=c("blue", "red"), lty=1:2)
+#We will also calculate power in the situation where we have no delay
+powerFuncNoDelay <- function(nc, nt, N, Lmax, lambda2, gamma2){
+  #Making the simplification
+  gamma1 <- gamma2
+  #The parameters are fixed
+  bigT <- 0
+  HR <- 0.6
+  #Can use the HR to calculate lambda1
+  lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
+  #Setting up the assurance vector
+  powernodelayvec <- rep(NA, N)
+  for (i in 1:N){
+    #Generating the control data
+    controldata <- data.frame(time = rweibull(nc, gamma2, 1/lambda2))
+    
+    #Generating the treatment data
+    CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+    u <- runif(nt)
+    
+    suppressWarnings(z <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+    
+    #Combining the control and treatment data
+    DataCombined <- data.frame(time = c(controldata$time, z),
+                               group = c(rep("Control", nc), rep("Treatment", nt)))
+    
+    #Censoring the observations
+    DataCombined$cens <- DataCombined$time < Lmax
+    
+    DataCombined$cens <- DataCombined$cens*1
+    
+    
+    if (sum(DataCombined$cens)==(nc+nt)){
+      
+    } else {
+      DataCombined[DataCombined$cens==0,]$time <- Lmax
+    }
+    #Performing a log-rank test on the combined data set
+    test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+    powernodelayvec[i] <- test$chisq > qchisq(0.95, 1)
+  }
+  #The mean of the assurance vector is the estimated assurance for the given parameters
+  return(mean(powernodelayvec))
+}
 
-dev.off()
+#Setting up the assurance vector
+finalpowenodelayrvec <- rep(NA, length(ncvec))
+#Finding the assurance for varying sample sizes
+for (j in 1:length(finalpowenodelayrvec)){
+  finalpowenodelayrvec[j] <- powerFuncNoDelay(ncvec[j], ntvec[j], 500, 40, 0.08, 0.8)
+}
 
+
+#Smoothing the output
+powernodelaysmooth <- loess(finalpowenodelayrvec~samplesizevec)
+
+lines(samplesizevec, predict(powernodelaysmooth), lty=3, col="green")
+
+legend("bottomright", legend =c("Power", "Assurance", "Power assuming no delay"), col=c("blue", "red", "green"), lty=1:3)
+
+for (j in 40:1000){
+  if (predict(powernodelaysmooth, newdata = j)>0.8){
+    break
+  }
+}
+
+predict(powernodelaysmooth, newdata = 174)
 
 
 

@@ -1,5 +1,7 @@
 ---
 title: "Likelihood"
+header-includes:
+   - \usepackage{bm}
 output: html_document
 date: '2022-07-22'
 ---
@@ -10,4 +12,84 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{$
+We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})$. We are tasked with finding the most likely values for the parameters $\lambda_c$, $\lambda_t$ and $T$ if we assume they come from the following survival functions
+
+$$S_c(t) = \text{exp}\{-\lambda_ct\}$$
+
+$$S_t(t) = \text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
+
+We have the relationship
+
+$$f(t) = \frac{d}{dt}[1-S(t)]$$
+
+Therefore, the above survival probabilities can be manipulated to give the following densities
+
+$$f_c(t) = \lambda_c\text{exp}\{-\lambda_ct\}$$
+$$f_t(t) = \lambda_c\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\lambda_t\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
+
+Therefore, the joint density is
+
+
+\begin{align}
+p(\textbf{x}|\lambda_c, \lambda_t,T) &= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T) \\
+&= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,j}|\lambda_c) \times p(x_{t,j+1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T),
+\end{align}
+
+where $x_{t,j}$ is the largest observed $x$ in the treatment group before T.
+
+Therefore, the joint likelihood is 
+
+\begin{align}
+\mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^l_{k=1} \lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=l+1} \lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
+&= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^l\text{exp}(-\lambda_c \sum^l_{k=1}x_{t,k}) \times \lambda_t^{m-l-1}\text{exp}\{(m-l-1)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=l+1}x_{t,p}\}
+\end{align}
+
+We find the log-likelihood
+
+\begin{align}
+\text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n \text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+l\text{log}\lambda_c-\lambda_c\sum^l_{k=1}x_{t,k}+(m-l-1)\text{log}\lambda_t+(m-l-1)(\lambda_t T-\lambda_c T)-\lambda_t\sum^m_{p=l+1}x_{t,p} \\
+&= (n+l)\text{log}\lambda_c - \lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^l_{k=1}x_{t,k}\big) +(m-l-1)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)+\lambda_t \sum^m_{p=l+1}x_{t,p}
+\end{align}
+
+```{r}
+#Setting up the correct parameters
+lambda1 <- 0.04
+lambda2 <- 0.08
+gamma2 <- 1
+gamma1 <- 1
+n1 <- 1000
+n2 <- 1000
+bigT <- 6
+
+#Simulating the data
+controlData <- rweibull(n1, gamma2, 1/lambda2)
+CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentData <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+        
+
+
+
+
+
+
+
+
+nll <- function(bigTEst, lambdac, lambdat){
+  n <- length(controlData)
+  m <- length(treatmentData)
+  treatmentData <- sort(treatmentData)
+  l <- sum(treatmentData < bigTEst)
+ -((n+l)*log(lambdac)-lambdac*(sum(controlData[1:n])+sum(treatmentData[1:l]))+(m-l-1)*(log(lambdat)+lambdat*bigTEst-lambdac*bigTEst)+lambdat*sum(treatmentData[(l+1):m]))
+}
+
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=3, lambdac = 0.06, lambdat = 0.03))
+
+est
+```
+
+
+
+
+
+
