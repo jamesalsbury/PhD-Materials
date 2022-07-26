@@ -97,7 +97,7 @@ est
 
 ```
 
-```{stan output.var=}
+```{stan output.var="ia1", eval=F}
 
 functions {
   real expmodel_log(vector control, vector treatment, real lambdac, real lambdat, real bigT) {
@@ -112,6 +112,17 @@ functions {
   (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT) - lambdat*sum(treatment[(j+1):m])
     return loglik;
   }
+}
+
+data {
+  int LENGTH;
+  vector[LENGTH] Y;
+}
+
+parameters {
+  real <lower=0> lambdac;
+  real <lower=0> lambdat;
+  real <lower=0> bigT;
 }
 
 ```

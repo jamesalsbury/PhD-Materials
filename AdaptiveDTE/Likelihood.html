@@ -255,7 +255,6 @@ if (window.hljs) {
 
 
 
-
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -276,9 +275,6 @@ button.code-folding-btn:focus {
 }
 summary {
   display: list-item;
-}
-details > summary > p:only-child {
-  display: inline;
 }
 pre code {
   padding: 0;
@@ -434,8 +430,7 @@ bigT &lt;- 6
 n1 &lt;- 100
 n2 &lt;- 100
 
-#Simulating the control and treatment data - again, we would not normally know the underlying structure, but 
-#for illustration this is okay
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
 controlData &lt;- data.frame(time = rexp(n1, lambda2))
 #Treatment
@@ -447,7 +442,6 @@ suppressWarnings(treatmentData &lt;- ifelse(u&gt;CP, -(1/lambda2)*log(u), (1/lam
 n &lt;- length(controlData$time)
 m &lt;- length(treatmentData)
 treatmentData &lt;- sort(treatmentData)
-
 
 #Coding the log-likelihood function we derived
 nll &lt;- function(bigTEst, lambda2Est, lambda1Est){
@@ -461,7 +455,7 @@ nll &lt;- function(bigTEst, lambda2Est, lambda1Est){
 #Finding the maximum likelihood estimators for T, lambda2 and lambda1
 est &lt;- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
 
-#Showing the output of the MLE
+#Showing the output of the mle() function
 #Seems pretty good!
 est</code></pre>
 <pre><code>## 
@@ -472,7 +466,35 @@ est</code></pre>
 ## 
 ## Coefficients:
 ##    bigTEst lambda2Est lambda1Est 
-## 5.84223209 0.09089617 0.03608573</code></pre>
+## 5.82799272 0.07342849 0.03304474</code></pre>
+<pre class="stan"><code>
+functions {
+  real expmodel_log(vector control, vector treatment, real lambdac, real lambdat, real bigT) {
+    real loglik;
+    int j;
+    int n;
+    int m;
+    j &lt;- sum(treatment&lt;bigT);
+    n &lt;- length(control)
+    m &lt;- length(treatment)
+    loglik &lt;- (n+j)*log(lambdac)-lambdac*(sum(control)+sum(treatment[1:j]))+
+  (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT) - lambdat*sum(treatment[(j+1):m])
+    return loglik;
+  }
+}
+
+data {
+  int LENGTH;
+  vector[LENGTH] Y;
+}
+
+parameters {
+  real &lt;lower=0&gt; lambdac;
+  real &lt;lower=0&gt; lambdat;
+  real &lt;lower=0&gt; bigT;
+}
+</code></pre>
+<p><a href="https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf" class="uri">https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf</a></p>
 </div>
 
 
