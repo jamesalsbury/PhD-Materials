@@ -1,5 +1,5 @@
 ---
-title: "Likelihood"
+title: "LikelihoodWeib"
 header-includes:
    - \usepackage{bm}
 output: html_document
@@ -10,15 +10,17 @@ date: '2022-07-22'
 knitr::opts_chunk$set(echo = TRUE)
 library(survival)
 library(stats4)
+library(rstan)
+library(ggmcmc)
 ```
 
 ## R Markdown
 
-We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})$. We are tasked with finding the most likely values for the parameters $\lambda_c$, $\lambda_t$ and $T$ if we assume they come from the following survival functions
+We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})$. We are tasked with finding the most likely values for the parameters $\lambda_1$, $\gamma_1$, $\lambda_1$, $\lambda_2$ and $T$ if we assume they come from the following survival functions
 
-$$S_c(t) = \text{exp}\{-\lambda_ct\}$$
+$$S_c(t) = \text{exp}\{-(\lambda_2t)^{\gamma_2}\}$$
 
-$$S_t(t) = \text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
+$$S_t(t) = \text{exp}\{-(\lambda_2t)^{\gamma_2}\}\mathbb{1}_{t\leq T}+\exp\{-(\lambda_2T)^{\gamma_2}-\lambda_1^{\gamma_1}(t^{\gamma_1}-T^{\gamma_1})\}\mathbb{1}_{t>T}$$
 
 We have the relationship
 
@@ -26,7 +28,7 @@ $$f(t) = \frac{d}{dt}[1-S(t)]$$
 
 Therefore, the above survival probabilities can be manipulated to give the following densities
 
-$$f_c(t) = \lambda_c\text{exp}\{-\lambda_ct\}$$
+$$f_c(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamma_2}\}}{t}$$
 $$f_t(t) = \lambda_c\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\lambda_t\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
 
 Therefore, the joint density is
@@ -55,7 +57,7 @@ We find the log-likelihood
 
 We can ensure that this is the correct log-likelihood with the following code
 
-```{r}
+```{r, eval=F}
 #Setting up the correct parameters - we would not know this in practice
 
 lambda1 <- 0.04
@@ -100,23 +102,34 @@ est
 ```{stan output.var="ia1", eval=F}
 
 functions {
-  real expmodel_log(vector control, vector treatment, real lambdac, real lambdat, real bigT) {
+  real expmodel_log(vector Y, int controlLength, int treatmentLength, real lambdac, real lambdat, real bigT) {
     real loglik;
     int j;
     int n;
     int m;
-    j <- sum(treatment<bigT);
-    n <- length(control)
-    m <- length(treatment)
-    loglik <- (n+j)*log(lambdac)-lambdac*(sum(control)+sum(treatment[1:j]))+
-  (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT) - lambdat*sum(treatment[(j+1):m])
+    vector[controlLength] controlData;
+    vector[treatmentLength] treatmentData;
+    n = controlLength;
+    m = treatmentLength;
+    controlData = Y[1:n];
+    treatmentData = Y[(n+1):(n+m)];
+    j=0;
+    for (i in 1:m){
+      if (treatmentData[i]<bigT){
+        j = j + 1;
+      }
+    }
+   
+    loglik = (n+j)*log(lambdac)-lambdac*(sum(controlData)+sum(treatmentData[1:j]))+
+  (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT) - lambdat*sum(treatmentData[(j+1):(m)]);
     return loglik;
   }
 }
 
 data {
-  int LENGTH;
-  vector[LENGTH] Y;
+  int controlLength;
+  int treatmentLength;
+  vector[controlLength+treatmentLength] Y;
 }
 
 parameters {
@@ -125,7 +138,58 @@ parameters {
   real <lower=0> bigT;
 }
 
+model {
+  lambdac ~ beta(1, 1);
+  lambdat ~ beta(1, 1);
+  bigT ~ normal(6, 1);
+  Y ~ expmodel(controlLength, treatmentLength, lambdac, lambdat, bigT);
+}
+
 ```
+
+
+```{r, eval=F}
+
+lambda1 <- 0.04
+lambda2 <- 0.08
+bigT <- 6
+
+#Sample sizes in each group
+n1 <- 500
+n2 <- 500
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controlData <-rexp(n1, lambda2)
+#Treatment
+CP <- exp(-(lambda2*bigT))[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+
+n <- length(controlData)
+m <- length(treatmentData)
+treatmentData <- sort(treatmentData)
+
+combinedData <- c(controlData, treatmentData)
+
+ sampling_iterations <- 1e3
+ fit <- sampling(ia1,
+ data = list(Y = combinedData, controlLength=n, treatmentLength=m),
+ chains = 1,
+ iter = sampling_iterations,
+ warmup = sampling_iterations/4,
+ refresh=0)
+ 
+ summary(fit)
+ 
+ samples <- ggmcmc::ggs(fit)
+ ggmcmc::ggs_pairs(samples)
+ 
+ ggmcmc::ggs_caterpillar(samples, thick_ci = c(0.25,0.75))
+ 
+ ggmcmc::ggs_traceplot(samples)
+```
+
 
 https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf
 

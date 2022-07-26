@@ -1,0 +1,198 @@
+---
+title: "LikelihoodExp"
+header-includes:
+   - \usepackage{bm}
+output: html_document
+date: '2022-07-22'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(survival)
+library(stats4)
+library(rstan)
+library(ggmcmc)
+```
+
+## R Markdown
+
+We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})$. We are tasked with finding the most likely values for the parameters $\lambda_c$, $\lambda_t$ and $T$ if we assume they come from the following survival functions
+
+$$S_c(t) = \text{exp}\{-\lambda_ct\}$$
+
+$$S_t(t) = \text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
+
+We have the relationship
+
+$$f(t) = \frac{d}{dt}[1-S(t)]$$
+
+Therefore, the above survival probabilities can be manipulated to give the following densities
+
+$$f_c(t) = \lambda_c\text{exp}\{-\lambda_ct\}$$
+$$f_t(t) = \lambda_c\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\lambda_t\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
+
+Therefore, the joint density is
+
+
+\begin{align}
+p(\textbf{x}|\lambda_c, \lambda_t,T) &= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T) \\
+&= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,j}|\lambda_c) \times p(x_{t,j+1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T),
+\end{align}
+
+where $x_{t,j}$ is the largest observed $x$ in the treatment group before T.
+
+The joint likelihood is 
+
+\begin{align}
+\mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^j_{k=1} \lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=j+1} \lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
+&= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times \lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}\}
+\end{align}
+
+We find the log-likelihood
+
+\begin{align}
+\text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n \text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+j\text{log}\lambda_c-\lambda_c\sum^j_{k=1}x_{t,k}+(m-j)\text{log}\lambda_t+(m-j)(\lambda_t T-\lambda_c T)-\lambda_t\sum^m_{p=j+1}x_{t,p} \\
+&= (n+j)\text{log}\lambda_c - \lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^j_{k=1}x_{t,k}\big) +(m-j)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}
+\end{align}
+
+We can ensure that this is the correct log-likelihood with the following code
+
+```{r}
+#Setting up the correct parameters - we would not know this in practice
+
+lambda1 <- 0.04
+lambda2 <- 0.08
+bigT <- 6
+
+#Sample sizes in each group
+n1 <- 100
+n2 <- 100
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controlData <- data.frame(time = rexp(n1, lambda2))
+#Treatment
+CP <- exp(-(lambda2*bigT))[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+
+#Using the data to find the parameters we have defined
+n <- length(controlData$time)
+m <- length(treatmentData)
+treatmentData <- sort(treatmentData)
+
+#Coding the log-likelihood function we derived
+nll <- function(bigTEst, lambda2Est, lambda1Est){
+  j <- sum(treatmentData < bigTEst)
+  loglikelihood <- (n+j)*log(lambda2Est)-lambda2Est*(sum(controlData$time)+sum(treatmentData[1:j]))+
+  (m-j)*(log(lambda1Est)+lambda1Est*bigTEst-lambda2Est*bigTEst) - lambda1Est*sum(treatmentData[(j+1):m])
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
+
+#Finding the maximum likelihood estimators for T, lambda2 and lambda1
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
+
+#Showing the output of the mle() function
+#Seems pretty good!
+est
+
+```
+
+```{stan output.var="ia1", eval=T}
+
+functions {
+  real expmodel_log(vector Y, int controlLength, int treatmentLength, real lambdac, real lambdat, real bigT) {
+    real loglik;
+    int j;
+    int n;
+    int m;
+    vector[controlLength] controlData;
+    vector[treatmentLength] treatmentData;
+    n = controlLength;
+    m = treatmentLength;
+    controlData = Y[1:n];
+    treatmentData = Y[(n+1):(n+m)];
+    j=0;
+    for (i in 1:m){
+      if (treatmentData[i]<bigT){
+        j = j + 1;
+      }
+    }
+   
+    loglik = (n+j)*log(lambdac)-lambdac*(sum(controlData)+sum(treatmentData[1:j]))+
+  (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT) - lambdat*sum(treatmentData[(j+1):(m)]);
+    return loglik;
+  }
+}
+
+data {
+  int controlLength;
+  int treatmentLength;
+  vector[controlLength+treatmentLength] Y;
+}
+
+parameters {
+  real <lower=0> lambdac;
+  real <lower=0> lambdat;
+  real <lower=0> bigT;
+}
+
+model {
+  lambdac ~ beta(1, 1);
+  lambdat ~ beta(1, 1);
+  bigT ~ normal(6, 1);
+  Y ~ expmodel(controlLength, treatmentLength, lambdac, lambdat, bigT);
+}
+
+```
+
+
+```{r}
+
+lambda1 <- 0.04
+lambda2 <- 0.08
+bigT <- 6
+
+#Sample sizes in each group
+n1 <- 500
+n2 <- 500
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controlData <-rexp(n1, lambda2)
+#Treatment
+CP <- exp(-(lambda2*bigT))[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+
+n <- length(controlData)
+m <- length(treatmentData)
+treatmentData <- sort(treatmentData)
+
+combinedData <- c(controlData, treatmentData)
+
+ sampling_iterations <- 1e3
+ fit <- sampling(ia1,
+ data = list(Y = combinedData, controlLength=n, treatmentLength=m),
+ chains = 1,
+ iter = sampling_iterations,
+ warmup = sampling_iterations/4,
+ refresh=0)
+ 
+ summary(fit)
+ 
+ samples <- ggmcmc::ggs(fit)
+ ggmcmc::ggs_pairs(samples)
+ 
+ ggmcmc::ggs_caterpillar(samples, thick_ci = c(0.25,0.75))
+ 
+ ggmcmc::ggs_traceplot(samples)
+```
+
+
+https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf
+
+
+
+
