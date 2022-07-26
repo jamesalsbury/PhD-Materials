@@ -16,7 +16,7 @@ library(ggmcmc)
 
 ## R Markdown
 
-We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})$. We are tasked with finding the most likely values for the parameters $\lambda_1$, $\gamma_1$, $\lambda_1$, $\lambda_2$ and $T$ if we assume they come from the following survival functions
+We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})$. We are tasked with finding the most likely values for the parameters $\lambda_1$, $\gamma_1$, $\lambda_2$, $\gamma_2$ and $T$ if we assume they come from the following survival functions
 
 $$S_c(t) = \text{exp}\{-(\lambda_2t)^{\gamma_2}\}$$
 
@@ -29,14 +29,14 @@ $$f(t) = \frac{d}{dt}[1-S(t)]$$
 Therefore, the above survival probabilities can be manipulated to give the following densities
 
 $$f_c(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamma_2}\}}{t}$$
-$$f_t(t) = \lambda_c\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\lambda_t\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
+$$f_t(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamma_2}\}}{t}\mathbb{1}_{t\leq T}+\gamma_1\lambda_1^{\gamma_1}t^{\gamma_1-1}\text{exp}\{-\lambda_1^{\gamma_1}(t^{\gamma_1}-T^{\gamma_1})-(T\lambda_2)^{\gamma_2}\}\mathbb{1}_{t>T}$$
 
 Therefore, the joint density is
 
 
 \begin{align}
-p(\textbf{x}|\lambda_c, \lambda_t,T) &= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T) \\
-&= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,j}|\lambda_c) \times p(x_{t,j+1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T),
+p(\textbf{x}|\lambda_1, \gamma_1,\lambda_2,\gamma_2, T) &= p(x_{c,1},\ldots,x_{c,n}|\lambda_2, \gamma_2) \times p(x_{t,1},\ldots,x_{t,m}|\lambda_1, \gamma_1,\lambda_2,\gamma_2, T) \\
+&= p(x_{c,1},\ldots,x_{c,n}|\lambda_2, \gamma_2) \times p(x_{t,1},\ldots,x_{t,j}|\lambda_2, \gamma_2) \times p(x_{t,j+1},\ldots,x_{t,m}|\lambda_1, \gamma_1,\lambda_2,\gamma_2, T),
 \end{align}
 
 where $x_{t,j}$ is the largest observed $x$ in the treatment group before T.
@@ -44,8 +44,11 @@ where $x_{t,j}$ is the largest observed $x$ in the treatment group before T.
 The joint likelihood is 
 
 \begin{align}
-\mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^j_{k=1} \lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=j+1} \lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
-&= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times \lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}\}
+\mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \frac{\gamma_2(\lambda_2x_{c,i})^{\gamma_2}\text{exp}\{-(\lambda_2x_{c,i})^{\gamma_2}\}}{x_{c,i}} \times \prod^j_{k=1}  \frac{\gamma_2(\lambda_2x_{t,k})^{\gamma_2}\text{exp}\{-(\lambda_2x_{t,k})^{\gamma_2}\}}{x_{t,k}} \times \prod^m_{p=j+1}
+\gamma_1\lambda_1^{\gamma_1}x_{t,p}^{\gamma_1-1}\text{exp}\{-\lambda_1^{\gamma_1}(x_{t,p}^{\gamma_1}-T^{\gamma_1})-(T\lambda_2)^{\gamma_2}\} \\
+
+
+&= \gamma_2^n\lambda_2^{n\gamma_2}\{\prod_{i=1}^nx_{c,i}\}^{\gamma_2}\text{exp}\{-\lambda_2^{\gamma_2}\sum^n_{i=1}(x_{c,i}^{\gamma_2})\}\prod^n_{i=1}\frac{1}{x_{c,i}} \times \gamma_2^j\lambda_2^{j\gamma_2}\{\prod_{k=1}^jx_{t,k}\}^{\gamma_2}\text{exp}\{-\lambda_2^{\gamma_2}\sum^j_{k=1}(x_{t,k}^{\gamma_2})\}\prod^j_{k=1}\frac{1}{x_{t,k}} \times \gamma_1^{m-j}\lambda_1^{\gamma_1(m-j)}\{\prod^m_{p=j+1}x_{t,p}\}^{\gamma_1-1}\text{exp}\{-\lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big]\}
 \end{align}
 
 We find the log-likelihood

@@ -65,8 +65,8 @@ lambda2 <- 0.08
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 100
-n2 <- 100
+n1 <- 100000
+n2 <- 100000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -99,7 +99,7 @@ est
 
 ```
 
-```{stan output.var="ia1", eval=T}
+```{stan output.var="ia1", eval=F}
 
 functions {
   real expmodel_log(vector Y, int controlLength, int treatmentLength, real lambdac, real lambdat, real bigT) {
@@ -148,7 +148,7 @@ model {
 ```
 
 
-```{r}
+```{r, eval=F}
 
 lambda1 <- 0.04
 lambda2 <- 0.08
