@@ -1,9 +1,7 @@
 ---
-title: "LikelihoodExp"
-header-includes:
-   - \usepackage{bm}
+title: "MCMC - DTE exponential"
 output: html_document
-date: '2022-07-22'
+date: 'July 2022'
 ---
 
 ```{r setup, include=FALSE}
@@ -14,7 +12,7 @@ library(rstan)
 library(ggmcmc)
 ```
 
-## R Markdown
+## Implementing Bayesian methods for DTE - Exponential parameterisation
 
 We have some data $\textbf{x}= (x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m})$. We are tasked with finding the most likely values for the parameters $\lambda_c$, $\lambda_t$ and $T$ if we assume they come from the following survival functions
 
@@ -65,26 +63,32 @@ lambda2 <- 0.08
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 100000
-n2 <- 100000
+n1 <- 100
+n2 <- 100
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
-controlData <- data.frame(time = rexp(n1, lambda2))
+controlData <- rexp(n1, lambda2)
 #Treatment
 CP <- exp(-(lambda2*bigT))[[1]]
 u <- runif(n2)
 suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
 
+combinedData <- data.frame(time = c(controlData, treatmentData), group = c(rep("Control", n1), rep("Treatment", n2)))
+
+controlkm <- survfit(Surv(time)~group, data = combinedData)
+
+plot(controlkm)
+
 #Using the data to find the parameters we have defined
-n <- length(controlData$time)
+n <- length(controlData)
 m <- length(treatmentData)
 treatmentData <- sort(treatmentData)
 
 #Coding the log-likelihood function we derived
 nll <- function(bigTEst, lambda2Est, lambda1Est){
   j <- sum(treatmentData < bigTEst)
-  loglikelihood <- (n+j)*log(lambda2Est)-lambda2Est*(sum(controlData$time)+sum(treatmentData[1:j]))+
+  loglikelihood <- (n+j)*log(lambda2Est)-lambda2Est*(sum(controlData)+sum(treatmentData[1:j]))+
   (m-j)*(log(lambda1Est)+lambda1Est*bigTEst-lambda2Est*bigTEst) - lambda1Est*sum(treatmentData[(j+1):m])
   #Returning the negative ll as this is what the mle() function expects
  return(-loglikelihood)
@@ -192,6 +196,54 @@ combinedData <- c(controlData, treatmentData)
 
 
 https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf
+
+
+We now look at the case where we have censored observations, that is at time $t_j$, we will have some observed event times, but more importantly, some unobserved event times. . We assume that the first $r$ times are observed, whilst for $x_{r+1},\ldots,x_n$, we only know that $x_i > t_j$.
+
+In this case, the likelihood becomes
+
+\begin{align}
+\mathcal{L}(\lambda) = \prod^r_{i=1}f(t)\times \prod^n_{i=r+1}S(t)
+\end{align}
+
+Using this, we can rewrite the original joint likelihood as
+
+\begin{align}
+\mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^r_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\}\prod^n_{i=r+1} \text{exp}\{-\lambda_cx_{c,i}\}  \\
+&= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times \lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}\}
+\end{align}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

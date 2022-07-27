@@ -527,7 +527,7 @@ server = function(input, output, session) {
         
         eventsseen <- DataCombined %>%
           filter(time < input$chosenLength)
-        ===
+       
         controlevents[i] <- sum(eventsseen$group=="Control")
         
         treatmentevents[i] <- sum(eventsseen$group=="Treatment")
