@@ -422,14 +422,14 @@ T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &amp;=
 \end{align}\]</span></p>
 <p>We find the log-likelihood</p>
 <p><span class="math display">\[\begin{align}
-\text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n},
-x_{t,1}, \ldots, x_{t, m}) &amp;= n
-\text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+j\text{log}\lambda_c-\lambda_c\sum^j_{k=1}x_{t,k}+(m-j)\text{log}\lambda_t+(m-j)(\lambda_t
-T-\lambda_c T)-\lambda_t\sum^m_{p=j+1}x_{t,p} \\
-&amp;= (n+j)\text{log}\lambda_c -
-\lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^j_{k=1}x_{t,k}\big)
-+(m-j)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)-\lambda_t
-\sum^m_{p=j+1}x_{t,p}
+\text{log} \mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2,
+T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &amp;=
+n\text{log}\gamma_2 +
+(n\gamma_2)\text{log}\lambda_2+\gamma_2\sum^n_{i=1}\text{log}x_{c,i}-\lambda_2^{\gamma_2}\sum^{n}_{i=1}x_{c,i}^{\gamma_2}+\sum^{n}_{i=1}\text{log}\frac{1}{x_{c,i}}
++ j\text{log}\gamma_2 +
+(j\gamma_2)\text{log}\lambda_2+\gamma_2\sum^j_{k=1}\text{log}x_{t,k}-\lambda_2^{\gamma_2}\sum^{j}_{k=1}x_{t,k}^{\gamma_2}+\sum^{j}_{k=1}\text{log}\frac{1}{x_{t,k}}+(m-j)\text{log}\gamma_1+\gamma_1(m-j)\text{log}\lambda_1+(\gamma_1-1)\sum^m_{p=j+1}\text{log}x_{t,p}
+-
+\lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big]
 \end{align}\]</span></p>
 <p>We can ensure that this is the correct log-likelihood with the
 following code</p>

@@ -54,9 +54,9 @@ The joint likelihood is
 We find the log-likelihood
 
 \begin{align}
-\text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n \text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+j\text{log}\lambda_c-\lambda_c\sum^j_{k=1}x_{t,k}+(m-j)\text{log}\lambda_t+(m-j)(\lambda_t T-\lambda_c T)-\lambda_t\sum^m_{p=j+1}x_{t,p} \\
-&= (n+j)\text{log}\lambda_c - \lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^j_{k=1}x_{t,k}\big) +(m-j)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}
+\text{log} \mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n\text{log}\gamma_2 + (n\gamma_2)\text{log}\lambda_2+\gamma_2\sum^n_{i=1}\text{log}x_{c,i}-\lambda_2^{\gamma_2}\sum^{n}_{i=1}x_{c,i}^{\gamma_2}+\sum^{n}_{i=1}\text{log}\frac{1}{x_{c,i}} + j\text{log}\gamma_2 + (j\gamma_2)\text{log}\lambda_2+\gamma_2\sum^j_{k=1}\text{log}x_{t,k}-\lambda_2^{\gamma_2}\sum^{j}_{k=1}x_{t,k}^{\gamma_2}+\sum^{j}_{k=1}\text{log}\frac{1}{x_{t,k}}+(m-j)\text{log}\gamma_1+\gamma_1(m-j)\text{log}\lambda_1+(\gamma_1-1)\sum^m_{p=j+1}\text{log}x_{t,p} - \lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big]
 \end{align}
+
 
 We can ensure that this is the correct log-likelihood with the following code
 
@@ -65,11 +65,13 @@ We can ensure that this is the correct log-likelihood with the following code
 
 lambda1 <- 0.04
 lambda2 <- 0.08
+gamma2 <- 0.8
+gamma1 <- 0.8
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 100
-n2 <- 100
+n1 <- 1000
+n2 <- 1000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -195,6 +197,113 @@ combinedData <- c(controlData, treatmentData)
 
 
 https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf
+
+
+#Making sure the weibull likelihood is correct
+
+```{r}
+
+
+lambda1 <- 0.04
+lambda2 <- 0.08
+gamma2 <- 0.8
+gamma1 <- 0.8
+bigT <- 6
+
+n1 <- 5
+n2 <- 5
+
+controldata <- rweibull(n1, gamma2, 1/lambda2)
+
+CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+u <- runif(n2)
+
+suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+
+j <- sum(treatmentdata<bigT)
+
+
+Like1 <- 1
+Like2 <- 1
+Like3 <- 1
+for (i in 1:n1){
+  Like1 <- Like1*((gamma2*(lambda2*controldata[i])^gamma2*exp(-(lambda2*controldata[i])^gamma2))/(controldata[i]))
+}
+
+for (i in 1:j){
+  Like2 <- Like2*((gamma2*(lambda2*treatmentdata[i])^gamma2*exp(-(lambda2*treatmentdata[i])^gamma2))/(treatmentdata[i]))
+}
+
+for (i in (j+1):n2){
+  Like3 <- Like3*(gamma1*lambda1^gamma1*treatmentdata[i]^(gamma1-1)*exp(-lambda1^gamma1*(treatmentdata[i]^gamma1-bigT^gamma1)-(bigT*lambda2)^gamma2))
+
+}
+
+Lik <- Like1*Like2*Like3
+
+
+##Now time to see whether the simplification has worked
+#Trying first part
+
+mysum <- 0
+for (i in 1:5){
+  mysum <- mysum+ controldata[i]^gamma1
+}
+
+myprod <- 1
+for (i in 1:5){
+  myprod <- myprod *(1/controldata[i])
+}
+
+Siml1 <- gamma2^n1*lambda2^(n1*gamma2)*prod(controldata)^gamma2*exp(-lambda2^gamma2*mysum)*myprod
+
+#Trying second part
+
+
+mysum <- 0
+for (i in 1:j){
+  mysum <- mysum+ treatmentdata[i]^gamma1
+}
+
+myprod <- 1
+for (i in 1:j){
+  myprod <- myprod *(1/treatmentdata[i])
+}
+
+Siml2 <- gamma2^j*lambda2^(j*gamma2)*prod(treatmentdata[1:j])^gamma2*exp(-lambda2^gamma2*mysum)*myprod
+
+
+#Trying third part
+
+mysum <- 0
+
+for (i in (j+1):n2){
+  mysum <- mysum + treatmentdata[i]^gamma1
+}
+
+
+Siml3 <- lambda1^(n2-j)*lambda1^(gamma1*(n2-j))*prod(treatmentdata[(j+1):n2])^(gamma1-1)*exp(-lambda1^gamma1*mysum+)
+#This bit is not quite finished
+
+
+
+#Breaking it down
+
+l <- 1
+for (i in 1:5){
+  l <-  l*(gamma2*(lambda2*controldata[i])^gamma2)
+}
+
+gamma2^5*lambda2^(5*gamma2)*prod(controldata)^gamma2
+
+
+
+
+
+
+
+```
+
 
 
 

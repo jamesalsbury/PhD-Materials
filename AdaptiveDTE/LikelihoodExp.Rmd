@@ -10,6 +10,7 @@ library(survival)
 library(stats4)
 library(rstan)
 library(ggmcmc)
+library(rjags)
 ```
 
 ## Implementing Bayesian methods for DTE - Exponential parameterisation
@@ -26,33 +27,34 @@ $$f(t) = \frac{d}{dt}[1-S(t)]$$
 
 Therefore, the above survival probabilities can be manipulated to give the following densities
 
-$$f_c(t) = \lambda_c\text{exp}\{-\lambda_ct\}$$
-$$f_t(t) = \lambda_c\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\lambda_t\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
+$$f_c(t) = \lambda_c\text{exp}\{-\lambda_ct\}$$ $$f_t(t) = \lambda_c\text{exp}\{-\lambda_ct\}\mathbb{1}_{t\leq T}+\lambda_t\exp\{-\lambda_cT-\lambda_t(t-T)\}\mathbb{1}_{t>T}$$
 
 Therefore, the joint density is
 
-
+```{=tex}
 \begin{align}
 p(\textbf{x}|\lambda_c, \lambda_t,T) &= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T) \\
 &= p(x_{c,1},\ldots,x_{c,n}|\lambda_c) \times p(x_{t,1},\ldots,x_{t,j}|\lambda_c) \times p(x_{t,j+1},\ldots,x_{t,m}|\lambda_c,\lambda_t, T),
 \end{align}
-
+```
 where $x_{t,j}$ is the largest observed $x$ in the treatment group before T.
 
-The joint likelihood is 
+The joint likelihood is
 
+```{=tex}
 \begin{align}
 \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\} \times \prod^j_{k=1} \lambda_c\text{exp}\{-\lambda_cx_{t,k}\} \times \prod^m_{p=j+1} \lambda_t\text{exp}\{-\lambda_t(x_{t,p}-T)-\lambda_cT\} \\
 &= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times \lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}\}
 \end{align}
-
+```
 We find the log-likelihood
 
+```{=tex}
 \begin{align}
 \text{log} \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n \text{log}\lambda_c-\lambda_c\sum^n_{i=1}x_{c,i}+j\text{log}\lambda_c-\lambda_c\sum^j_{k=1}x_{t,k}+(m-j)\text{log}\lambda_t+(m-j)(\lambda_t T-\lambda_c T)-\lambda_t\sum^m_{p=j+1}x_{t,p} \\
 &= (n+j)\text{log}\lambda_c - \lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^j_{k=1}x_{t,k}\big) +(m-j)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}
 \end{align}
-
+```
 We can ensure that this is the correct log-likelihood with the following code
 
 ```{r}
@@ -151,7 +153,6 @@ model {
 
 ```
 
-
 ```{r, eval=F}
 
 lambda1 <- 0.04
@@ -194,57 +195,83 @@ combinedData <- c(controlData, treatmentData)
  ggmcmc::ggs_traceplot(samples)
 ```
 
-
-https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf
-
+<https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf>
 
 We now look at the case where we have censored observations, that is at time $t_j$, we will have some observed event times, but more importantly, some unobserved event times. . We assume that the first $r$ times are observed, whilst for $x_{r+1},\ldots,x_n$, we only know that $x_i > t_j$.
 
 In this case, the likelihood becomes
 
+```{=tex}
 \begin{align}
 \mathcal{L}(\lambda) = \prod^r_{i=1}f(t)\times \prod^n_{i=r+1}S(t)
 \end{align}
-
+```
 Using this, we can rewrite the original joint likelihood as
 
+```{=tex}
 \begin{align}
 \mathcal{L}(\lambda_c,\lambda_t, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^r_{i=1} \lambda_c\text{exp}\{-\lambda_cx_{c,i}\}\prod^n_{i=r+1} \text{exp}\{-\lambda_cx_{c,i}\}  \\
 &= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times \lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}\}
 \end{align}
+```
+<https://ebookcentral.proquest.com/lib/sheffield/reader.action?docID=427808>
 
+# Try and look at the zeros-ones trick for JAGS?
 
+```{r, eval=T}
 
+lambda1 <- 0.04
+lambda2 <- 0.08
+bigT <- 6
 
-https://ebookcentral.proquest.com/lib/sheffield/reader.action?docID=427808
+#Sample sizes in each group
+n1 <- 500
+n2 <- 500
 
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controlData <-rexp(n1, lambda2)
+#Treatment
+CP <- exp(-(lambda2*bigT))[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
 
+n <- length(controlData)
+m <- length(treatmentData)
+treatmentData <- sort(treatmentData)
 
+combinedData <- c(controlData, treatmentData)
 
+modelstring="
 
+model {
+  C <- 100000
+  for (i in 1:n){
+    zeros[i] <- 0
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- n*log(lambdac)-lambdac*controlData[i]
+  }
+  for (i in 1:m){
+    zeros[i] <- 0
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    j <- sum(treatmentData<bigT)
+    l[i] <- ifelse(i<bigT, j*log(lambdac)-lambdac*treatmentData[i], (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT)-lambdat*treatmentData[i])
+  }
+  
+    lambdac ~ dbeta(1, 1)
+    lambdat ~ dbeta(1, 1)
+    bigT ~ dnorm(6, 1)
+     
+    
+    }
 
+"
 
+model = jags.model(textConnection(modelstring), data = list(controlData = controlData, treatmentData = treatmentData, n= n, m=m))
 
+update(model, n.iter=1000)
+output=coda.samples(model=model, variable.names=c("lambdac", "lambdat", "bigT"), n.iter = 10000)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```
