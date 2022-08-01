@@ -54,7 +54,7 @@ The joint likelihood is
 We find the log-likelihood
 
 \begin{align}
-\text{log} \mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n\text{log}\gamma_2 + (n\gamma_2)\text{log}\lambda_2+\gamma_2\sum^n_{i=1}\text{log}x_{c,i}-\lambda_2^{\gamma_2}\sum^{n}_{i=1}x_{c,i}^{\gamma_2}+\sum^{n}_{i=1}\text{log}\frac{1}{x_{c,i}} + j\text{log}\gamma_2 + (j\gamma_2)\text{log}\lambda_2+\gamma_2\sum^j_{k=1}\text{log}x_{t,k}-\lambda_2^{\gamma_2}\sum^{j}_{k=1}x_{t,k}^{\gamma_2}+\sum^{j}_{k=1}\text{log}\frac{1}{x_{t,k}}+(m-j)\text{log}\gamma_1+\gamma_1(m-j)\text{log}\lambda_1+(\gamma_1-1)\sum^m_{p=j+1}\text{log}x_{t,p} - \lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big]
+\text{log} \mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n\text{log}\gamma_2 + n\gamma_2\text{log}\lambda_2+\gamma_2\sum^n_{i=1}\text{log}x_{c,i}-\lambda_2^{\gamma_2}\sum^{n}_{i=1}x_{c,i}^{\gamma_2}+\sum^{n}_{i=1}\text{log}\frac{1}{x_{c,i}} + j\text{log}\gamma_2 + j\gamma_2\text{log}\lambda_2+\gamma_2\sum^j_{k=1}\text{log}x_{t,k}-\lambda_2^{\gamma_2}\sum^{j}_{k=1}x_{t,k}^{\gamma_2}+\sum^{j}_{k=1}\text{log}\frac{1}{x_{t,k}}+(m-j)\text{log}\gamma_1+\gamma_1(m-j)\text{log}\lambda_1+(\gamma_1-1)\sum^m_{p=j+1}\text{log}x_{t,p} - \lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big]
 \end{align}
 
 
@@ -75,28 +75,70 @@ n2 <- 1000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
-controlData <- data.frame(time = rexp(n1, lambda2))
+controldata <- rweibull(n1, gamma2, 1/lambda2)
 #Treatment
-CP <- exp(-(lambda2*bigT))[[1]]
+CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
 u <- runif(n2)
-suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
 
 #Using the data to find the parameters we have defined
-n <- length(controlData$time)
+n <- length(controlData)
 m <- length(treatmentData)
 treatmentData <- sort(treatmentData)
 
 #Coding the log-likelihood function we derived
-nll <- function(bigTEst, lambda2Est, lambda1Est){
+nll <- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
   j <- sum(treatmentData < bigTEst)
-  loglikelihood <- (n+j)*log(lambda2Est)-lambda2Est*(sum(controlData$time)+sum(treatmentData[1:j]))+
-  (m-j)*(log(lambda1Est)+lambda1Est*bigTEst-lambda2Est*bigTEst) - lambda1Est*sum(treatmentData[(j+1):m])
+  mysum <-0
+  for (i in 1:n){
+    mysum <- mysum+log(controldata[i])
+  }
+  
+  mysum1 <-0
+  for (i in 1:n){
+    mysum1 <- mysum1+controldata[i]^gamma2
+  }
+  
+  mysum2 <-0
+  for (i in 1:n){
+    mysum2 <- mysum2+log(1/controldata[i])
+  }
+
+  mysum3 <- 0
+  for (i in 1:j){
+    mysum3 <- mysum3 + log(treatmentdata[i])
+  }
+
+  mysum4 <- 0
+  for (i in 1:j){
+    mysum4 <- mysum4 + treatmentdata[i]^gamma2
+  }
+
+  mysum5 <- 0
+  for (i in 1:j){
+    mysum5 <- mysum5 + log(1/treatmentdata[i])
+  }
+
+  mysum6 <- 0
+  for (i in (j+1):m){
+    mysum6 <- mysum6 + log(treatmentdata[i])
+  }
+
+  mysum7 <- 0
+  for (i in (j+1):m){
+    mysum7 <- mysum7 + treatmentdata[i]^gamma1
+  }
+
+  #This needs rewriting
+  loglikelihood <- n*log(gamma2Est)+n*gamma2Est*log(lambda2Est)+gamma2Est*mysum-lambda2Est^gamma2Est*mysum1+mysum2+ j*log(gamma2Est)+j*gamma2Est*log(lambda2Est)+gamma2Est*mysum3-lambda2Est^gamma2Est*mysum4+mysum5+ (m-j)*log(gamma1Est)+gamma1Est*(m-j)*log(lambda1Est)+(gamma1Est-1)*mysum6-lambda1Est^gamma1Est*
+  mysum7+(m-j)*((lambda1Est*bigTEst)^gamma1Est-(lambda2Est*bigTEst)^gamma2Est)
+  
   #Returning the negative ll as this is what the mle() function expects
  return(-loglikelihood)
 }
 
 #Finding the maximum likelihood estimators for T, lambda2 and lambda1
-est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, gamma2Est = 0.01, lambda1Est = 0.01, gamma1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, gamma2Est = 0.0001, lambda1Est = 0.0001, gamma1Est = 0.0001), upper = list(bigTEst = 60))
 
 #Showing the output of the mle() function
 #Seems pretty good!
@@ -199,110 +241,6 @@ combinedData <- c(controlData, treatmentData)
 https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf
 
 
-#Making sure the weibull likelihood is correct
-
-```{r}
-
-
-lambda1 <- 0.04
-lambda2 <- 0.08
-gamma2 <- 0.8
-gamma1 <- 0.8
-bigT <- 6
-
-n1 <- 5
-n2 <- 5
-
-controldata <- rweibull(n1, gamma2, 1/lambda2)
-
-CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
-u <- runif(n2)
-
-suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
-
-j <- sum(treatmentdata<bigT)
-
-
-Like1 <- 1
-Like2 <- 1
-Like3 <- 1
-for (i in 1:n1){
-  Like1 <- Like1*((gamma2*(lambda2*controldata[i])^gamma2*exp(-(lambda2*controldata[i])^gamma2))/(controldata[i]))
-}
-
-for (i in 1:j){
-  Like2 <- Like2*((gamma2*(lambda2*treatmentdata[i])^gamma2*exp(-(lambda2*treatmentdata[i])^gamma2))/(treatmentdata[i]))
-}
-
-for (i in (j+1):n2){
-  Like3 <- Like3*(gamma1*lambda1^gamma1*treatmentdata[i]^(gamma1-1)*exp(-lambda1^gamma1*(treatmentdata[i]^gamma1-bigT^gamma1)-(bigT*lambda2)^gamma2))
-
-}
-
-Lik <- Like1*Like2*Like3
-
-
-##Now time to see whether the simplification has worked
-#Trying first part
-
-mysum <- 0
-for (i in 1:5){
-  mysum <- mysum+ controldata[i]^gamma1
-}
-
-myprod <- 1
-for (i in 1:5){
-  myprod <- myprod *(1/controldata[i])
-}
-
-Siml1 <- gamma2^n1*lambda2^(n1*gamma2)*prod(controldata)^gamma2*exp(-lambda2^gamma2*mysum)*myprod
-
-#Trying second part
-
-
-mysum <- 0
-for (i in 1:j){
-  mysum <- mysum+ treatmentdata[i]^gamma1
-}
-
-myprod <- 1
-for (i in 1:j){
-  myprod <- myprod *(1/treatmentdata[i])
-}
-
-Siml2 <- gamma2^j*lambda2^(j*gamma2)*prod(treatmentdata[1:j])^gamma2*exp(-lambda2^gamma2*mysum)*myprod
-
-
-#Trying third part
-
-mysum <- 0
-
-for (i in (j+1):n2){
-  mysum <- mysum + treatmentdata[i]^gamma1
-}
-
-
-Siml3 <- lambda1^(n2-j)*lambda1^(gamma1*(n2-j))*prod(treatmentdata[(j+1):n2])^(gamma1-1)*exp(-lambda1^gamma1*mysum+)
-#This bit is not quite finished
-
-
-
-#Breaking it down
-
-l <- 1
-for (i in 1:5){
-  l <-  l*(gamma2*(lambda2*controldata[i])^gamma2)
-}
-
-gamma2^5*lambda2^(5*gamma2)*prod(controldata)^gamma2
-
-
-
-
-
-
-
-```
 
 
 

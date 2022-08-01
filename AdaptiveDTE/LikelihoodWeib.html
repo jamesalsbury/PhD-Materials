@@ -255,7 +255,6 @@ if (window.hljs) {
 
 
 
-
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -276,9 +275,6 @@ button.code-folding-btn:focus {
 }
 summary {
   display: list-item;
-}
-details > summary > p:only-child {
-  display: inline;
 }
 pre code {
   padding: 0;
@@ -425,9 +421,9 @@ T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &amp;=
 \text{log} \mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2,
 T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &amp;=
 n\text{log}\gamma_2 +
-(n\gamma_2)\text{log}\lambda_2+\gamma_2\sum^n_{i=1}\text{log}x_{c,i}-\lambda_2^{\gamma_2}\sum^{n}_{i=1}x_{c,i}^{\gamma_2}+\sum^{n}_{i=1}\text{log}\frac{1}{x_{c,i}}
+n\gamma_2\text{log}\lambda_2+\gamma_2\sum^n_{i=1}\text{log}x_{c,i}-\lambda_2^{\gamma_2}\sum^{n}_{i=1}x_{c,i}^{\gamma_2}+\sum^{n}_{i=1}\text{log}\frac{1}{x_{c,i}}
 + j\text{log}\gamma_2 +
-(j\gamma_2)\text{log}\lambda_2+\gamma_2\sum^j_{k=1}\text{log}x_{t,k}-\lambda_2^{\gamma_2}\sum^{j}_{k=1}x_{t,k}^{\gamma_2}+\sum^{j}_{k=1}\text{log}\frac{1}{x_{t,k}}+(m-j)\text{log}\gamma_1+\gamma_1(m-j)\text{log}\lambda_1+(\gamma_1-1)\sum^m_{p=j+1}\text{log}x_{t,p}
+j\gamma_2\text{log}\lambda_2+\gamma_2\sum^j_{k=1}\text{log}x_{t,k}-\lambda_2^{\gamma_2}\sum^{j}_{k=1}x_{t,k}^{\gamma_2}+\sum^{j}_{k=1}\text{log}\frac{1}{x_{t,k}}+(m-j)\text{log}\gamma_1+\gamma_1(m-j)\text{log}\lambda_1+(\gamma_1-1)\sum^m_{p=j+1}\text{log}x_{t,p}
 -
 \lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big]
 \end{align}\]</span></p>
@@ -437,11 +433,13 @@ following code</p>
 
 lambda1 &lt;- 0.04
 lambda2 &lt;- 0.08
+gamma2 &lt;- 0.8
+gamma1 &lt;- 0.8
 bigT &lt;- 6
 
 #Sample sizes in each group
-n1 &lt;- 100
-n2 &lt;- 100
+n1 &lt;- 1000
+n2 &lt;- 1000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -555,6 +553,116 @@ combinedData &lt;- c(controlData, treatmentData)
  
  ggmcmc::ggs_traceplot(samples)</code></pre>
 <p><a href="https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf" class="uri">https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf</a></p>
+<p>#Making sure the weibull likelihood is correct</p>
+<pre class="r"><code>lambda1 &lt;- 0.04
+lambda2 &lt;- 0.08
+gamma2 &lt;- 0.8
+gamma1 &lt;- 0.8
+bigT &lt;- 6
+
+n1 &lt;- 5
+n2 &lt;- 5
+
+controldata &lt;- rweibull(n1, gamma2, 1/lambda2)
+
+CP &lt;- exp(-(lambda2*bigT)^gamma2)[[1]]
+u &lt;- runif(n2)
+
+suppressWarnings(treatmentdata &lt;- ifelse(u&gt;CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+
+j &lt;- sum(treatmentdata&lt;bigT)
+
+
+Like1 &lt;- 1
+Like2 &lt;- 1
+Like3 &lt;- 1
+for (i in 1:n1){
+  Like1 &lt;- Like1*((gamma2*(lambda2*controldata[i])^gamma2*exp(-(lambda2*controldata[i])^gamma2))/(controldata[i]))
+}
+
+for (i in 1:j){
+  Like2 &lt;- Like2*((gamma2*(lambda2*treatmentdata[i])^gamma2*exp(-(lambda2*treatmentdata[i])^gamma2))/(treatmentdata[i]))
+}
+
+for (i in (j+1):n2){
+  Like3 &lt;- Like3*(gamma1*lambda1^gamma1*treatmentdata[i]^(gamma1-1)*exp(-lambda1^gamma1*(treatmentdata[i]^gamma1-bigT^gamma1)-(bigT*lambda2)^gamma2))
+
+}
+
+Lik &lt;- Like1*Like2*Like3
+
+
+##Now time to see whether the simplification has worked
+#Trying first part
+
+mysum &lt;- 0
+for (i in 1:5){
+  mysum &lt;- mysum+ controldata[i]^gamma1
+}
+
+myprod &lt;- 1
+for (i in 1:5){
+  myprod &lt;- myprod *(1/controldata[i])
+}
+
+Siml1 &lt;- gamma2^n1*lambda2^(n1*gamma2)*prod(controldata)^gamma2*exp(-lambda2^gamma2*mysum)*myprod
+
+#Trying second part
+
+
+mysum &lt;- 0
+for (i in 1:j){
+  mysum &lt;- mysum+ treatmentdata[i]^gamma1
+}
+
+myprod &lt;- 1
+for (i in 1:j){
+  myprod &lt;- myprod *(1/treatmentdata[i])
+}
+
+Siml2 &lt;- gamma2^j*lambda2^(j*gamma2)*prod(treatmentdata[1:j])^gamma2*exp(-lambda2^gamma2*mysum)*myprod
+
+
+#Trying third part
+
+mysum &lt;- 0
+
+for (i in (j+1):n2){
+  mysum &lt;- mysum + treatmentdata[i]^gamma1
+}
+
+
+Siml3 &lt;- gamma1^(n2-j)*lambda1^(gamma1*(n2-j))*prod(treatmentdata[(j+1):n2])^(gamma1-1)*exp(-lambda1^gamma1*mysum+(n2-j)*((lambda1*bigT)^gamma1-(lambda2*bigT)^gamma2))
+
+#This all looks good!
+Siml &lt;- Siml1*Siml2*Siml3
+
+loglik &lt;- log(Lik)
+
+loglik1 &lt;- log(Like1)
+loglik2 &lt;- log(Like2)
+loglik3 &lt;- log(Like3)
+
+
+mysum &lt;-0
+for (i in 1:n1){
+  mysum &lt;- mysum+log(controldata[i])
+}
+
+mysum1 &lt;-0
+for (i in 1:n1){
+  mysum1 &lt;- mysum1+controldata[i]^gamma2
+}
+
+mysum2 &lt;-0
+for (i in 1:n1){
+  mysum2 &lt;- mysum2+log(1/controldata[i])
+}
+
+
+simlog1 &lt;- n1*log(gamma2)+n1*gamma2*log(lambda2)+gamma2*mysum-lambda2^gamma2*mysum1+mysum2
+
+simlog2 &lt;- j*log(gamma2)+</code></pre>
 </div>
 
 
