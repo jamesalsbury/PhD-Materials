@@ -218,15 +218,15 @@ Using this, we can rewrite the original joint likelihood as
 
 # Try and look at the zeros-ones trick for JAGS?
 
-```{r, eval=T}
+```{r, eval=F}
 
 lambda1 <- 0.04
 lambda2 <- 0.08
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 500
-n2 <- 500
+n1 <- 100
+n2 <- 100
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -238,31 +238,32 @@ suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*
 
 n <- length(controlData)
 m <- length(treatmentData)
-treatmentData <- sort(treatmentData)
 
-combinedData <- c(controlData, treatmentData)
 
 modelstring="
 
+data {
+  for (j in 1:(n+m)){
+    zeros[j] <- 0
+  }
+}
+
 model {
-  C <- 100000
+  C <- 10000000
   for (i in 1:n){
-    zeros[i] <- 0
     zeros[i] ~ dpois(zeros.mean[i])
     zeros.mean[i] <-  -l[i] + C
-    l[i] <- n*log(lambdac)-lambdac*controlData[i]
+    l[i] <- log(lambdac)-lambdac*controlData[i]
   }
   for (i in 1:m){
-    zeros[i] <- 0
-    zeros[i] ~ dpois(zeros.mean[i])
-    zeros.mean[i] <-  -l[i] + C
-    j <- sum(treatmentData<bigT)
-    l[i] <- ifelse(i<bigT, j*log(lambdac)-lambdac*treatmentData[i], (m-j)*(log(lambdat)+lambdat*bigT-lambdac*bigT)-lambdat*treatmentData[i])
+    zeros[i+n] ~ dpois(zeros.mean[i+n])
+    zeros.mean[i+n] <-  -l[i+n] + C
+    l[i+n] <- ifelse(i<bigT, log(lambdac)-lambdac*(treatmentData[i]), log(lambdat)-lambdac*bigT-lambdat*(treatmentData[i]-bigT))
   }
   
-    lambdac ~ dbeta(1, 1)
-    lambdat ~ dbeta(1, 1)
-    bigT ~ dnorm(6, 1)
+    lambdac ~ dnorm(0.08, 10)
+    lambdat ~ dnorm(0.04, 10)
+    bigT ~ dnorm(6, 10)
      
     
     }
@@ -272,6 +273,79 @@ model {
 model = jags.model(textConnection(modelstring), data = list(controlData = controlData, treatmentData = treatmentData, n= n, m=m))
 
 update(model, n.iter=1000)
-output=coda.samples(model=model, variable.names=c("lambdac", "lambdat", "bigT"), n.iter = 10000)
+output=coda.samples(model=model, variable.names=c("lambdac", "lambdat", "bigT"), n.iter = 50000)
+
+
+summary(output)
+plot(output)
+#Need to check the likelihood is correct - we seem to be nearly there
+```
+
+
+```{r}
+
+lambda1 <- 0.04
+lambda2 <- 0.08
+bigT <- 6
+
+#Sample sizes in each group
+n1 <- 500000
+n2 <- 500000
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controlData <-rexp(n1, lambda2)
+#Treatment
+CP <- exp(-(lambda2*bigT))[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+
+n <- length(controlData)
+m <- length(treatmentData)
+
+
+nll <- function(bigTEst, lambdacEst, lambdatEst){
+   loglikelihood <-  sum(treatmentData<bigTEst)*log(lambdacEst)-lambdacEst*sum(treatmentData[treatmentData<bigTEst])+sum(treatmentData>bigTEst)*log(lambdatEst)+sum(treatmentData>bigTEst)*bigTEst*(lambdatEst-lambdacEst)-lambdatEst*sum(treatmentData[treatmentData>bigTEst])
+
+
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
+
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambdacEst = 0.01, lambdatEst = 0.01), lower=  list(bigTEst=0.5, lambdacEst = 0.0001, lambdatEst = 0.0001), upper = list(bigTEst = 60))
+
+
+
+
+
+
+est@coef
+
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
