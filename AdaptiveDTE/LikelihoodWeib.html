@@ -443,32 +443,85 @@ n2 &lt;- 1000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
-controlData &lt;- data.frame(time = rexp(n1, lambda2))
+controldata &lt;- rweibull(n1, gamma2, 1/lambda2)
 #Treatment
-CP &lt;- exp(-(lambda2*bigT))[[1]]
+CP &lt;- exp(-(lambda2*bigT)^gamma2)[[1]]
 u &lt;- runif(n2)
-suppressWarnings(treatmentData &lt;- ifelse(u&gt;CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+suppressWarnings(treatmentdata &lt;- ifelse(u&gt;CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
 
 #Using the data to find the parameters we have defined
-n &lt;- length(controlData$time)
-m &lt;- length(treatmentData)
-treatmentData &lt;- sort(treatmentData)
+n &lt;- length(controldata)
+m &lt;- length(treatmentdata)
+treatmentdata &lt;- sort(treatmentdata)
 
 #Coding the log-likelihood function we derived
-nll &lt;- function(bigTEst, lambda2Est, lambda1Est){
-  j &lt;- sum(treatmentData &lt; bigTEst)
-  loglikelihood &lt;- (n+j)*log(lambda2Est)-lambda2Est*(sum(controlData$time)+sum(treatmentData[1:j]))+
-  (m-j)*(log(lambda1Est)+lambda1Est*bigTEst-lambda2Est*bigTEst) - lambda1Est*sum(treatmentData[(j+1):m])
+nll &lt;- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
+  j &lt;- sum(treatmentdata &lt; bigTEst)
+  mysum &lt;-0
+  for (i in 1:n){
+    mysum &lt;- mysum+log(controldata[i])
+  }
+  
+  mysum1 &lt;-0
+  for (i in 1:n){
+    mysum1 &lt;- mysum1+controldata[i]^gamma2Est
+  }
+  
+  mysum2 &lt;-0
+  for (i in 1:n){
+    mysum2 &lt;- mysum2+log(1/controldata[i])
+  }
+
+  mysum3 &lt;- 0
+  for (i in 1:j){
+    mysum3 &lt;- mysum3 + log(treatmentdata[i])
+  }
+
+  mysum4 &lt;- 0
+  for (i in 1:j){
+    mysum4 &lt;- mysum4 + treatmentdata[i]^gamma2Est
+  }
+
+  mysum5 &lt;- 0
+  for (i in 1:j){
+    mysum5 &lt;- mysum5 + log(1/treatmentdata[i])
+  }
+
+  mysum6 &lt;- 0
+  for (i in (j+1):m){
+    mysum6 &lt;- mysum6 + log(treatmentdata[i])
+  }
+
+  mysum7 &lt;- 0
+  for (i in (j+1):m){
+    mysum7 &lt;- mysum7 + treatmentdata[i]^gamma1Est
+  }
+
+  #This needs rewriting
+  loglikelihood &lt;- n*log(gamma2Est)+n*gamma2Est*log(lambda2Est)+gamma2Est*mysum-lambda2Est^gamma2Est*mysum1+mysum2+ j*log(gamma2Est)+j*gamma2Est*log(lambda2Est)+gamma2Est*mysum3-lambda2Est^gamma2Est*mysum4+mysum5+ (m-j)*log(gamma1Est)+gamma1Est*(m-j)*log(lambda1Est)+(gamma1Est-1)*mysum6-lambda1Est^gamma1Est*
+  mysum7+(m-j)*((lambda1Est*bigTEst)^gamma1Est-(lambda2Est*bigTEst)^gamma2Est)
+  
   #Returning the negative ll as this is what the mle() function expects
  return(-loglikelihood)
 }
 
 #Finding the maximum likelihood estimators for T, lambda2 and lambda1
-est &lt;- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
+est &lt;- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, gamma2Est = 1, lambda1Est = 0.1, gamma1Est = 1), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, gamma2Est = 0.01, lambda1Est = 0.0001, gamma1Est = 0.01), upper = list(bigTEst = 60, lambda2Est = 40, gamma2Est =30, lambda1Est = 20, gamma1Est =10))
 
 #Showing the output of the mle() function
 #Seems pretty good!
 est</code></pre>
+<pre><code>## 
+## Call:
+## stats4::mle(minuslogl = nll, start = list(bigTEst = 6, lambda2Est = 0.01, 
+##     gamma2Est = 1, lambda1Est = 0.1, gamma1Est = 1), lower = list(bigTEst = 0.5, 
+##     lambda2Est = 1e-04, gamma2Est = 0.01, lambda1Est = 1e-04, 
+##     gamma1Est = 0.01), upper = list(bigTEst = 60, lambda2Est = 40, 
+##     gamma2Est = 30, lambda1Est = 20, gamma1Est = 10))
+## 
+## Coefficients:
+##    bigTEst lambda2Est  gamma2Est lambda1Est  gamma1Est 
+## 5.97960172 0.07959197 0.79633885 0.02985064 0.97783307</code></pre>
 <pre class="stan"><code>
 functions {
   real expmodel_log(vector Y, int controlLength, int treatmentLength, real lambdac, real lambdat, real bigT) {
@@ -553,116 +606,6 @@ combinedData &lt;- c(controlData, treatmentData)
  
  ggmcmc::ggs_traceplot(samples)</code></pre>
 <p><a href="https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf" class="uri">https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf</a></p>
-<p>#Making sure the weibull likelihood is correct</p>
-<pre class="r"><code>lambda1 &lt;- 0.04
-lambda2 &lt;- 0.08
-gamma2 &lt;- 0.8
-gamma1 &lt;- 0.8
-bigT &lt;- 6
-
-n1 &lt;- 5
-n2 &lt;- 5
-
-controldata &lt;- rweibull(n1, gamma2, 1/lambda2)
-
-CP &lt;- exp(-(lambda2*bigT)^gamma2)[[1]]
-u &lt;- runif(n2)
-
-suppressWarnings(treatmentdata &lt;- ifelse(u&gt;CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
-
-j &lt;- sum(treatmentdata&lt;bigT)
-
-
-Like1 &lt;- 1
-Like2 &lt;- 1
-Like3 &lt;- 1
-for (i in 1:n1){
-  Like1 &lt;- Like1*((gamma2*(lambda2*controldata[i])^gamma2*exp(-(lambda2*controldata[i])^gamma2))/(controldata[i]))
-}
-
-for (i in 1:j){
-  Like2 &lt;- Like2*((gamma2*(lambda2*treatmentdata[i])^gamma2*exp(-(lambda2*treatmentdata[i])^gamma2))/(treatmentdata[i]))
-}
-
-for (i in (j+1):n2){
-  Like3 &lt;- Like3*(gamma1*lambda1^gamma1*treatmentdata[i]^(gamma1-1)*exp(-lambda1^gamma1*(treatmentdata[i]^gamma1-bigT^gamma1)-(bigT*lambda2)^gamma2))
-
-}
-
-Lik &lt;- Like1*Like2*Like3
-
-
-##Now time to see whether the simplification has worked
-#Trying first part
-
-mysum &lt;- 0
-for (i in 1:5){
-  mysum &lt;- mysum+ controldata[i]^gamma1
-}
-
-myprod &lt;- 1
-for (i in 1:5){
-  myprod &lt;- myprod *(1/controldata[i])
-}
-
-Siml1 &lt;- gamma2^n1*lambda2^(n1*gamma2)*prod(controldata)^gamma2*exp(-lambda2^gamma2*mysum)*myprod
-
-#Trying second part
-
-
-mysum &lt;- 0
-for (i in 1:j){
-  mysum &lt;- mysum+ treatmentdata[i]^gamma1
-}
-
-myprod &lt;- 1
-for (i in 1:j){
-  myprod &lt;- myprod *(1/treatmentdata[i])
-}
-
-Siml2 &lt;- gamma2^j*lambda2^(j*gamma2)*prod(treatmentdata[1:j])^gamma2*exp(-lambda2^gamma2*mysum)*myprod
-
-
-#Trying third part
-
-mysum &lt;- 0
-
-for (i in (j+1):n2){
-  mysum &lt;- mysum + treatmentdata[i]^gamma1
-}
-
-
-Siml3 &lt;- gamma1^(n2-j)*lambda1^(gamma1*(n2-j))*prod(treatmentdata[(j+1):n2])^(gamma1-1)*exp(-lambda1^gamma1*mysum+(n2-j)*((lambda1*bigT)^gamma1-(lambda2*bigT)^gamma2))
-
-#This all looks good!
-Siml &lt;- Siml1*Siml2*Siml3
-
-loglik &lt;- log(Lik)
-
-loglik1 &lt;- log(Like1)
-loglik2 &lt;- log(Like2)
-loglik3 &lt;- log(Like3)
-
-
-mysum &lt;-0
-for (i in 1:n1){
-  mysum &lt;- mysum+log(controldata[i])
-}
-
-mysum1 &lt;-0
-for (i in 1:n1){
-  mysum1 &lt;- mysum1+controldata[i]^gamma2
-}
-
-mysum2 &lt;-0
-for (i in 1:n1){
-  mysum2 &lt;- mysum2+log(1/controldata[i])
-}
-
-
-simlog1 &lt;- n1*log(gamma2)+n1*gamma2*log(lambda2)+gamma2*mysum-lambda2^gamma2*mysum1+mysum2
-
-simlog2 &lt;- j*log(gamma2)+</code></pre>
 </div>
 
 

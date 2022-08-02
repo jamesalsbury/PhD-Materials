@@ -60,7 +60,7 @@ We find the log-likelihood
 
 We can ensure that this is the correct log-likelihood with the following code
 
-```{r, eval=F}
+```{r, eval=T}
 #Setting up the correct parameters - we would not know this in practice
 
 lambda1 <- 0.04
@@ -70,8 +70,8 @@ gamma1 <- 0.8
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 1000
-n2 <- 1000
+n1 <- 100000
+n2 <- 100000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -82,13 +82,13 @@ u <- runif(n2)
 suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
 
 #Using the data to find the parameters we have defined
-n <- length(controlData)
-m <- length(treatmentData)
-treatmentData <- sort(treatmentData)
+n <- length(controldata)
+m <- length(treatmentdata)
+treatmentdata <- sort(treatmentdata)
 
 #Coding the log-likelihood function we derived
 nll <- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
-  j <- sum(treatmentData < bigTEst)
+  j <- sum(treatmentdata < bigTEst)
   mysum <-0
   for (i in 1:n){
     mysum <- mysum+log(controldata[i])
@@ -96,7 +96,7 @@ nll <- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
   
   mysum1 <-0
   for (i in 1:n){
-    mysum1 <- mysum1+controldata[i]^gamma2
+    mysum1 <- mysum1+controldata[i]^gamma2Est
   }
   
   mysum2 <-0
@@ -111,7 +111,7 @@ nll <- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
 
   mysum4 <- 0
   for (i in 1:j){
-    mysum4 <- mysum4 + treatmentdata[i]^gamma2
+    mysum4 <- mysum4 + treatmentdata[i]^gamma2Est
   }
 
   mysum5 <- 0
@@ -126,7 +126,7 @@ nll <- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
 
   mysum7 <- 0
   for (i in (j+1):m){
-    mysum7 <- mysum7 + treatmentdata[i]^gamma1
+    mysum7 <- mysum7 + treatmentdata[i]^gamma1Est
   }
 
   #This needs rewriting
@@ -138,7 +138,7 @@ nll <- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
 }
 
 #Finding the maximum likelihood estimators for T, lambda2 and lambda1
-est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, gamma2Est = 0.01, lambda1Est = 0.01, gamma1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, gamma2Est = 0.0001, lambda1Est = 0.0001, gamma1Est = 0.0001), upper = list(bigTEst = 60))
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.08, gamma2Est = 0.8, lambda1Est = 0.04, gamma1Est = 0.8), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, gamma2Est = 0.001, lambda1Est = 0.001, gamma1Est = 0.001), upper = list(bigTEst = 60))
 
 #Showing the output of the mle() function
 #Seems pretty good!
