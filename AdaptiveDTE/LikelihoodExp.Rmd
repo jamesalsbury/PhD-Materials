@@ -55,9 +55,9 @@ We find the log-likelihood
 &= (n+j)\text{log}\lambda_c - \lambda_c\big(\sum^n_{i=1}x_{c,i}+\sum^j_{k=1}x_{t,k}\big) +(m-j)(\text{log}\lambda_t+\lambda_t T - \lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}
 \end{align}
 ```
-We can ensure that this is the correct log-likelihood with the following code
+<!-- We can ensure that this is the correct log-likelihood with the following code -->
 
-```{r}
+```{r, eval=F, echo=F}
 #Setting up the correct parameters - we would not know this in practice
 
 lambda1 <- 0.04
@@ -105,7 +105,7 @@ est
 
 ```
 
-```{stan output.var="ia1", eval=F}
+```{stan output.var="ia1", eval=F, echo=F}
 
 functions {
   real expmodel_log(vector Y, int controlLength, int treatmentLength, real lambdac, real lambdat, real bigT) {
@@ -153,7 +153,7 @@ model {
 
 ```
 
-```{r, eval=F}
+```{r, eval=F, echo=F}
 
 lambda1 <- 0.04
 lambda2 <- 0.08
@@ -195,7 +195,7 @@ combinedData <- c(controlData, treatmentData)
  ggmcmc::ggs_traceplot(samples)
 ```
 
-<https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf>
+<!-- <https://my.vanderbilt.edu/jeffannis/files/2016/06/AnnisMillerPalmeri2016.pdf> -->
 
 We now look at the case where we have censored observations, that is at time $t_j$, we will have some observed event times, but more importantly, some unobserved event times. . We assume that the first $r$ times are observed, whilst for $x_{r+1},\ldots,x_n$, we only know that $x_i > t_j$.
 
@@ -214,75 +214,145 @@ Using this, we can rewrite the original joint likelihood as
 &= \lambda_c^n\text{exp}(-\lambda_c \sum^n_{i=1}x_{c,i}) \times \lambda_c^j\text{exp}(-\lambda_c \sum^j_{k=1}x_{t,k}) \times \lambda_t^{m-j}\text{exp}\{(m-j)(\lambda_t T-\lambda_c T)-\lambda_t \sum^m_{p=j+1}x_{t,p}\}
 \end{align}
 ```
-<https://ebookcentral.proquest.com/lib/sheffield/reader.action?docID=427808>
+<!-- <https://ebookcentral.proquest.com/lib/sheffield/reader.action?docID=427808> -->
 
 # Try and look at the zeros-ones trick for JAGS?
 
-```{r, eval=F}
+```{r, eval=T}
 
 lambda1 <- 0.04
 lambda2 <- 0.08
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 100
-n2 <- 100
+n1 <- 200
+n2 <- 200
+
+#When are we performing the IA?
+IATime <- 40
+
+#How long are we running the trial for in total?
+totalLength <- 60
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
-controlData <-rexp(n1, lambda2)
+controlTimes <-  rexp(n1, lambda2)
 #Treatment
 CP <- exp(-(lambda2*bigT))[[1]]
 u <- runif(n2)
-suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+suppressWarnings(treatmentTimes <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
 
-n <- length(controlData)
-m <- length(treatmentData)
+combinedData <- data.frame(time = c(controlTimes, treatmentTimes), group = c(rep("control", n1), rep("treatment", n2)))
+
+combinedData$cens <- combinedData$time<IATime
+
+
+n <- n1
+m <- n1+n2
+
+# kmfit <- survfit(Surv(time, cens)~group, data = combinedData)
+# plot(kmfit, conf.int=F, col=c("blue", "red"))
+
 
 
 modelstring="
 
 data {
-  for (j in 1:(n+m)){
+  for (j in 1:m){
     zeros[j] <- 0
   }
 }
 
 model {
-  C <- 10000000
+  C <- 10000
   for (i in 1:n){
     zeros[i] ~ dpois(zeros.mean[i])
     zeros.mean[i] <-  -l[i] + C
-    l[i] <- log(lambdac)-lambdac*controlData[i]
+    l[i] <- ifelse(datCens[i]==1, log(lambdac)-lambdac*datTimes[i], -lambdac*datTimes[i])
   }
-  for (i in 1:m){
-    zeros[i+n] ~ dpois(zeros.mean[i+n])
-    zeros.mean[i+n] <-  -l[i+n] + C
-    l[i+n] <- ifelse(i<bigT, log(lambdac)-lambdac*(treatmentData[i]), log(lambdat)-lambdac*bigT-lambdat*(treatmentData[i]-bigT))
+  for (i in (n+1):m){                                                                                                             
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datCens[i]==1, ifelse(datTimes[i]<bigT, log(lambdac)-lambdac*(datTimes[i]), log(lambdat)-lambdac*bigT-lambdat*(datTimes[i]-bigT)), 
+      ifelse(datTimes[i]<bigT, -lambdac*datTimes[i], -lambdac*bigT-lambdat*(datTimes[i]-bigT)))
   }
   
-    lambdac ~ dnorm(0.08, 10)
-    lambdat ~ dnorm(0.04, 10)
-    bigT ~ dnorm(6, 10)
+    lambdac ~ dnorm(0.08,0.1)T(0,)
+    lambdat ~ dnorm(0.04,0.1)T(0,)
+    bigT ~ dnorm(6,0.1)T(0,)
      
-    
     }
-
 "
 
-model = jags.model(textConnection(modelstring), data = list(controlData = controlData, treatmentData = treatmentData, n= n, m=m))
+model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datCens = combinedData$cens, n= n, m=m))
 
 update(model, n.iter=1000)
-output=coda.samples(model=model, variable.names=c("lambdac", "lambdat", "bigT"), n.iter = 50000)
+output=coda.samples(model=model, variable.names=c("lambdac", "lambdat", "bigT"), n.iter = 10000)
 
 
 summary(output)
 plot(output)
-#Need to check the likelihood is correct - we seem to be nearly there
+
+bigTobs <- output[[1]][,1]
+lambdacobs <- output[[1]][,2]
+lambdatobs <- output[[1]][,3]
+
+
+IAvec <- rep(NA, 100)
+for (i in 1:100){
+    bigTvec <- sample(bigTobs,1)
+    lambdacvec <- sample(lambdacobs,1)
+    lambdatvec <- sample(lambdatobs,1)
+    
+    
+    numberofcontroleventsremaining <- combinedData %>%
+      filter(group=="control") %>%
+      count(cens==TRUE) %>%
+       pull(n) %>%
+       nth(1)
+    
+    numberoftreatmenteventsremaining <- combinedData %>%
+      filter(group=="treatment") %>%
+      count(cens==TRUE) %>%
+       pull(n) %>%
+       nth(1)
+    
+    remainingcontroltimes <- -(1/lambdacvec)*log(runif(numberofcontroleventsremaining, 0, exp(-lambdacvec*IATime)))
+    
+    CP <- exp(-lambdacvec*bigTvec)
+    
+    Survleft <- ifelse(bigTvec<IATime, exp(-lambdacvec*bigTvec - lambdatvec*(IATime-bigTvec)), exp(-lambdacvec*IATime))
+    
+    remainingtreatmentsurvs <- runif(numberoftreatmenteventsremaining, 0, Survleft)
+    
+    remainingtreatmenttimes <- ifelse(remainingtreatmentsurvs<bigTvec, (1/lambdatvec)*(-log(remainingtreatmentsurvs)+bigTvec*(lambdatvec-lambdacvec)), -(1/lambdacvec)*log(remainingtreatmentsurvs))
+    
+    
+    combinedData <- combinedData %>%
+      filter(time<IATime)
+    
+    remainingData <- data.frame(time = c(remainingcontroltimes, remainingtreatmenttimes), group = c(rep("control", numberofcontroleventsremaining), rep("treatment", numberoftreatmenteventsremaining)), cens = rep(0, numberofcontroleventsremaining+numberoftreatmenteventsremaining))
+    
+    combinedData <- rbind(combinedData, remainingData)
+    
+    
+    
+    combinedData$cens <- combinedData$time<totalLength
+    
+    test <- survdiff(Surv(time, cens)~group, data = combinedData) 
+    IAvec[i] <- test$chisq>qchisq(0.95, 1)
+  
+}
+
+mean(IAvec)
 ```
 
+Now we have draws from the posterior distributions for $T$, $\lambda_c$ and $\lambda_t$, we can use these to simulate future observations. 
 
-```{r}
+
+
+
+```{r, eval=F, echo=F}
 
 lambda1 <- 0.04
 lambda2 <- 0.08
@@ -313,9 +383,6 @@ nll <- function(bigTEst, lambdacEst, lambdatEst){
 }
 
 est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambdacEst = 0.01, lambdatEst = 0.01), lower=  list(bigTEst=0.5, lambdacEst = 0.0001, lambdatEst = 0.0001), upper = list(bigTEst = 60))
-
-
-
 
 
 
