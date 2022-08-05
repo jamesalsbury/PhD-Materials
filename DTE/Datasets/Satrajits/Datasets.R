@@ -2,7 +2,7 @@
 library(survival)
 #First data set
 
-png("DS2.png", units="in", width=5, height=5, res=700)
+#png("DS2.png", units="in", width=5, height=5, res=700)
 DTEDataSet1 <- read.csv(file = "DTE/Datasets/Satrajits/CM017PFS.csv")
 
 TreatmentData <- data.frame(time = DTEDataSet1$NIVO_Time[1:135], cens = DTEDataSet1$NIVO_Event_Flag[1:135])
@@ -175,7 +175,6 @@ optimfunc <- function(par){
   }
   return(diff) 
 }
-
 
 
 optimoutput <-  optim(par = c(0.2, 1), fn = optimfunc)
