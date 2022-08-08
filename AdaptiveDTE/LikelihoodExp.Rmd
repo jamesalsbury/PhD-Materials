@@ -229,7 +229,7 @@ n1 <- 200
 n2 <- 200
 
 #When are we performing the IA?
-IATime <- 40
+IATime <- 30
 
 #How long are we running the trial for in total?
 totalLength <- 60
@@ -244,7 +244,7 @@ suppressWarnings(treatmentTimes <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)
 
 combinedData <- data.frame(time = c(controlTimes, treatmentTimes), group = c(rep("control", n1), rep("treatment", n2)))
 
-combinedData$cens <- combinedData$time<IATime
+combinedData$event <- combinedData$time<IATime
 
 
 n <- n1
@@ -268,12 +268,12 @@ model {
   for (i in 1:n){
     zeros[i] ~ dpois(zeros.mean[i])
     zeros.mean[i] <-  -l[i] + C
-    l[i] <- ifelse(datCens[i]==1, log(lambdac)-lambdac*datTimes[i], -lambdac*datTimes[i])
+    l[i] <- ifelse(datEvent[i]==1, log(lambdac)-lambdac*datTimes[i], -lambdac*datTimes[i])
   }
   for (i in (n+1):m){                                                                                                             
     zeros[i] ~ dpois(zeros.mean[i])
     zeros.mean[i] <-  -l[i] + C
-    l[i] <- ifelse(datCens[i]==1, ifelse(datTimes[i]<bigT, log(lambdac)-lambdac*(datTimes[i]), log(lambdat)-lambdac*bigT-lambdat*(datTimes[i]-bigT)), 
+    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(lambdac)-lambdac*(datTimes[i]), log(lambdat)-lambdac*bigT-lambdat*(datTimes[i]-bigT)), 
       ifelse(datTimes[i]<bigT, -lambdac*datTimes[i], -lambdac*bigT-lambdat*(datTimes[i]-bigT)))
   }
   
@@ -284,7 +284,7 @@ model {
     }
 "
 
-model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datCens = combinedData$cens, n= n, m=m))
+model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datEvent = combinedData$event, n= n, m=m))
 
 update(model, n.iter=1000)
 output=coda.samples(model=model, variable.names=c("lambdac", "lambdat", "bigT"), n.iter = 10000)
@@ -293,58 +293,60 @@ output=coda.samples(model=model, variable.names=c("lambdac", "lambdat", "bigT"),
 summary(output)
 plot(output)
 
-bigTobs <- output[[1]][,1]
-lambdacobs <- output[[1]][,2]
-lambdatobs <- output[[1]][,3]
+#How do we use the output to simulate future observations?
 
-
-IAvec <- rep(NA, 100)
-for (i in 1:100){
-    bigTvec <- sample(bigTobs,1)
-    lambdacvec <- sample(lambdacobs,1)
-    lambdatvec <- sample(lambdatobs,1)
-    
-    
-    numberofcontroleventsremaining <- combinedData %>%
-      filter(group=="control") %>%
-      count(cens==TRUE) %>%
-       pull(n) %>%
-       nth(1)
-    
-    numberoftreatmenteventsremaining <- combinedData %>%
-      filter(group=="treatment") %>%
-      count(cens==TRUE) %>%
-       pull(n) %>%
-       nth(1)
-    
-    remainingcontroltimes <- -(1/lambdacvec)*log(runif(numberofcontroleventsremaining, 0, exp(-lambdacvec*IATime)))
-    
-    CP <- exp(-lambdacvec*bigTvec)
-    
-    Survleft <- ifelse(bigTvec<IATime, exp(-lambdacvec*bigTvec - lambdatvec*(IATime-bigTvec)), exp(-lambdacvec*IATime))
-    
-    remainingtreatmentsurvs <- runif(numberoftreatmenteventsremaining, 0, Survleft)
-    
-    remainingtreatmenttimes <- ifelse(remainingtreatmentsurvs<bigTvec, (1/lambdatvec)*(-log(remainingtreatmentsurvs)+bigTvec*(lambdatvec-lambdacvec)), -(1/lambdacvec)*log(remainingtreatmentsurvs))
-    
-    
-    combinedData <- combinedData %>%
-      filter(time<IATime)
-    
-    remainingData <- data.frame(time = c(remainingcontroltimes, remainingtreatmenttimes), group = c(rep("control", numberofcontroleventsremaining), rep("treatment", numberoftreatmenteventsremaining)), cens = rep(0, numberofcontroleventsremaining+numberoftreatmenteventsremaining))
-    
-    combinedData <- rbind(combinedData, remainingData)
-    
-    
-    
-    combinedData$cens <- combinedData$time<totalLength
-    
-    test <- survdiff(Surv(time, cens)~group, data = combinedData) 
-    IAvec[i] <- test$chisq>qchisq(0.95, 1)
-  
-}
-
-mean(IAvec)
+# bigTobs <- output[[1]][,1]
+# lambdacobs <- output[[1]][,2]
+# lambdatobs <- output[[1]][,3]
+# 
+# 
+# IAvec <- rep(NA, 100)
+# for (i in 1:100){
+#     bigTvec <- sample(bigTobs,1)
+#     lambdacvec <- sample(lambdacobs,1)
+#     lambdatvec <- sample(lambdatobs,1)
+#     
+#     
+#     numberofcontroleventsremaining <- combinedData %>%
+#       filter(group=="control") %>%
+#       count(cens==TRUE) %>%
+#        pull(n) %>%
+#        nth(1)
+#     
+#     numberoftreatmenteventsremaining <- combinedData %>%
+#       filter(group=="treatment") %>%
+#       count(cens==TRUE) %>%
+#        pull(n) %>%
+#        nth(1)
+#     
+#     remainingcontroltimes <- -(1/lambdacvec)*log(runif(numberofcontroleventsremaining, 0, exp(-lambdacvec*IATime)))
+#     
+#     CP <- exp(-lambdacvec*bigTvec)
+#     
+#     Survleft <- ifelse(bigTvec<IATime, exp(-lambdacvec*bigTvec - lambdatvec*(IATime-bigTvec)), exp(-lambdacvec*IATime))
+#     
+#     remainingtreatmentsurvs <- runif(numberoftreatmenteventsremaining, 0, Survleft)
+#     
+#     remainingtreatmenttimes <- ifelse(remainingtreatmentsurvs<bigTvec, (1/lambdatvec)*(-log(remainingtreatmentsurvs)+bigTvec*(lambdatvec-lambdacvec)), -(1/lambdacvec)*log(remainingtreatmentsurvs))
+#     
+#     
+#     combinedData <- combinedData %>%
+#       filter(time<IATime)
+#     
+#     remainingData <- data.frame(time = c(remainingcontroltimes, remainingtreatmenttimes), group = c(rep("control", numberofcontroleventsremaining), rep("treatment", numberoftreatmenteventsremaining)), cens = rep(0, numberofcontroleventsremaining+numberoftreatmenteventsremaining))
+#     
+#     combinedData <- rbind(combinedData, remainingData)
+#     
+#     
+#     
+#     combinedData$cens <- combinedData$time<totalLength
+#     
+#     test <- survdiff(Surv(time, cens)~group, data = combinedData) 
+#     IAvec[i] <- test$chisq>qchisq(0.95, 1)
+#   
+# }
+# 
+# mean(IAvec)
 ```
 
 Now we have draws from the posterior distributions for $T$, $\lambda_c$ and $\lambda_t$, we can use these to simulate future observations. 

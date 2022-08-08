@@ -8,6 +8,7 @@ library(ggplot2)
 library(ggfortify)
 library(dplyr)
 library(shinyjs)
+library(nleqslv)
 
 ui <- fluidPage(
   
@@ -165,7 +166,7 @@ ui <- fluidPage(
              ),
              
   ),
-  ),
+  ), style='width: 1500px; height: 1500px',
   wellPanel(
     fluidRow(
       column(3, selectInput("outFormat", label = "Report format",
@@ -372,7 +373,7 @@ server = function(input, output, session) {
       upperbound[j] <- quantile(SimMatrix[,j], 0.9)
     }
     
-    return(list(lowerbound=lowerbound, upperbound=upperbound, time=time))
+    return(list(lowerbound=lowerbound, upperbound=upperbound, time=time, SimMatrix = SimMatrix))
     
   })
   
@@ -461,21 +462,21 @@ server = function(input, output, session) {
   
 # Functions for the Assurance tab ---------------------------------
   
-  #This function calculates assurance given the elicited distributions and other simple questions about the trial
-  calculateAssurance <- eventReactive(input$drawAssurance, {
+  #This function calculates the normal assurance given the elicited distributions and other simple questions about the trial
+  calculateNormalAssurance <- eventReactive(input$drawAssurance, {
     
     #Makes the simplification
     gamma1 <- input$gamma2
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
-    #For each n1, n2, simulate 200 trials
-    assnum <- 200
-    assvec <- rep(NA, assnum)
-    eventsvec <- rep(NA, assnum)
     
     assFunc <- function(n1, n2){
       
       #Simulate 200 observations for T and HR given the elicited distributions
+      #For each n1, n2, simulate 200 trials
+      assnum <- 200
+      assvec <- rep(NA, assnum)
+      eventsvec <- rep(NA, assnum)
       mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
       
       
@@ -523,8 +524,7 @@ server = function(input, output, session) {
         assvec[i] <- test$chisq > qchisq(0.95, 1)
         
         #Counts how many events have been seen up until the total trial length time
-        eventsvec[i] <- DataCombined %>%
-          filter(time < input$chosenLength)
+        eventsvec[i] <-  sum(DataCombined$time<input$chosenLength)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
       }
       
@@ -540,7 +540,7 @@ server = function(input, output, session) {
     calcassvec <- rep(NA, length = length(samplesizevec))
     
     #Shows a progress bar for assurance
-    withProgress(message = "Calculating assurance", value = 0, {
+    withProgress(message = "Calculating assurance 1/2", value=0, {
       for (i in 1:length(n1vec)){
         calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
         incProgress(1/length(n1vec))
@@ -559,13 +559,135 @@ server = function(input, output, session) {
    
   })    
   
+  
+  #This function calculates the normal assurance given the elicited distributions and other simple questions about the trial
+  calculateFlexibleAssurance <- eventReactive(input$drawAssurance, {
+    
+    timechosen1 <- floor(0.4*input$chosenLength)
+    timechosen2 <- floor(0.75*input$chosenLength)
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    gamma1 <- input$gamma2
+    
+    
+    assFunc <- function(n1, n2){
+      #For each n1, n2, simulate 200 trials
+      assnum <- 150
+      assvec <- rep(NA, assnum)
+      eventsvec <- rep(NA, assnum)
+      
+      for (i in 1:assnum){
+        
+        sampledpoint1 <- sample(na.omit(drawsimlines()$SimMatrix[,which(drawsimlines()$time==timechosen1)]), 1)
+        sampledpoint2 <- sample(na.omit(drawsimlines()$SimMatrix[,which(drawsimlines()$time==timechosen2)]), 1)
+        
+        if (sampledpoint1>sampledpoint2){
+          #This needs looking at
+          mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 100, d = c(input$dist1, input$dist2)))
+          bigT <- mySample[1,1]
+    
+          dslnex <- function(x) {
+            y <- numeric(2)
+            y[1] <- exp(-(input$lambda2*bigT)^input$gamma2-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
+            y[2] <- exp(-(input$lambda2*bigT)^input$gamma2-x[1]^x[2]*(timechosen2^x[2]-bigT^x[2])) - sampledpoint2
+            y
+          }
+          
+          
+          xstart <- c(0.05,1)
+          
+          output <- nleqslv(xstart, dslnex)
+          
+          lambda1 <- output$x[1]
+          gamma1 <- output$x[2]
+          
+          if (lambda1<0){
+            lambda1 <- 0.000001
+          }
+          
+          controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
+          
+          CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
+          u <- runif(n2)
+          
+          suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
+          
+          
+          DataCombined <- data.frame(time = c(controldata$time, z),
+                                     group = c(rep("Control", n1), rep("Treatment", n2)))
+          
+          
+          #Adds a random uniformly distributed value, based on the recruitment time
+          DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
+          
+          #If the time is less than the total trial length time then the event has happened
+          DataCombined$event <- DataCombined$time < input$chosenLength
+          
+          #Making it a binary value (rather than T/F), for ease to read
+          DataCombined$event <- DataCombined$event*1
+          
+          
+          #Checks if all patients have had the event
+          if (sum(DataCombined$event)==(n1+n2)){
+            
+          } else {
+            #If a patient has not had the event, then their time becomes the total trial length time
+            DataCombined[DataCombined$event==0,]$time <- input$chosenLength
+          }
+          
+          #Performs a log rank test on the data
+          test <- survdiff(Surv(time, event)~group, data = DataCombined)
+          #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
+          assvec[i] <- test$chisq > qchisq(0.95, 1)
+          
+          #Counts how many events have been seen up until the total trial length time
+          eventsvec[i] <-  sum(DataCombined$time<input$chosenLength)
+        
+        } 
+      }
+        
+        return(list(assvec = mean(na.omit(assvec)), eventvec = mean(na.omit(eventsvec))))
+      }
+    
+    
+  #Looking at assurance for varying sample sizes 
+  samplesizevec <- seq(30, input$numofpatients, length=10)
+  
+  
+  n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
+  n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
+  calcassvec <- rep(NA, length = length(samplesizevec))
+  
+  #Shows a progress bar for assurance
+  withProgress(message = "Calculating assurance 2/2", value=0, {
+    for (i in 1:length(n1vec)){
+      calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
+      incProgress(1/length(n1vec))
+    }
+  })
+  
+  #How many events are seen given this set up
+  eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
+  
+  #Smooth the assurance, compared to the the sample size vector
+  asssmooth <- loess(calcassvec~samplesizevec)
+  
+  return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
+              eventsseen = eventsseen))
+    
+})
+  
   output$assurancePlot <- renderPlot({
     
     #Plot the assurance calculated in the function
     theme_set(theme_grey(base_size = input$fs))
-    assurancedf <- data.frame(x = calculateAssurance()$samplesizevec, y = predict(calculateAssurance()$asssmooth))
-    p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Number of patients") +
-      ylab("Assurance") + ylim(0, 1.05)
+    assurancenormaldf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$asssmooth))
+    assuranceflexibledf <- data.frame(x = calculateFlexibleAssurance()$samplesizevec, y = predict(calculateFlexibleAssurance()$asssmooth))
+    p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Normal"), linetype="solid") + xlab("Number of patients") +
+      ylab("Assurance") + ylim(0, 1.05) + geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") + 
+      scale_color_manual(name='Type of assurance',
+                         breaks=c('Normal', 'Flexible'),
+                         values=c('Normal'='blue', 'Flexible'='red'))
     print(p1) 
 
 
@@ -576,7 +698,7 @@ server = function(input, output, session) {
   output$assuranceText  <- renderUI({
 
     #Show how many events are seen given the set up
-      str1 <- paste0("On average, ", calculateAssurance()$eventsseen, " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
+      str1 <- paste0("On average, ", calculateNormalAssurance()$eventsseen, " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
       HTML(paste(str1, sep = '<br/>'))
   })
   
