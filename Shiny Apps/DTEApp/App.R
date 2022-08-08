@@ -196,10 +196,12 @@ server = function(input, output, session) {
 # Functions for the control tab ---------------------------------
   
   inputData <- reactive({
+    #Allows the user to upload a control sample
     chosenFile <- input$uploadSample
     if (is.null(chosenFile)){
       return(NULL)
     } else {
+      #lambda2 and gamma2 are estimated from the uploaded control sample
       controlSample <- read_excel(chosenFile$datapath, sheet=1)
       weibfit <- survreg(Surv(time, cens)~1, data = controlSample, dist = "weibull")
       updateTextInput(session, "lambda2", value = round(as.numeric(1/(exp(weibfit$icoef[1]))), 3))
@@ -213,6 +215,7 @@ server = function(input, output, session) {
     if (is.null(inputData())){
       
     } else {
+      #Tells the user what the best fitting parameters are for their uploaded sample
       str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
       str2 <- paste0("Lambda2 = ", round(inputData()$lambda2, 3))
       str3 <- paste0("Gamma2 = ", round(inputData()$gamma2, 3))
@@ -223,6 +226,7 @@ server = function(input, output, session) {
   
   output$plotControl <- renderPlot({
     
+    #Shows the user what their control parameters look like
     controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
     controlsurv <- exp(-(input$lambda2*controltime)^input$gamma2)
     controldf <- data.frame(controltime = controltime,
@@ -236,6 +240,7 @@ server = function(input, output, session) {
     if (is.null(inputData())){
       
     } else {
+      #Shows well the Weibull parameters fit the uploaded data set
       controlSample <- data.frame(time = inputData()$controltime, cens = inputData()$controlcens)
       km <- survival::survfit(Surv(time, cens)~1, data = controlSample)
       autoplot(km, conf.int = F, surv.colour = "red", xlab = "Time", ylab="Survival")  + 
@@ -321,40 +326,20 @@ server = function(input, output, session) {
     
     
   })
-
-  # HRProportionCalc <- reactive({
-  #   
-  #   gamma1 <- input$gamma2
-  #   controlcurve <- exp(-(input$lambda2*input$triallength)^input$gamma2)
-  #   bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
-  #   HR <- seq(0.1, 1, by=0.01)
-  #   diff <- rep(NA, length(HR))
-  #   for (i in 1:length(HR)){
-  #     lambda1 <- exp((log(HR[i])/input$gamma2)+log(input$lambda2))
-  #     treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(input$triallength^gamma1-bigTMedian^gamma1))
-  #     diff[i] <- treatmentsurv2 - controlcurve
-  #   }
-  #   return(HR[sum(diff>(input$clinicaldiff)/100)])
-  #   
-  # })
-  
-  # output$HRProportion <- renderUI({
-  #   str1 <- paste0("The probability that HR is less than 1 is: ", feedback(myfit2(), values = 1)$fitted.probabilities[input$dist2][, 1])
-  #   str2 <- paste0("For clinical difference, HR needs to be no bigger than: ", HRProportionCalc())
-  #   str3 <- paste0("Therefore, probabiliy than HR is lower than target treatment effect: ", feedback(myfit2(), values = HRProportionCalc())$fitted.probabilities[input$dist2][, 1])
-  #   HTML(paste(str1, str2, str3, sep = '<br/>'))
-  # })
   
 # Functions for the Feedback tab ---------------------------------
   
+  #This function allows the 10 and 90% CI lines to be drawn
   drawsimlines <- reactive({
     
     gamma1 <- input$gamma2
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
+    #Simulates 500 samples from the elicited T and HR distributions
     mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 500, d = c(input$dist1, input$dist2)))
     
     time <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
+    #We fill a matrix with the treatment survival probabilities at each time
     SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
     
     for (i in 1:500){
@@ -371,11 +356,15 @@ server = function(input, output, session) {
       timecombined <- c(controltime, treatmenttime)[1:length(time)]
       survcombined <- c(controlsurv, treatmentsurv)[1:length(time)]
       
-      
+      #The i'th row of the matrix is filled with the survival probabilities for these sampled T and HR
       SimMatrix[i,] <- survcombined
       
     }
     
+    #We now look at each time iteration at the distribution
+    #We look at the 0.1 and 0.9 quantile of the distribution
+    #These quantiles can be thought of as confidence intervals for the treatment curve, taken from
+    #the elicited distributions
     lowerbound <- rep(NA, length(time))
     upperbound <- rep(NA, length(time))
     for (j in 1:length(time)){
@@ -389,6 +378,7 @@ server = function(input, output, session) {
   
   output$plotFeedback <- renderPlot({
     
+    #This plots the feedback plot
     gamma1 <- input$gamma2
     controltime <- seq(0, exp((1.527/input$gamma2)-log(input$lambda2))*1.1, by=0.01)
     controlcurve <- exp(-(input$lambda2*controltime)^input$gamma2)
@@ -397,9 +387,6 @@ server = function(input, output, session) {
     p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) +
       geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
     
-    #legend("topright", legend = c("Same fit before changepoint", "Control", "Treatment"),
-    #col=c("green", "blue", "red"), lty=c(1), cex=0.75)
-    
     
     zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
     
@@ -407,6 +394,7 @@ server = function(input, output, session) {
       
     } else {
     
+    #We use the medians of the elicited distributions to show the treatment curve
     bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
     HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
     lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
@@ -421,17 +409,17 @@ server = function(input, output, session) {
     treatmentsurv2 <- exp(-(input$lambda2*bigTMedian)^input$gamma2 - lambda1^gamma1*(treatmenttime2^gamma1-bigTMedian^gamma1))
     treatmenttime2df <- data.frame(treatmenttime2 = treatmenttime2, treatmentsurv2 = treatmentsurv2)
     p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red")
-    #scale_color_manual(name='James', breaks=c('Same fit before changepoint', 'Control', 'Treatment'),
-    # values=c('Same fit before changepoint'='green', 'Control'='blue', 'Treatment'='red'))
-    
+
     print(p1)
     
-    
+    #This code adds the three choices to the plots
     addfeedback <- input$showfeedback 
     
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
+        #This adds the median survival line (onto the control and treatment)
         if (addfeedback[i]=="Median survival line"){
+          #Looks at whether the median time is before or after the delay
           if (exp(-(input$lambda2*bigTMedian)^input$gamma2)<0.5){
             mediandf <- data.frame(x = seq(0, controltime[sum(controlcurve>0.5)], length=2), y = rep(0.5, 2))
             mediandf1 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
@@ -443,11 +431,12 @@ server = function(input, output, session) {
             p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
               geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed")
           }
+          #This uses the elicited distribution for T and adds 95% points onto the control curve
         } else if (addfeedback[i]=="95% CI for T"){
           p1 <- p1 + geom_point(aes(x = feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4) +
             geom_point(aes(x = feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4)
         } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
-          #Function to draw simulated lines
+          #This adds the simulated confidence interval lines
           simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
           simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
           p1 <- p1 + geom_line(data = simlineslower, aes(x=x, y=y), linetype="dashed")+
@@ -463,6 +452,7 @@ server = function(input, output, session) {
 
     zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
     
+    #Adds an error message if the elicited distribution for T includes nonsensical values
     if (zeroval<0){
       paste0("Your elicited distribution of T includes values that are less than 0, please change your limits or choose another distribution.")
     }
@@ -471,21 +461,21 @@ server = function(input, output, session) {
   
 # Functions for the Assurance tab ---------------------------------
   
-  
+  #This function calculates assurance given the elicited distributions and other simple questions about the trial
   calculateAssurance <- eventReactive(input$drawAssurance, {
     
+    #Makes the simplification
     gamma1 <- input$gamma2
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
+    #For each n1, n2, simulate 200 trials
     assnum <- 200
     assvec <- rep(NA, assnum)
     eventsvec <- rep(NA, assnum)
-    controlevents <- rep(NA, assnum)
-    treatmentevents <- rep(NA, assnum)
-    
     
     assFunc <- function(n1, n2){
       
+      #Simulate 200 observations for T and HR given the elicited distributions
       mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
       
       
@@ -496,8 +486,10 @@ server = function(input, output, session) {
         
         lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
         
+        #Simulates the control data, given gamma2 and lambda2
         controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
         
+        #Simulates the treatment data, given gamma2, lambda2, T and lambda1 (through HR)
         CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
         u <- runif(n2)
         
@@ -507,45 +499,47 @@ server = function(input, output, session) {
                                    group = c(rep("Control", n1), rep("Treatment", n2)))
         
         
+        #Adds a random uniformly distributed value, based on the recruitment time
         DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
         
-        DataCombined$cens <- DataCombined$time < input$chosenLength
+        #If the time is less than the total trial length time then the event has happened
+        DataCombined$event <- DataCombined$time < input$chosenLength
         
-        DataCombined$cens <- DataCombined$cens*1
+        #Making it a binary value (rather than T/F), for ease to read
+        DataCombined$event <- DataCombined$event*1
         
        
-        
-        if (sum(DataCombined$cens)==(n1+n2)){
+        #Checks if all patients have had the event
+        if (sum(DataCombined$event)==(n1+n2)){
           
         } else {
-          DataCombined[DataCombined$cens==0,]$time <- input$chosenLength
+          #If a patient has not had the event, then their time becomes the total trial length time
+          DataCombined[DataCombined$event==0,]$time <- input$chosenLength
         }
         
-        
-        test <- survdiff(Surv(time, cens)~group, data = DataCombined)
+        #Performs a log rank test on the data
+        test <- survdiff(Surv(time, event)~group, data = DataCombined)
+        #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
         assvec[i] <- test$chisq > qchisq(0.95, 1)
         
-        eventsseen <- DataCombined %>%
+        #Counts how many events have been seen up until the total trial length time
+        eventsvec[i] <- DataCombined %>%
           filter(time < input$chosenLength)
-       
-        controlevents[i] <- sum(eventsseen$group=="Control")
-        
-        treatmentevents[i] <- sum(eventsseen$group=="Treatment")
-        
-        eventsvec[i] <- sum(DataCombined$cens==1)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
       }
       
-      return(list(assvec = mean(assvec), eventvec = mean(eventsvec), controlevents = mean(controlevents), treatmentevents = mean(treatmentevents)))
+      return(list(assvec = mean(assvec), eventvec = mean(eventsvec)))
     }
     
-    
+    #Looking at assurance for varying sample sizes 
     samplesizevec <- seq(30, input$numofpatients, length=10)
+    
     
     n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
     n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
     calcassvec <- rep(NA, length = length(samplesizevec))
     
-    
+    #Shows a progress bar for assurance
     withProgress(message = "Calculating assurance", value = 0, {
       for (i in 1:length(n1vec)){
         calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
@@ -553,23 +547,21 @@ server = function(input, output, session) {
       }
     })
     
-    
+    #How many events are seen given this set up
     eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
     
-    controlevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$controlevents
-    
-    treatmentevents <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$treatmentevents
-    
+    #Smooth the assurance, compared to the the sample size vector
     asssmooth <- loess(calcassvec~samplesizevec)
     
     return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-                eventsseen = eventsseen, controlevents = controlevents, treatmentevents = treatmentevents))
+                eventsseen = eventsseen))
     
    
   })    
   
   output$assurancePlot <- renderPlot({
     
+    #Plot the assurance calculated in the function
     theme_set(theme_grey(base_size = input$fs))
     assurancedf <- data.frame(x = calculateAssurance()$samplesizevec, y = predict(calculateAssurance()$asssmooth))
     p1 <- ggplot(data = assurancedf) + geom_line(aes(x = x, y = y), linetype="dashed") + xlab("Number of patients") +
@@ -583,12 +575,9 @@ server = function(input, output, session) {
 
   output$assuranceText  <- renderUI({
 
+    #Show how many events are seen given the set up
       str1 <- paste0("On average, ", calculateAssurance()$eventsseen, " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
-      #str2 <- paste0(calculateAssurance()$controlevents, " events are seen in the control group")
-      #str3 <- paste0(calculateAssurance()$treatmentevents, "events are seen in the treatment group")
       HTML(paste(str1, sep = '<br/>'))
-
-
   })
   
 
@@ -637,5 +626,6 @@ server = function(input, output, session) {
 
 shinyApp(ui, server)
 
+#Need to look at the number of events seen and why it does not give the correct number
 
 
