@@ -9,7 +9,7 @@ Nsim <- 10e4
 testvec <- rep(NA, Nsim)
 for (i in 1:Nsim){
   theta1 <- rbeta(1, 47, 140)
-  rho <- rtruncnorm(1,a = (theta1-1), b = theta1, mean = 0.05, sd = sqrt(0.005))
+  rho <- rtruncnorm(1,a = (theta1-1), b = theta1, mean = 0.05, sd = sqrt(0.001))
   theta2 <- theta1 - rho
   control <- rbinom(1,n1, prob=theta1)
   treatment <- rbinom(1, n2, prob=theta2)
@@ -21,6 +21,65 @@ for (i in 1:Nsim){
 }
 
 mean(testvec)
+
+#This produces the power/assurance curve found in Section 2.1
+
+#png("MoxPowerAss.png", units="in", width=5, height=5, res=700)
+#Calculates the power
+powerFunc <- function(n1, n2){
+  powervec <- rep(NA, 200)
+  for (i in 1:200){
+    theta1 <- 0.25
+    theta2 <- 0.2
+    control <- rbinom(1,n1, prob=theta1)
+    treatment <- rbinom(1, n2, prob=theta2)
+    finalData <- data.frame(HF = c(control, treatment),
+                            NotHF = c(n1 - control, n2 - treatment),
+                            row.names = c("Control", "Treatment"))
+    test <- chisq.test(finalData, correct = F)
+    powervec[i] <- test$p.value<0.05
+  }
+  mean(powervec)
+}
+
+svec <- seq(30, 2000, by=50)
+powervec <- rep(NA, length(svec))
+for (j in 1:length(svec)){
+  powervec[j] <- powerFunc(svec[j], svec[j])
+}
+
+powersmooth <- loess(powervec~svec)
+
+plot(svec*2, predict(powersmooth), ylab="Power/Assurance", xlab="Total sample size", type="l", ylim=c(0,1), col="blue")
+
+#Calculates the assurance
+assFunc <- function(n1, n2){
+  assvec <- rep(NA, 500)
+  for (i in 1:500){
+    theta1 <- rbeta(1, 47, 140)
+    rho <- rtruncnorm(1,a = (theta1-1), b = theta1, mean = 0.05, sd = sqrt(0.001))
+    theta2 <- theta1 - rho
+    control <- rbinom(1,n1, prob=theta1)
+    treatment <- rbinom(1, n2, prob=theta2)
+    finalData <- data.frame(HF = c(control, treatment),
+                            NotHF = c(n1 - control, n2 - treatment),
+                            row.names = c("Control", "Treatment"))
+    test <- chisq.test(finalData, correct = F)
+    assvec[i] <- test$p.value<0.05
+  }
+  mean(assvec)
+}
+
+assvec <- rep(NA, length(svec))
+for (j in 1:length(svec)){
+  assvec[j] <- assFunc(svec[j], svec[j])
+}
+
+asssmooth <- loess(assvec~svec)
+
+lines(svec*2, predict(asssmooth), col="red", lty=2)
+
+legend("bottomright", legend = c("Power", "Assurance"), col=c("blue", "red"), lty=1:2)
 
 #This produces the figure found in Section 2.2
 lambda2 <- 0.08
