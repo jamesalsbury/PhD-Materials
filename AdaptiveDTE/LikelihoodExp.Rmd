@@ -65,8 +65,8 @@ lambda2 <- 0.08
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 100
-n2 <- 100
+n1 <- 10000
+n2 <- 10000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -97,7 +97,7 @@ nll <- function(bigTEst, lambda2Est, lambda1Est){
 }
 
 #Finding the maximum likelihood estimators for T, lambda2 and lambda1
-est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=10, lambda2Est = 0.01, lambda1Est = 0.01), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, lambda1Est = 0.0001), upper = list(bigTEst = 60))
 
 #Showing the output of the mle() function
 #Seems pretty good!
@@ -229,7 +229,7 @@ n1 <- 200
 n2 <- 200
 
 #When are we performing the IA?
-IATime <- 30
+IATime <- 600
 
 #How long are we running the trial for in total?
 totalLength <- 60
@@ -253,7 +253,27 @@ m <- n1+n2
 # kmfit <- survfit(Surv(time, cens)~group, data = combinedData)
 # plot(kmfit, conf.int=F, col=c("blue", "red"))
 
+nll <- function(bigTEst){
+  lambdacEst <- lambda2
+  lambdatEst <- lambda1
+   loglikelihood <-  sum(treatmentData<bigTEst)*log(lambdacEst)-lambdacEst*sum(treatmentData[treatmentData<bigTEst])+sum(treatmentData>bigTEst)*log(lambdatEst)+sum(treatmentData>bigTEst)*bigTEst*(lambdatEst-lambdacEst)-lambdatEst*sum(treatmentData[treatmentData>bigTEst])
 
+
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
+
+est <- optimize(f = nll, interval=c(1,20))
+
+bigTvec <- seq(0, 20, by=0.001)
+bigTll <- rep(NA, length(bigTvec))
+for (j in 1:length(bigTvec)){
+  bigTll[j] <- nll(bigTvec[j])
+}
+
+plot(bigTvec, bigTll)
+
+bigTvec[which.min(bigTll)]
 
 modelstring="
 
@@ -361,8 +381,8 @@ lambda2 <- 0.08
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 500000
-n2 <- 500000
+n1 <- 5000
+n2 <- 5000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -384,7 +404,7 @@ nll <- function(bigTEst, lambdacEst, lambdatEst){
  return(-loglikelihood)
 }
 
-est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambdacEst = 0.01, lambdatEst = 0.01), lower=  list(bigTEst=0.5, lambdacEst = 0.0001, lambdatEst = 0.0001), upper = list(bigTEst = 60))
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst=10, lambdacEst = 0.01, lambdatEst = 0.01), lower=  list(bigTEst=0.5, lambdacEst = 0.0001, lambdatEst = 0.0001), upper = list(bigTEst = 60))
 
 
 
@@ -394,6 +414,60 @@ est@coef
 ```
 
 
+
+
+```{r, eval=F, echo=F}
+
+lambda1 <- 0.04
+lambda2 <- 0.08
+bigT <- 6
+
+#Sample sizes in each group
+n1 <- 100
+n2 <- 100
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controlData <-rexp(n1, lambda2)
+#Treatment
+CP <- exp(-(lambda2*bigT))[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentData <- ifelse(u>CP, -(1/lambda2)*log(u), (1/lambda1)*(-log(u)-bigT*(lambda2-lambda1))))
+
+combinedData <- data.frame(time = c(controlData, treatmentData), group = c(rep("control", n1), rep("treatment", n2)))
+
+kmfit <- survfit(Surv(time)~group, data = combinedData)
+plot(kmfit, col=c("blue", "red"))
+
+nll <- function(bigTEst){
+  lambdacEst <- lambda2
+  lambdatEst <- lambda1
+   loglikelihood <-  sum(treatmentData<bigTEst)*log(lambdacEst)-lambdacEst*sum(treatmentData[treatmentData<bigTEst])+sum(treatmentData>bigTEst)*log(lambdatEst)+sum(treatmentData>bigTEst)*bigTEst*(lambdatEst-lambdacEst)-lambdatEst*sum(treatmentData[treatmentData>bigTEst])
+
+
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
+
+bigTvec <- seq(0, 20, by=0.001)
+bigTll <- rep(NA, length(bigTvec))
+for (j in 1:length(bigTvec)){
+  bigTll[j] <- nll(bigTvec[j])
+}
+
+
+
+
+
+est <- optimize(f = nll, interval=c(1,20))
+
+
+y <- est$minimum
+plot(bigTvec, bigTll)
+abline(v = y)
+abline(v = bigTvec[which.min(bigTll)])
+
+```
 
 
 
