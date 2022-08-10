@@ -169,8 +169,123 @@ lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
 
 legend("topright", legend = c("Delay", "Control", "Treatment (best fit)", "Treatment (fixed)"), col=c("green", "blue", "red", "red"), lty=c(1, 1, 2))
 
-#This code produces the power plot in Section 3.3
 
+#This code produces the KM and overlaid lines in Section 3.3
+#png("DS2.png", units="in", width=5, height=5, res=700)
+DTEDataSet1 <- read.csv(file = "DTE/Datasets/Satrajits/CM017PFS.csv")
+
+TreatmentData <- data.frame(time = DTEDataSet1$NIVO_Time[1:135], cens = DTEDataSet1$NIVO_Event_Flag[1:135])
+
+ControlData <- data.frame(time = DTEDataSet1$DOX_Time, cens = DTEDataSet1$DOX_Event_Flag)
+
+TreatmentFit <- survfit(Surv(time, cens)~1, data = TreatmentData)
+
+ControlFit <- survfit(Surv(time, cens)~1, data = ControlData)
+
+plot(TreatmentFit, conf.int = F, col="red", xlim=c(0,18), xlab="Time (months)", ylab="Survival")
+
+lines(ControlFit, conf.int = F, col="blue")
+
+legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty=1)
+
+
+##Fitting Weibull model to the data
+
+weibfit <- survreg(Surv(time, cens)~1, data = ControlData, dist = "weibull")
+
+gamma2 <- as.numeric(exp(-weibfit$icoef[2]))
+
+lambda2 <- as.numeric(1/(exp(weibfit$icoef[1])))
+
+controltime <- seq(0, 15, by=0.01)
+controlsurv <- exp(-(lambda2*controltime)^gamma2)
+
+
+lines(controltime, controlsurv, col="blue")
+
+#Two scenarios, 1 where we allow gamma1 to vary, 1 where we do not
+
+
+#First scenario
+
+#We estimate T to be about 3 here
+
+#Need to find a least squares estimate for this Weibull parameterisation
+
+
+#gamma2 = 1.07
+#lambda2 = 0.21
+
+#Write a function which finds the squared differences
+
+kmfit <- survfit(Surv(time, cens)~1, data = TreatmentData)
+
+treatmenttime <- seq(0, 3, by=0.01)
+treatmentsurv <- controlsurv <- exp(-(lambda2*treatmenttime)^gamma2)
+
+lines(treatmenttime, treatmentsurv, col="green")
+
+
+treatmenttime1 <- seq(3, 15, by=0.01)
+
+optimfunc <- function(par){
+  diff <- 0
+  for (i in 1:length(treatmenttime1)){
+    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
+    treatmentsurv <- exp(-(lambda2*3)^gamma2 - par[1]^par[2]*(treatmenttime1[i]^par[2]-3^par[2]))
+    diff <- diff + (y-treatmentsurv)^2 
+  }
+  return(diff) 
+}
+
+
+
+optimoutput <-  optim(par = c(0.2, 1), fn = optimfunc)
+lambda1 <- optimoutput$par[1]
+gamma1 <- optimoutput$par[2]
+
+
+treatmenttime1 <- seq(3, 15, by=0.01)
+treatmentsurv1 <- exp(-(lambda2*3)^gamma2 - lambda1^gamma1*(treatmenttime1^gamma1-3^gamma1))
+
+lines(treatmenttime1, treatmentsurv1, col="red")
+
+###Now we do it but we do not allow gamma1 to vary
+
+treatmenttime <- seq(0, 3, by=0.01)
+treatmentsurv <- controlsurv <- exp(-(lambda2*treatmenttime)^gamma2)
+
+lines(treatmenttime, treatmentsurv, col="green")
+
+
+treatmenttime1 <- seq(3, 15, by=0.01)
+
+optimfunc <- function(par){
+  diff <- 0
+  gamma1 <- gamma2
+  for (i in 1:length(treatmenttime1)){
+    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
+    treatmentsurv <- exp(-(lambda2*3)^gamma2 - par[1]^gamma1*(treatmenttime1[i]^gamma1-3^gamma1))
+    diff <- diff + (y-treatmentsurv)^2 
+  }
+  return(diff) 
+}
+
+
+
+lambda1only <-  optimize(optimfunc, c(0, 2))$minimum
+
+
+treatmenttime1 <- seq(3, 15, by=0.01)
+treatmentsurv1 <- exp(-(lambda2*3)^gamma2 - lambda1only^gamma2*(treatmenttime1^gamma2-3^gamma2))
+
+lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
+
+legend("topright", legend = c("Delay", "Control", "Treatment (best fit)", "Treatment (fixed)"), col=c("green", "blue", "red", "red"), lty=c(1, 1, 2))
+
+
+
+#This code produces the power plot in Section 3.3
 
 
 #Need to calculate power in the scenario when we allow gamma1 to vary
@@ -179,11 +294,11 @@ legend("topright", legend = c("Delay", "Control", "Treatment (best fit)", "Treat
 
 source("functions.R")
 
-png("PowerVaryingFixed.png", units="in", width=8, height=5, res=700)
+#png("PowerVaryingFixed.png", units="in", width=8, height=5, res=700)
 powerFunc <- function(bigT, lambda2, gamma2, lambda1, gamma1, n1, n2){
   powervec <- rep(NA, 100)
   for (i in 1:100){
-    z <- simulateDTEWeibullData(bigT, lambda2, gamma2, x1, y1, n1, n2)
+    z <- simulateDTEWeibullData(bigT, lambda2, gamma2, lambda1, gamma1, n1, n2)
     combinedData <- data.frame(time = c(z$controldata, z$treatmentdata), group = c(rep("control", n1), rep("treatment", n2)))
     test <- survdiff(Surv(time)~group, data = combinedData)
     powervec[i] <- test$chisq > qchisq(0.95, 1)
@@ -196,7 +311,7 @@ n2vec <- seq(20, 400, by=20)
 nvec <- n1vec+n2vec
 powervary <- rep(NA, length(n1vec))
 for (j in 1:length(n1vec)){
-  powervary[j] <- powerFunc(3, lambda2, gamma2, x1, y1, n1vec[j], n2vec[j])
+  powervary[j] <- powerFunc(3, lambda2, gamma2, lambda1, gamma1, n1vec[j], n2vec[j])
 }
 
 powervarysmooth <- loess(powervary~nvec)
@@ -205,7 +320,7 @@ plot(nvec, predict(powervarysmooth), type = "l", ylim=c(0,1), col="red", lty=1, 
 
 powerfixed <- rep(NA, length(n1vec))
 for (j in 1:length(n1vec)){
-  powerfixed[j] <- powerFunc(3, lambda2, gamma2, z1, gamma2, n1vec[j], n2vec[j])
+  powerfixed[j] <- powerFunc(3, lambda2, gamma2, lambda1only, gamma2, n1vec[j], n2vec[j])
 }
 
 powerfixedsmooth <- loess(powerfixed~nvec)
@@ -214,7 +329,7 @@ lines(nvec, predict(powerfixedsmooth), col="blue", lty=2)
 
 legend("bottomright", legend = c(expression(paste("Varying ", gamma[1])), expression(paste("Fixed ", gamma[1]))), lty=1:2, col=c("red", "blue"))
 
-dev.off()
+#dev.off()
 
 
 #This code produces the plot seen in Section 4.1.3
