@@ -166,7 +166,16 @@ ui <- fluidPage(
              ),
              
   ),
-  ), style='width: 1500px; height: 1500px',
+  
+  #Help UI ---------------------------------
+  tabPanel("Help",
+           p("This app implements the method as outlined in.... paper"),
+          p("The eliciation ")
+           
+  ),
+  
+  
+  ), style='width: 1200px; height: 1200px',
   wellPanel(
     fluidRow(
       column(3, selectInput("outFormat", label = "Report format",
@@ -540,12 +549,18 @@ server = function(input, output, session) {
     calcassvec <- rep(NA, length = length(samplesizevec))
     
     #Shows a progress bar for assurance
-    withProgress(message = "Calculating assurance 1/2", value=0, {
-      for (i in 1:length(n1vec)){
-        calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
-        incProgress(1/length(n1vec))
-      }
-    })
+    # withProgress(message = "Calculating assurance 1/2", value=0, {
+    #   for (i in 1:length(n1vec)){
+    #     calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
+    #     incProgress(1/length(n1vec))
+    #   }
+    # })
+    
+    pboptions(type="shiny", title = "Calculating assurance (1/2)")
+    
+    calcassvec <- pbmapply(assFunc, n1vec, n2vec)
+    
+    calcassvec <- unlist(calcassvec[1,])  
     
     #How many events are seen given this set up
     eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
@@ -658,13 +673,19 @@ server = function(input, output, session) {
   n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
   calcassvec <- rep(NA, length = length(samplesizevec))
   
-  #Shows a progress bar for assurance
-  withProgress(message = "Calculating assurance 2/2", value=0, {
-    for (i in 1:length(n1vec)){
-      calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
-      incProgress(1/length(n1vec))
-    }
-  })
+  # #Shows a progress bar for assurance
+  # withProgress(message = "Calculating assurance 2/2", value=0, {
+  #   for (i in 1:length(n1vec)){
+  #     calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
+  #     incProgress(1/length(n1vec))
+  #   }
+  # })
+  
+  pboptions(type="shiny", title = "Calculating assurance (2/2)")
+  
+  calcassvec <- pbmapply(assFunc, n1vec, n2vec)
+  
+  calcassvec <- unlist(calcassvec[1,])  
   
   #How many events are seen given this set up
   eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
@@ -698,9 +719,20 @@ server = function(input, output, session) {
   output$assuranceText  <- renderUI({
 
     #Show how many events are seen given the set up
-      str1 <- paste0("On average, ", calculateNormalAssurance()$eventsseen, " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
+      str1 <- paste0("On average, ", round(calculateNormalAssurance()$eventsseen), " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
       HTML(paste(str1, sep = '<br/>'))
   })
+  
+  # Functions for the Help tab ---------------------------------
+  
+#   output$helpUI <- renderUI({
+#     
+#     str1 <- paste0("This app implements the methodology in
+# 
+# Alhussain, ZA, Oakley, JE. Assurance for clinical trial design with normally distributed outcomes: Eliciting uncertainty about variances. Pharmaceutical Statistics. 2020; 19: 827– 839. https://doi.org/10.1002/pst.2040.
+# For help, or to report any bugs, please contact Jeremy Oakley.")
+#     HTML(paste(str1, sep = '<br/>'))
+#   })
   
 
   # observeEvent(input$exit, {

@@ -5,9 +5,10 @@ account: jamesalsbury
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6257818
-bundleId: 5883380
+bundleId: 6191751
 url: https://jamesalsbury.shinyapps.io/DTEApp/
-when: 1652014030.26058
-lastSyncTime: 1652014030.26059
+when: 1660222157.59137
+lastSyncTime: 1660222157.59137
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: CalcAssurance.R|ControlSample.xlsx
