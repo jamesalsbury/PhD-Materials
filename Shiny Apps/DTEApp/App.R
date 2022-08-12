@@ -168,9 +168,11 @@ ui <- fluidPage(
   ),
   
   #Help UI ---------------------------------
+  #Need to say what files can be uploaded in the control sample
+  #Link to SHELF for the elicitation
   tabPanel("Help",
            p("This app implements the method as outlined in.... paper"),
-          p("The eliciation ")
+          p("The elicitation ")
            
   ),
   
