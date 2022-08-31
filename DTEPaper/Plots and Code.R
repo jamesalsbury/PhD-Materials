@@ -245,7 +245,10 @@ plot(TreatmentFit, conf.int = F, col="red", xlim=c(0,18), xlab="Time (months)", 
 
 lines(ControlFit, conf.int = F, col="blue")
 
+
 legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty=1)
+
+
 
 
 ##Fitting Weibull model to the data

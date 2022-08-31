@@ -357,7 +357,7 @@ server = function(input, output, session) {
     for (i in 1:500){
       bigT <- mySample[i,1]
       HR <- mySample[i,2]
-      lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
+      lambda1 <- input$lambda2*HR^(1/input$gamma2)
       
       controltime <- seq(0, bigT, by=0.01)
       controlsurv <- exp(-(input$lambda2*controltime)^input$gamma2)
@@ -409,7 +409,7 @@ server = function(input, output, session) {
     #We use the medians of the elicited distributions to show the treatment curve
     bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
     HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
-    lambda1 <- exp((log(HRMedian)/input$gamma2)+log(input$lambda2))
+    lambda1 <- input$lambda2*HRMedian^(1/input$gamma2)
     
     treatmenttime1 <- seq(0, bigTMedian, by=0.01)
     treatmentsurv1 <- exp(-(input$lambda2*treatmenttime1)^input$gamma2)
@@ -496,7 +496,7 @@ server = function(input, output, session) {
         bigT <- mySample[i,1]
         HR <- mySample[i,2]
         
-        lambda1 <- exp((log(HR)/input$gamma2)+log(input$lambda2))
+        lambda1 <- input$lambda2*HR^(1/input$gamma2)
         
         #Simulates the control data, given gamma2 and lambda2
         controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
