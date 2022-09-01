@@ -9,6 +9,7 @@ library(ggfortify)
 library(dplyr)
 library(shinyjs)
 library(nleqslv)
+library(pbapply)
 
 ui <- fluidPage(
   
@@ -483,9 +484,9 @@ server = function(input, output, session) {
     
     assFunc <- function(n1, n2){
       
-      #Simulate 200 observations for T and HR given the elicited distributions
-      #For each n1, n2, simulate 200 trials
-      assnum <- 200
+      #Simulate 400 observations for T and HR given the elicited distributions
+      #For each n1, n2, simulate 400 trials
+      assnum <- 400
       assvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
       mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
@@ -543,7 +544,7 @@ server = function(input, output, session) {
     }
     
     #Looking at assurance for varying sample sizes 
-    samplesizevec <- seq(30, input$numofpatients, length=10)
+    samplesizevec <- seq(30, input$numofpatients, length=15)
     
     
     n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
@@ -588,8 +589,8 @@ server = function(input, output, session) {
     
     
     assFunc <- function(n1, n2){
-      #For each n1, n2, simulate 200 trials
-      assnum <- 150
+      #For each n1, n2, simulate 300 trials
+      assnum <- 300
       assvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
       
@@ -668,7 +669,7 @@ server = function(input, output, session) {
     
     
   #Looking at assurance for varying sample sizes 
-  samplesizevec <- seq(30, input$numofpatients, length=10)
+  samplesizevec <- seq(30, input$numofpatients, length=15)
   
   
   n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))

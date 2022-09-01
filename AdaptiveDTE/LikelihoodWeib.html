@@ -255,6 +255,7 @@ if (window.hljs) {
 
 
 
+
 <style type="text/css">
 .main-container {
   max-width: 940px;
@@ -275,6 +276,9 @@ button.code-folding-btn:focus {
 }
 summary {
   display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
 }
 pre code {
   padding: 0;
@@ -438,8 +442,8 @@ gamma1 &lt;- 0.8
 bigT &lt;- 6
 
 #Sample sizes in each group
-n1 &lt;- 1000
-n2 &lt;- 1000
+n1 &lt;- 100000
+n2 &lt;- 100000
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -506,22 +510,21 @@ nll &lt;- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
 }
 
 #Finding the maximum likelihood estimators for T, lambda2 and lambda1
-est &lt;- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.01, gamma2Est = 1, lambda1Est = 0.1, gamma1Est = 1), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, gamma2Est = 0.01, lambda1Est = 0.0001, gamma1Est = 0.01), upper = list(bigTEst = 60, lambda2Est = 40, gamma2Est =30, lambda1Est = 20, gamma1Est =10))
+est &lt;- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.08, gamma2Est = 0.8, lambda1Est = 0.04, gamma1Est = 0.8), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, gamma2Est = 0.001, lambda1Est = 0.001, gamma1Est = 0.001), upper = list(bigTEst = 60))
 
 #Showing the output of the mle() function
 #Seems pretty good!
 est</code></pre>
 <pre><code>## 
 ## Call:
-## stats4::mle(minuslogl = nll, start = list(bigTEst = 6, lambda2Est = 0.01, 
-##     gamma2Est = 1, lambda1Est = 0.1, gamma1Est = 1), lower = list(bigTEst = 0.5, 
-##     lambda2Est = 1e-04, gamma2Est = 0.01, lambda1Est = 1e-04, 
-##     gamma1Est = 0.01), upper = list(bigTEst = 60, lambda2Est = 40, 
-##     gamma2Est = 30, lambda1Est = 20, gamma1Est = 10))
+## stats4::mle(minuslogl = nll, start = list(bigTEst = 6, lambda2Est = 0.08, 
+##     gamma2Est = 0.8, lambda1Est = 0.04, gamma1Est = 0.8), lower = list(bigTEst = 0.5, 
+##     lambda2Est = 1e-04, gamma2Est = 0.001, lambda1Est = 0.001, 
+##     gamma1Est = 0.001), upper = list(bigTEst = 60))
 ## 
 ## Coefficients:
 ##    bigTEst lambda2Est  gamma2Est lambda1Est  gamma1Est 
-## 5.97960172 0.07959197 0.79633885 0.02985064 0.97783307</code></pre>
+## 5.99414052 0.08075470 0.80070797 0.03401944 0.88083115</code></pre>
 <pre class="stan"><code>
 functions {
   real expmodel_log(vector Y, int controlLength, int treatmentLength, real lambdac, real lambdat, real bigT) {
