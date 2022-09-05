@@ -1,0 +1,182 @@
+---
+title: "FlexibleAssurance"
+author: "James Salsbury"
+date: '2022-09-02'
+output: 
+   pdf_document:
+    extra_dependencies: animate
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(SHELF)
+library(nleqslv)
+```
+
+```{r, echo=FALSE}
+#Setting up the parameters
+
+gamma1 <- 0.8
+gamma2 <- 0.8
+lambda1 <- 0.04
+lambda2 <- 0.08
+bigT <- 6
+p1 <- c(0.25, 0.5, 0.75)
+v1 <- c(2.5, 3, 3.5)
+v2 <- c(0.5, 0.6, 0.7)
+myfit1 <- fitdist(v1, p1, 0, 6)
+myfit2 <- fitdist(v2, p1, 0, 1)
+dist1 <- "normal"
+dist2 <- "beta"
+conc.probs <- matrix(0, 2, 2)
+conc.probs[1, 2] <- 0.5
+chosenLength <- 60
+timechosen1 <- floor(0.4*chosenLength)
+timechosen2 <- floor(0.75*chosenLength)
+
+#Simulates 500 samples from the elicited T and HR distributions
+    mySample <- data.frame(copulaSample(myfit1, myfit2, cp = conc.probs, n = 500, d = c(dist1, dist2)))
+    
+    time <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+    #We fill a matrix with the treatment survival probabilities at each time
+    SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
+    
+    for (i in 1:500){
+      bigT <- mySample[i,1]
+      HR <- mySample[i,2]
+      lambda1 <- exp((log(HR)/gamma2)+log(lambda2))
+      
+      controltime <- seq(0, bigT, by=0.01)
+      controlsurv <- exp(-(lambda2*controltime)^gamma2)
+      
+      treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+      treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1^gamma1*(treatmenttime^gamma1-bigT^gamma1))
+      
+      timecombined <- c(controltime, treatmenttime)[1:length(time)]
+      survcombined <- c(controlsurv, treatmentsurv)[1:length(time)]
+      
+      #The i'th row of the matrix is filled with the survival probabilities for these sampled T and HR
+      SimMatrix[i,] <- survcombined
+      
+    }
+
+```
+
+
+```{r,fig.show='animate',echo=FALSE,cache=TRUE,warning=FALSE,message=FALSE}
+set.seed(212)
+    
+n <- 10
+#Simulating the random samples
+    mySample <- data.frame(copulaSample(myfit1, myfit2, cp = conc.probs, n = n, d = c(dist1, dist2)))
+
+#Setting the plot up
+    controltime <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+    controlsurv <- exp(-(lambda2*controltime)^gamma2)
+    controldf <- data.frame(controltime = controltime,
+                            controlsurv = controlsurv)
+   p <- ggplot(data=controldf, aes(x=controltime, y=controlsurv)) +
+      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
+   
+   print(p)
+    
+    for (i in 1:n){
+
+    bigT <- mySample[i,1]
+
+    bigTSurvival <- exp(-(lambda2*bigT)^gamma2)
+
+    print(p + geom_point(aes(x = bigT, y = bigTSurvival), colour="darkgreen"))
+
+    delaytime <- seq(0, bigT, by=0.01)
+    delaysurv <- exp(-(lambda2*delaytime)^gamma2)
+
+    #Now we need to sample from the simMatrix
+
+    sampledpoint1 <- sample(na.omit(SimMatrix[,which(time==timechosen1)]), 1)
+    sampledpoint2 <- 1
+    while (sampledpoint2>sampledpoint1){
+      sampledpoint2 <- sample(na.omit(SimMatrix[,which(time==timechosen2)]), 1)
+    }
+
+    print(p+ geom_point(aes(x = bigT, y = bigTSurvival), colour="darkgreen")+
+            geom_point(aes(x = timechosen1, y = sampledpoint1), colour="darkgreen"))
+    
+    print(p+ geom_point(aes(x = bigT, y = bigTSurvival), colour="darkgreen")+
+            geom_point(aes(x = timechosen1, y = sampledpoint1), colour="darkgreen")+geom_point(aes(x = timechosen2, y=sampledpoint2), colour="darkgreen"))
+
+
+     #Now we need to join the dots up
+     dslnex <- function(x) {
+            y <- numeric(2)
+            y[1] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
+            y[2] <- exp(-(lambda2*bigT)^gamma2-x[1]^x[2]*(timechosen2^x[2]-bigT^x[2])) - sampledpoint2
+            y
+          }
+
+          xstart <- c(0.05,1)
+
+          output <- nleqslv(xstart, dslnex)
+
+          lambda1Est <- output$x[1]
+          gamma1Est <- output$x[2]
+
+          if (lambda1Est<0){
+            lambda1Est <- 0.000001
+          }
+
+          treatmenttime <- seq(bigT, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+          treatmentsurv <- exp(-(lambda2*bigT)^gamma2 - lambda1Est^gamma1Est*(treatmenttime^gamma1Est-bigT^gamma1Est))
+
+          treatmentdf <- data.frame(treatmenttime = c(delaytime, treatmenttime),
+                            treatmentsurv = c(delaysurv, treatmentsurv))
+
+          
+      print(p+ geom_point(aes(x = bigT, y = bigTSurvival), colour="darkgreen")+
+            geom_point(aes(x = timechosen1, y = sampledpoint1), colour="darkgreen")+geom_point(aes(x = timechosen2, y=sampledpoint2), colour="darkgreen")+geom_line(data = treatmentdf, aes(x = treatmenttime, y = treatmentsurv), colour="red"))    
+          
+    p <- p + geom_line(data = treatmentdf, aes(x = treatmenttime, y = treatmentsurv), colour="grey")
+
+    print(p)
+    }
+
+```
+
+```{r,fig.show='animate',echo=FALSE,cache=TRUE,warning=FALSE,message=FALSE}
+set.seed(212)
+    
+n <- 10
+#Simulating the random samples
+    mySample <- data.frame(copulaSample(myfit1, myfit2, cp = conc.probs, n = n, d = c(dist1, dist2)))
+
+#Setting the plot up
+    controltime <- seq(0, exp((1.527/gamma2)-log(lambda2))*1.1, by=0.01)
+    controlsurv <- exp(-(lambda2*controltime)^gamma2)
+    controldf <- data.frame(controltime = controltime,
+                            controlsurv = controlsurv)
+   p <- ggplot(data=controldf, aes(x=controltime, y=controlsurv)) +
+      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
+   
+   print(p)
+    
+    for (i in 1:n){
+
+          treatmenttime <- time
+          treatmentsurv <- SimMatrix[i,]
+
+          treatmentdf <- data.frame(treatmenttime = treatmenttime,
+                            treatmentsurv = treatmentsurv)
+
+          
+      print(p+geom_line(data = treatmentdf, aes(x = treatmenttime, y = treatmentsurv), colour="red"))    
+          
+    p <- p + geom_line(data = treatmentdf, aes(x = treatmenttime, y = treatmentsurv), colour="grey")
+
+    print(p)
+    }
+
+```
+
+
