@@ -58,7 +58,7 @@ We find the log-likelihood
 ```
 <!-- We can ensure that this is the correct log-likelihood with the following code -->
 
-```{r, eval=F, echo=F}
+```{r, eval=T, echo=F}
 
 set.seed(24)
 

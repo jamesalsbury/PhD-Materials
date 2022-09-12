@@ -6,10 +6,10 @@ library(readxl)
 library(rsconnect)
 library(ggplot2)
 library(ggfortify)
-library(dplyr)
-library(shinyjs)
 library(nleqslv)
 library(pbapply)
+
+source("functions.R")
 
 ui <- fluidPage(
   
@@ -147,7 +147,7 @@ ui <- fluidPage(
     tabPanel("Assurance",
              sidebarLayout(
                sidebarPanel = sidebarPanel(
-                 useShinyjs(),
+                 shinyjs::useShinyjs(),
                  numericInput("numofpatients", "How many patients could you enrol into the trial?", value=1000),
                  numericInput("rectime", "How long would it take to enrol all of these patients?", value=6),
                  
@@ -172,9 +172,8 @@ ui <- fluidPage(
   #Need to say what files can be uploaded in the control sample
   #Link to SHELF for the elicitation
   tabPanel("Help",
-           p("This app implements the method as outlined in.... paper"),
-          p("The elicitation ")
-           
+           HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper.</a></p>"),
+          HTML("<p>The eliciation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>")
   ),
   
   
@@ -499,44 +498,15 @@ server = function(input, output, session) {
         
         lambda1 <- input$lambda2*HR^(1/input$gamma2)
         
-        #Simulates the control data, given gamma2 and lambda2
-        controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
-        
-        #Simulates the treatment data, given gamma2, lambda2, T and lambda1 (through HR)
-        CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
-        u <- runif(n2)
-        
-        suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
-        
-        DataCombined <- data.frame(time = c(controldata$time, z),
-                                   group = c(rep("Control", n1), rep("Treatment", n2)))
-        
-        
-        #Adds a random uniformly distributed value, based on the recruitment time
-        DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
-        
-        #If the time is less than the total trial length time then the event has happened
-        DataCombined$event <- DataCombined$time < input$chosenLength
-        
-        #Making it a binary value (rather than T/F), for ease to read
-        DataCombined$event <- DataCombined$event*1
-        
-       
-        #Checks if all patients have had the event
-        if (sum(DataCombined$event)==(n1+n2)){
-          
-        } else {
-          #If a patient has not had the event, then their time becomes the total trial length time
-          DataCombined[DataCombined$event==0,]$time <- input$chosenLength
-        }
+        dataCombined <- SimDTEDataSet(n1, n2, gamma1, input$gamma2, lambda1, input$lambda2, bigT, input$rectime, input$chosenLength)
         
         #Performs a log rank test on the data
-        test <- survdiff(Surv(time, event)~group, data = DataCombined)
+        test <- survdiff(Surv(time, event)~group, data = dataCombined)
         #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
         assvec[i] <- test$chisq > qchisq(0.95, 1)
         
         #Counts how many events have been seen up until the total trial length time
-        eventsvec[i] <-  sum(DataCombined$time<input$chosenLength)
+        eventsvec[i] <-  sum(dataCombined$time<input$chosenLength)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
       }
       
@@ -545,20 +515,10 @@ server = function(input, output, session) {
     
     #Looking at assurance for varying sample sizes 
     samplesizevec <- seq(30, input$numofpatients, length=15)
-    
-    
     n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
     n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
     calcassvec <- rep(NA, length = length(samplesizevec))
-    
-    #Shows a progress bar for assurance
-    # withProgress(message = "Calculating assurance 1/2", value=0, {
-    #   for (i in 1:length(n1vec)){
-    #     calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
-    #     incProgress(1/length(n1vec))
-    #   }
-    # })
-    
+
     pboptions(type="shiny", title = "Calculating assurance (1/2)")
     
     calcassvec <- pbmapply(assFunc, n1vec, n2vec)
@@ -623,43 +583,16 @@ server = function(input, output, session) {
             lambda1 <- 0.000001
           }
           
-          controldata <- data.frame(time = rweibull(n1, input$gamma2, 1/input$lambda2))
           
-          CP <- exp(-(input$lambda2*bigT)^input$gamma2)[[1]]
-          u <- runif(n2)
-          
-          suppressWarnings(z <- ifelse(u>CP, (1/input$lambda2)*exp(1/input$gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(input$lambda2*bigT)^input$gamma2+lambda1^gamma1*bigT*gamma1)))))
-          
-          
-          DataCombined <- data.frame(time = c(controldata$time, z),
-                                     group = c(rep("Control", n1), rep("Treatment", n2)))
-          
-          
-          #Adds a random uniformly distributed value, based on the recruitment time
-          DataCombined$time <- DataCombined$time + runif(n1+n2, min = 0, max = input$rectime)
-          
-          #If the time is less than the total trial length time then the event has happened
-          DataCombined$event <- DataCombined$time < input$chosenLength
-          
-          #Making it a binary value (rather than T/F), for ease to read
-          DataCombined$event <- DataCombined$event*1
-          
-          
-          #Checks if all patients have had the event
-          if (sum(DataCombined$event)==(n1+n2)){
-            
-          } else {
-            #If a patient has not had the event, then their time becomes the total trial length time
-            DataCombined[DataCombined$event==0,]$time <- input$chosenLength
-          }
-          
+          dataCombined <- SimDTEDataSet(n1, n2, gamma1, input$gamma2, lambda1, input$lambda2, bigT, input$rectime, input$chosenLength)
+      
           #Performs a log rank test on the data
-          test <- survdiff(Surv(time, event)~group, data = DataCombined)
+          test <- survdiff(Surv(time, event)~group, data = dataCombined)
           #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
           assvec[i] <- test$chisq > qchisq(0.95, 1)
           
           #Counts how many events have been seen up until the total trial length time
-          eventsvec[i] <-  sum(DataCombined$time<input$chosenLength)
+          eventsvec[i] <-  sum(dataCombined$time<input$chosenLength)
         
         } 
       }
@@ -670,19 +603,9 @@ server = function(input, output, session) {
     
   #Looking at assurance for varying sample sizes 
   samplesizevec <- seq(30, input$numofpatients, length=15)
-  
-  
   n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
   n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
   calcassvec <- rep(NA, length = length(samplesizevec))
-  
-  # #Shows a progress bar for assurance
-  # withProgress(message = "Calculating assurance 2/2", value=0, {
-  #   for (i in 1:length(n1vec)){
-  #     calcassvec[i] <- assFunc(n1vec[i], n2vec[i])$assvec
-  #     incProgress(1/length(n1vec))
-  #   }
-  # })
   
   pboptions(type="shiny", title = "Calculating assurance (2/2)")
   
@@ -713,9 +636,6 @@ server = function(input, output, session) {
                          breaks=c('Normal', 'Flexible'),
                          values=c('Normal'='blue', 'Flexible'='red'))
     print(p1) 
-
-
-  
   })
 
 
@@ -725,17 +645,6 @@ server = function(input, output, session) {
       str1 <- paste0("On average, ", round(calculateNormalAssurance()$eventsseen), " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
       HTML(paste(str1, sep = '<br/>'))
   })
-  
-  # Functions for the Help tab ---------------------------------
-  
-#   output$helpUI <- renderUI({
-#     
-#     str1 <- paste0("This app implements the methodology in
-# 
-# Alhussain, ZA, Oakley, JE. Assurance for clinical trial design with normally distributed outcomes: Eliciting uncertainty about variances. Pharmaceutical Statistics. 2020; 19: 827– 839. https://doi.org/10.1002/pst.2040.
-# For help, or to report any bugs, please contact Jeremy Oakley.")
-#     HTML(paste(str1, sep = '<br/>'))
-#   })
   
 
   # observeEvent(input$exit, {
@@ -782,7 +691,5 @@ server = function(input, output, session) {
 }
 
 shinyApp(ui, server)
-
-#Need to look at the number of events seen and why it does not give the correct number
 
 
