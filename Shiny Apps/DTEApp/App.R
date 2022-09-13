@@ -9,6 +9,8 @@ library(ggfortify)
 library(nleqslv)
 library(pbapply)
 library(shinyjs)
+library(furrr)
+plan(multiprocess)
 
 source("functions.R")
 
@@ -393,6 +395,7 @@ server = function(input, output, session) {
     
   })
   
+  
   output$plotFeedback <- renderPlot({
     
     
@@ -432,6 +435,7 @@ server = function(input, output, session) {
     
     #This code adds the three choices to the plots
     addfeedback <- input$showfeedback 
+    shinyjs::hide(id = "feedbackQuantile")
     
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
@@ -478,37 +482,47 @@ server = function(input, output, session) {
 
   })
   
-  
-  output$quantilePlot <- renderPlot({
-    
-    #This plots the quantile plot
-    
-    quantileMatrix <- drawsimlines()$SimMatrix
-    
-    quantileTime <- drawsimlines()$time
-    
-    quantileVec <- rep(NA, length = nrow(quantileMatrix))
-    
-    for (i in 1:nrow(quantileMatrix)){
-      quantileVec[i] <- quantileTime[which.min(abs(quantileMatrix[i,]-input$feedbackQuantile))]
-    }
-    
-    print(quantileVec)
-    
-    quantiledf <- data.frame(quantiletime = quantileVec)
-    
-    theme_set(theme_grey(base_size = input$fs))
-    p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1) +
-       xlab("Time")
-     
-    print(p1)
+  radiobuttons <- reactive({
+    addfeedback <- input$showfeedback
   })
   
   
   
-  
-  
-  
+  output$quantilePlot <- renderPlot({
+    
+    addfeedback <- radiobuttons()
+    
+    
+      if (!is.null(addfeedback)){
+        for (i in 1:length(addfeedback)){
+          if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
+            
+            quantileMatrix <- drawsimlines()$SimMatrix
+            
+            quantileTime <- drawsimlines()$time
+            
+            quantileVec <- rep(NA, length = nrow(quantileMatrix))
+            
+            for (j in 1:nrow(quantileMatrix)){
+              quantileVec[j] <- quantileTime[which.min(abs(quantileMatrix[j,]-input$feedbackQuantile))]
+            }
+            
+            quantiledf <- data.frame(quantiletime = quantileVec)
+            
+            theme_set(theme_grey(base_size = input$fs))
+            p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1) +
+              xlab("Time")
+            
+            print(p1)
+
+            
+          }
+        }
+      }  
+      
+      
+})
+    
   
 # Functions for the Assurance tab ---------------------------------
   
@@ -524,9 +538,11 @@ server = function(input, output, session) {
       
       #Simulate 400 observations for T and HR given the elicited distributions
       #For each n1, n2, simulate 400 trials
-      assnum <- 100
+      assnum <- 20
       assvec <- rep(NA, assnum)
       AHRvec <- rep(NA, assnum)
+      LBAHRvec <- rep(NA, assnum)
+      UBAHRvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
       mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
       
@@ -540,9 +556,15 @@ server = function(input, output, session) {
         
         dataCombined <- SimDTEDataSet(n1, n2, gammat, input$gammac, lambdat, input$lambdac, bigT, input$rectime, input$chosenLength)
         
-        # coxmodel <- coxph(Surv(time, event)~group, data = y)
-        # 
-        # AHRvec[i] <- exp(coef(coxmodel))
+        coxmodel <- coxph(Surv(time, event)~group, data = dataCombined)
+
+        AHRvec[i] <- exp(coef(coxmodel))
+        
+        CI <- exp(confint(coxmodel))
+        
+        LBAHRvec[i] <- CI[1]
+        
+        UBAHRvec[i] <- CI[2]
         
         #Performs a log rank test on the data
         test <- survdiff(Surv(time, event)~group, data = dataCombined)
@@ -554,7 +576,8 @@ server = function(input, output, session) {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
       }
       
-      return(list(assvec = mean(assvec), eventvec = mean(eventsvec), AHRvec = mean(AHRvec)))
+      return(list(assvec = mean(assvec), eventvec = mean(eventsvec), AHRvec = mean(AHRvec),
+                  LBAHRvec = mean(LBAHRvec), UBAHRvec = mean(UBAHRvec)))
     }
     
     #Looking at assurance for varying sample sizes 
@@ -565,20 +588,36 @@ server = function(input, output, session) {
 
     pboptions(type="shiny", title = "Calculating assurance (1/2)")
     
-    calcassvec <- pbmapply(assFunc, n1vec, n2vec)
+   # cl <- makeCluster(2L)
     
-    print(calcassvec)
     
-    calcassvec <- unlist(calcassvec[1,])  
+    
+    calcassvec <- future_mapply(assFunc, n1vec, n2vec)
+    
+    assvec <- unlist(calcassvec[1,])
+    
+    eventvec <- unlist(calcassvec[2,])
+    
+    AHRvec <- unlist(calcassvec[3,])
+    
+    LBAHRVec <- unlist(calcassvec[4,])
+    
+    UBAHRVec <- unlist(calcassvec[5,])
     
     #How many events are seen given this set up
-    eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
+    eventsseen <- eventvec[length(eventvec)]
     
     #Smooth the assurance, compared to the the sample size vector
-    asssmooth <- loess(calcassvec~samplesizevec)
+    asssmooth <- loess(assvec~samplesizevec)
+    
+    AHRsmooth <- loess(AHRvec~samplesizevec)
+    
+    LBsmooth <- loess(LBAHRVec~samplesizevec)
+    
+    UBsmooth <- loess(UBAHRVec~samplesizevec)
     
     return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-                eventsseen = eventsseen))
+                eventsseen = eventsseen, AHRsmooth = AHRsmooth, LBsmooth = LBsmooth, UBsmooth = UBsmooth))
     
    
   })    
@@ -596,7 +635,7 @@ server = function(input, output, session) {
     
     assFunc <- function(n1, n2){
       #For each n1, n2, simulate 300 trials
-      assnum <- 100
+      assnum <- 50
       assvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
       
@@ -676,11 +715,15 @@ server = function(input, output, session) {
     theme_set(theme_grey(base_size = input$fs))
     assurancenormaldf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$asssmooth))
     assuranceflexibledf <- data.frame(x = calculateFlexibleAssurance()$samplesizevec, y = predict(calculateFlexibleAssurance()$asssmooth))
+    AHRdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$AHRsmooth))
+    LBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$LBsmooth))
+    UBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBsmooth))
     p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Normal"), linetype="solid") + xlab("Number of patients") +
       ylab("Assurance") + ylim(0, 1.05) + geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") + 
+      geom_line(data = AHRdf, aes(x=x, y=y, colour = "AHR")) + geom_line(data = LBdf, aes(x=x, y=y)) + geom_line(data = UBdf, aes(x=x, y=y))
       scale_color_manual(name='Type of assurance',
-                         breaks=c('Normal', 'Flexible'),
-                         values=c('Normal'='blue', 'Flexible'='red'))
+                         breaks=c('Normal', 'Flexible', 'AHR'),
+                         values=c('Normal'='blue', 'Flexible'='red', 'AHR' = 'green'))
     print(p1) 
   })
 
