@@ -9,8 +9,8 @@ library(ggfortify)
 library(nleqslv)
 library(pbapply)
 library(shinyjs)
-library(furrr)
-plan(multiprocess)
+library(future.apply)
+library(progressr)
 
 source("functions.R")
 
@@ -536,9 +536,11 @@ server = function(input, output, session) {
     
     assFunc <- function(n1, n2){
       
+      p(sprintf("n=%g", n1))
+      
       #Simulate 400 observations for T and HR given the elicited distributions
       #For each n1, n2, simulate 400 trials
-      assnum <- 20
+      assnum <- 400
       assvec <- rep(NA, assnum)
       AHRvec <- rep(NA, assnum)
       LBAHRvec <- rep(NA, assnum)
@@ -588,11 +590,20 @@ server = function(input, output, session) {
 
     pboptions(type="shiny", title = "Calculating assurance (1/2)")
     
-   # cl <- makeCluster(2L)
+   #no_cores <- detectCores()
+   
+   #clust <- makeCluster(no_cores)
+   
+   #calcassvec <- mcmapply(assFunc, n1vec, n2vec, mc.cores = 1)
     
+    plan(multicore)
     
+    handlers("progress")
     
-    calcassvec <- future_mapply(assFunc, n1vec, n2vec)
+    withProgressShiny(message = "Calculating assurance (1/2)",{
+      p <- progressor(along = n1vec)
+      calcassvec <- future_mapply(assFunc, n1vec, n2vec, future.seed = NULL)
+    })
     
     assvec <- unlist(calcassvec[1,])
     
@@ -634,8 +645,10 @@ server = function(input, output, session) {
     
     
     assFunc <- function(n1, n2){
+      
+      p(sprintf("n=%g", n1))
       #For each n1, n2, simulate 300 trials
-      assnum <- 50
+      assnum <- 300
       assvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
       
@@ -694,7 +707,15 @@ server = function(input, output, session) {
   
   pboptions(type="shiny", title = "Calculating assurance (2/2)")
   
-  calcassvec <- pbmapply(assFunc, n1vec, n2vec)
+  plan(multicore)
+  
+  handlers("progress")
+  
+  withProgressShiny(message = "Calculating assurance (2/2)",{
+    p <- progressor(along = n1vec)
+    calcassvec <- future_mapply(assFunc, n1vec, n2vec, future.seed = NULL)
+  })
+  #calcassvec <- pbmapply(assFunc, n1vec, n2vec)
   
   calcassvec <- unlist(calcassvec[1,])  
   
