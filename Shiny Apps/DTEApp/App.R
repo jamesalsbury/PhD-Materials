@@ -163,11 +163,13 @@ ui <- fluidPage(
                      )
                  ),
                  numericInput("chosenLength", "How long do you want to run the trial for? (Including recruitment time)", value=60),
+                 numericInput("TPP", "What is the TPP for the average hazard ratio you desire?", value = 0.8),
                  actionButton("drawAssurance", "Produce plot")
                ), 
                mainPanel = mainPanel(
                  plotOutput("assurancePlot"),
-                 htmlOutput("assuranceText")
+                 htmlOutput("assuranceText"),
+                 plotOutput("AHRPlot")
                )
              ),
              
@@ -540,11 +542,12 @@ server = function(input, output, session) {
       
       #Simulate 400 observations for T and HR given the elicited distributions
       #For each n1, n2, simulate 400 trials
-      assnum <- 400
+      assnum <- 50
       assvec <- rep(NA, assnum)
       AHRvec <- rep(NA, assnum)
       LBAHRvec <- rep(NA, assnum)
       UBAHRvec <- rep(NA, assnum)
+      TPPvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
       mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
       
@@ -561,6 +564,8 @@ server = function(input, output, session) {
         coxmodel <- coxph(Surv(time, event)~group, data = dataCombined)
 
         AHRvec[i] <- exp(coef(coxmodel))
+        
+        TPPvec[i] <- exp(coef(coxmodel)) < input$TPP
         
         CI <- exp(confint(coxmodel))
         
@@ -579,7 +584,7 @@ server = function(input, output, session) {
       }
       
       return(list(assvec = mean(assvec), eventvec = mean(eventsvec), AHRvec = mean(AHRvec),
-                  LBAHRvec = mean(LBAHRvec), UBAHRvec = mean(UBAHRvec)))
+                  LBAHRvec = mean(LBAHRvec), UBAHRvec = mean(UBAHRvec), TPPvec = mean(TPPvec)))
     }
     
     #Looking at assurance for varying sample sizes 
@@ -611,9 +616,11 @@ server = function(input, output, session) {
     
     AHRvec <- unlist(calcassvec[3,])
     
-    LBAHRVec <- unlist(calcassvec[4,])
+    LBAHRvec <- unlist(calcassvec[4,])
     
-    UBAHRVec <- unlist(calcassvec[5,])
+    UBAHRvec <- unlist(calcassvec[5,])
+    
+    TPPvec <- unlist(calcassvec[6,])
     
     #How many events are seen given this set up
     eventsseen <- eventvec[length(eventvec)]
@@ -623,13 +630,14 @@ server = function(input, output, session) {
     
     AHRsmooth <- loess(AHRvec~samplesizevec)
     
-    LBsmooth <- loess(LBAHRVec~samplesizevec)
+    LBsmooth <- loess(LBAHRvec~samplesizevec)
     
-    UBsmooth <- loess(UBAHRVec~samplesizevec)
+    UBsmooth <- loess(UBAHRvec~samplesizevec)
+    
+    TPPsmooth <- loess(TPPvec~samplesizevec)
     
     return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-                eventsseen = eventsseen, AHRsmooth = AHRsmooth, LBsmooth = LBsmooth, UBsmooth = UBsmooth))
-    
+                eventsseen = eventsseen, AHRsmooth = AHRsmooth, LBsmooth = LBsmooth, UBsmooth = UBsmooth, TPPsmooth = TPPsmooth))
    
   })    
   
@@ -648,7 +656,7 @@ server = function(input, output, session) {
       
       p(sprintf("n=%g", n1))
       #For each n1, n2, simulate 300 trials
-      assnum <- 300
+      assnum <- 50
       assvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
       
@@ -736,16 +744,35 @@ server = function(input, output, session) {
     theme_set(theme_grey(base_size = input$fs))
     assurancenormaldf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$asssmooth))
     assuranceflexibledf <- data.frame(x = calculateFlexibleAssurance()$samplesizevec, y = predict(calculateFlexibleAssurance()$asssmooth))
+    TPPdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$TPPsmooth))
+    p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Normal"), linetype="solid") + xlab("Number of patients") +
+      ylab("Assurance") + ylim(0, 1.05) + geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") +
+      geom_line(data = TPPdf, aes(x=x, y=y, colour = 'TPP'), linetype="solid")+
+      scale_color_manual(name='Type of assurance',
+                         breaks=c('Normal', 'Flexible', 'TPP'),
+                         values=c('Normal'='blue', 'Flexible'='red', 'TPP' = 'green'))
+    print(p1) 
+  })
+  
+  
+  output$AHRPlot <- renderPlot({
+    
     AHRdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$AHRsmooth))
     LBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$LBsmooth))
     UBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBsmooth))
-    p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Normal"), linetype="solid") + xlab("Number of patients") +
-      ylab("Assurance") + ylim(0, 1.05) + geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") + 
-      geom_line(data = AHRdf, aes(x=x, y=y, colour = "AHR")) + geom_line(data = LBdf, aes(x=x, y=y)) + geom_line(data = UBdf, aes(x=x, y=y))
-      scale_color_manual(name='Type of assurance',
-                         breaks=c('Normal', 'Flexible', 'AHR'),
-                         values=c('Normal'='blue', 'Flexible'='red', 'AHR' = 'green'))
+    
+    p1 <- ggplot() + geom_line(data = AHRdf, aes(x = x, y = y, colour="Average HR"), linetype="solid") + xlab("Number of patients") +
+      ylab("Average hazard ratio") + geom_line(data = LBdf, aes(x=x, y=y, colour = "CI"), linetype="dashed") + 
+      geom_line(data = UBdf, aes(x=x, y=y, colour = "CI"), linetype="dashed") +
+    scale_color_manual(name='Average hazard ratio',
+                       breaks=c('Average HR', 'CI'),
+                       values=c('Average HR'='red', 'CI'='black'))
     print(p1) 
+    
+    
+    
+    
+    
   })
 
 

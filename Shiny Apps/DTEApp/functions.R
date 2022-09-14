@@ -43,7 +43,7 @@ SimDTEDataSet <- function(n1, n2, gamma1, gamma2, lambda1, lambda2, bigT, recTim
 # coxmodel <- coxph(Surv(time, event)~group, data = y)
 # coxmodel
 # 
-# exp(coef(coxmodel))
+# exp(coef(coxmodel)) 
 # 
 # CI <- exp(confint(coxmodel))
 # 
