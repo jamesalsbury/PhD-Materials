@@ -15,6 +15,7 @@ library(progressr)
 source("functions.R")
 
 ui <- fluidPage(
+  withMathJax(),
   
   # Application title
   titlePanel("Delayed Treatment Effects - Weibull parameterisation"),
@@ -32,8 +33,8 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  fileInput("uploadSample", "Upload your control sample"),
-                 numericInput("lambdac", "lambdac", value=0.05),
-                 numericInput("gammac", "gammac", value=1)
+                 numericInput('lambdac', label = '\\( \\lambda_c \\)', value = 0.05),
+                 numericInput('gammac', label = '\\( \\gamma_c \\)', value = 1)
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotControl"),
@@ -329,12 +330,11 @@ server = function(input, output, session) {
     suppressWarnings(plotfit(myfit1(), d = input$dist1,
                              ql = 0.05, qu = 0.95,
                              xl = limits1()[1], xu = limits1()[2], 
-                             fs = input$fs))
+                             fs = input$fs, xlab="T", ylab="Density"))
     
   })
   
 # Functions for the HR tab ---------------------------------
-  
   
   output$distPlot2 <- renderPlot({
     
@@ -343,7 +343,7 @@ server = function(input, output, session) {
     suppressWarnings(plotfit(myfit2(), d = input$dist2,
                              ql = 0.05, qu = 0.95,
                              xl = limits2()[1], xu = limits2()[2], 
-                             fs = input$fs))
+                             fs = input$fs, xlab="post-delay HR", ylab="Density"))
     
     
   })
@@ -431,7 +431,8 @@ server = function(input, output, session) {
     treatmenttime2 <- seq(bigTMedian, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
     treatmentsurv2 <- exp(-(input$lambdac*bigTMedian)^input$gammac - lambdat^gammat*(treatmenttime2^gammat-bigTMedian^gammat))
     treatmenttime2df <- data.frame(treatmenttime2 = treatmenttime2, treatmentsurv2 = treatmentsurv2)
-    p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red")
+    mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, length=5), accuracy = 5)
+    p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red") + scale_x_continuous(breaks = mybreaks)
 
     print(p1)
     
@@ -447,13 +448,14 @@ server = function(input, output, session) {
           if (exp(-(input$lambdac*bigTMedian)^input$gammac)<0.5){
             mediandf <- data.frame(x = seq(0, controltime[sum(controlcurve>0.5)], length=2), y = rep(0.5, 2))
             mediandf1 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
-            p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") 
+            p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
+             scale_x_continuous(breaks = c(mybreaks,controltime[sum(controlcurve>0.5)]), labels = c(mybreaks, round(controltime[sum(controlcurve>0.5)], 1)))
           } else {
             mediandf <- data.frame(x = seq(0, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), y = rep(0.5, 2))
             mediandf1 <- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
             mediandf2 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
             p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
-              geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed")
+              geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed") + scale_x_continuous(breaks = c(mybreaks, round(controltime[sum(controlcurve>0.5)],1), round(treatmenttime2[sum(treatmentsurv2>0.5)], 1)), labels = c(mybreaks, round(controltime[sum(controlcurve>0.5)],1), round(treatmenttime2[sum(treatmentsurv2>0.5)], 1)))
           }
           #This uses the elicited distribution for T and adds 95% points onto the control curve
         } else if (addfeedback[i]=="95% CI for T"){
@@ -517,7 +519,6 @@ server = function(input, output, session) {
             
             print(p1)
 
-            
           }
         }
       }  
