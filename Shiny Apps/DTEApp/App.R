@@ -543,7 +543,7 @@ server = function(input, output, session) {
       
       #Simulate 400 observations for T and HR given the elicited distributions
       #For each n1, n2, simulate 400 trials
-      assnum <- 50
+      assnum <- 200
       assvec <- rep(NA, assnum)
       AHRvec <- rep(NA, assnum)
       LBAHRvec <- rep(NA, assnum)
@@ -585,7 +585,7 @@ server = function(input, output, session) {
       }
       
       return(list(assvec = mean(assvec), eventvec = mean(eventsvec), AHRvec = mean(AHRvec),
-                  LBAHRvec = mean(LBAHRvec), UBAHRvec = mean(UBAHRvec), TPPvec = mean(TPPvec)))
+                  LBAHRvec = mean(LBAHRvec), UBAHRvec = mean(UBAHRvec), TPPvec = mean(TPPvec), assnum=assnum))
     }
     
     #Looking at assurance for varying sample sizes 
@@ -623,6 +623,12 @@ server = function(input, output, session) {
     
     TPPvec <- unlist(calcassvec[6,])
     
+    assnumvec <- unlist(calcassvec[7,])
+    
+    LBassvec <- assvec-1.96*sqrt(assvec*(1-assvec)/assnumvec)
+    
+    UBassvec <- assvec+1.96*sqrt(assvec*(1-assvec)/assnumvec)
+    
     #How many events are seen given this set up
     eventsseen <- eventvec[length(eventvec)]
     
@@ -637,8 +643,13 @@ server = function(input, output, session) {
     
     TPPsmooth <- loess(TPPvec~samplesizevec)
     
+    LBasssmooth <- loess(LBassvec~samplesizevec)
+    
+    UBasssmooth <- loess(UBassvec~samplesizevec)
+    
     return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-                eventsseen = eventsseen, AHRsmooth = AHRsmooth, LBsmooth = LBsmooth, UBsmooth = UBsmooth, TPPsmooth = TPPsmooth))
+                eventsseen = eventsseen, AHRsmooth = AHRsmooth, LBsmooth = LBsmooth, UBsmooth = UBsmooth, TPPsmooth = TPPsmooth,
+                LBasssmooth = LBasssmooth, UBasssmooth = UBasssmooth))
    
   })    
   
@@ -744,14 +755,19 @@ server = function(input, output, session) {
     #Plot the assurance calculated in the function
     theme_set(theme_grey(base_size = input$fs))
     assurancenormaldf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$asssmooth))
-    assuranceflexibledf <- data.frame(x = calculateFlexibleAssurance()$samplesizevec, y = predict(calculateFlexibleAssurance()$asssmooth))
+    assurancenormalLBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$LBasssmooth))
+    assurancenormalUBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBasssmooth))
+    #assuranceflexibledf <- data.frame(x = calculateFlexibleAssurance()$samplesizevec, y = predict(calculateFlexibleAssurance()$asssmooth))
     TPPdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$TPPsmooth))
-    p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Normal"), linetype="solid") + xlab("Number of patients") +
-      ylab("Assurance") + ylim(0, 1.05) + geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") +
-      geom_line(data = TPPdf, aes(x=x, y=y, colour = 'TPP'), linetype="solid")+
+    p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Assurance"), linetype="solid") + xlab("Number of patients") +
+      ylab("Assurance") + ylim(0, 1.05) +
+    #+ geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") +
+      geom_line(data = TPPdf, aes(x=x, y=y, colour = 'TPP'), linetype="solid") +
+      geom_line(data = assurancenormalLBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed') +
+      geom_line(data = assurancenormalUBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed')
       scale_color_manual(name='Type of assurance',
-                         breaks=c('Normal', 'Flexible', 'TPP'),
-                         values=c('Normal'='blue', 'Flexible'='red', 'TPP' = 'green'))
+                         breaks=c('Assurance', 'TPP'),
+                         values=c('Assurance'='blue', 'TPP' = 'green'))
     print(p1) 
   })
   

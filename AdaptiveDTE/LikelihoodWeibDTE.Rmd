@@ -124,126 +124,6 @@ plot(controlkm, col=c("blue", "red"))
 
 legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
 
-```
-
-```{r, eval=T, echo=F, cache=F}
-#Using the data to find the parameters we have defined
-# n <- length(controldata)
-# m <- length(treatmentdata)
-# treatmentdata <- sort(treatmentdata)
-# 
-# #Coding the log-likelihood function we derived
-# nll <- function(bigTEst, lambda2Est, gamma2Est, lambda1Est, gamma1Est){
-#   j <- sum(treatmentdata < bigTEst)
-#   mysum <-0
-#   for (i in 1:n){
-#     mysum <- mysum+log(controldata[i])
-#   }
-#   
-#   mysum1 <-0
-#   for (i in 1:n){
-#     mysum1 <- mysum1+controldata[i]^gamma2Est
-#   }
-#   
-#   mysum2 <-0
-#   for (i in 1:n){
-#     mysum2 <- mysum2+log(1/controldata[i])
-#   }
-# 
-#   mysum3 <- 0
-#   for (i in 1:j){
-#     mysum3 <- mysum3 + log(treatmentdata[i])
-#   }
-# 
-#   mysum4 <- 0
-#   for (i in 1:j){
-#     mysum4 <- mysum4 + treatmentdata[i]^gamma2Est
-#   }
-# 
-#   mysum5 <- 0
-#   for (i in 1:j){
-#     mysum5 <- mysum5 + log(1/treatmentdata[i])
-#   }
-# 
-#   mysum6 <- 0
-#   for (i in (j+1):m){
-#     mysum6 <- mysum6 + log(treatmentdata[i])
-#   }
-# 
-#   mysum7 <- 0
-#   for (i in (j+1):m){
-#     mysum7 <- mysum7 + treatmentdata[i]^gamma1Est
-#   }
-# 
-#   loglikelihood <- n*log(gamma2Est)+n*gamma2Est*log(lambda2Est)+gamma2Est*mysum-lambda2Est^gamma2Est*mysum1+mysum2+ j*log(gamma2Est)+j*gamma2Est*log(lambda2Est)+gamma2Est*mysum3-lambda2Est^gamma2Est*mysum4+mysum5+ (m-j)*log(gamma1Est)+gamma1Est*(m-j)*log(lambda1Est)+(gamma1Est-1)*mysum6-lambda1Est^gamma1Est*
-#   mysum7+(m-j)*((lambda1Est*bigTEst)^gamma1Est-(lambda2Est*bigTEst)^gamma2Est)
-#   
-#   #Returning the negative ll as this is what the mle() function expects
-#  return(-loglikelihood)
-# }
-# 
-# #Finding the maximum likelihood estimators for T, lambda2 and lambda1
-# est <- stats4::mle(minuslogl = nll, start = list(bigTEst=6, lambda2Est = 0.08, gamma2Est = 0.8, lambda1Est = 0.04, gamma1Est = 0.8), lower=  list(bigTEst=0.5, lambda2Est = 0.0001, gamma2Est = 0.001, lambda1Est = 0.001, gamma1Est = 0.001), upper = list(bigTEst = 60))
-# 
-# #Showing the output of the mle() function
-# #Seems pretty good!
-# est
-# 
-# nlloptim <- function(x){
-#  j <- sum(treatmentdata < x[1])
-#   mysum <-0
-#   for (i in 1:n){
-#     mysum <- mysum+log(controldata[i])
-#   }
-#   
-#   mysum1 <-0
-#   for (i in 1:n){
-#     mysum1 <- mysum1+controldata[i]^x[3]
-#   }
-#   
-#   mysum2 <-0
-#   for (i in 1:n){
-#     mysum2 <- mysum2+log(1/controldata[i])
-#   }
-# 
-#   mysum3 <- 0
-#   for (i in 1:j){
-#     mysum3 <- mysum3 + log(treatmentdata[i])
-#   }
-# 
-#   mysum4 <- 0
-#   for (i in 1:j){
-#     mysum4 <- mysum4 + treatmentdata[i]^x[3]
-#   }
-# 
-#   mysum5 <- 0
-#   for (i in 1:j){
-#     mysum5 <- mysum5 + log(1/treatmentdata[i])
-#   }
-# 
-#   mysum6 <- 0
-#   for (i in (j+1):m){
-#     mysum6 <- mysum6 + log(treatmentdata[i])
-#   }
-# 
-#   mysum7 <- 0
-#   for (i in (j+1):m){
-#     mysum7 <- mysum7 + treatmentdata[i]^x[4]
-#   }
-# 
-#   loglikelihood <- n*log(x[3])+n*x[3]*log(x[2])+x[3]*mysum-x[2]^x[3]*mysum1+mysum2+ j*log(x[3])+j*x[3]*log(x[2])+x[3]*mysum3-x[2]^x[3]*mysum4+mysum5+ (m-j)*log(x[4])+x[4]*(m-j)*log(x[4])+(x[4]-1)*mysum6-x[4]^x[4]*
-#   mysum7+(m-j)*((x[4]*x[1])^x[4]-(x[2]*x[1])^x[3])
-#   
-#   #Returning the negative ll as this is what the mle() function expects
-#  return(-loglikelihood) 
-#  
-# }
-
-
-#SA <- GenSA(par = c(15, 0.01, 0.1, 0.01, 0.1), fn = nlloptim, lower=c(1, 0.001, 0.001, 0.001, 0.001), upper=c(60, 10, 10, 10, 10))
-
-#SA$par
-
 n <- n1
 m <- n1+n2
 
@@ -290,7 +170,30 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 1000)
 summary(output)
 plot(output)
 
+#Calculating how many control events are remaining
+
+noremainingcontrolevents <-  combinedData %>%
+filter(group=="Control"& event==F) %>%
+  count() %>%
+   pull()
+ 
+   
+controlIAsurv <- exp(-(lambda2*IATime)^gamma2)
+
+u <- runif(noremainingcontrolevents, 0, controlIAsurv)
+
+remainingcontrolevents <- (1/lambda2)*(-log(u))^(1/gamma2)
+
+
+#Now need to simulate the remaining treatment events
+#Using the posteriors for T and HR
+
+sampledHR <- sample(output[[1]][,1], size =1)
+sampledT <- sample(output[[1]][,2], size =1)
+
+
 ```
+
 
 There is a question of what to do at this interim analysis stage, we could use these posteriors - especially the one for HR - to look at how much more informed we are at this interim analysis stage than we were compared to before the trial. We could also sample future observations from these posterior distributions and then combine these simulated future observations with the observations seen at the interim analysis stage to calculate Bayesian predictive probabilities.  
 
