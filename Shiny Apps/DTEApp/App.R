@@ -9,8 +9,6 @@ library(ggfortify)
 library(nleqslv)
 library(pbapply)
 library(shinyjs)
-library(future.apply)
-library(progressr)
 
 source("functions.R")
 
@@ -539,11 +537,10 @@ server = function(input, output, session) {
     
     assFunc <- function(n1, n2){
       
-      p(sprintf("n=%g", n1))
       
       #Simulate 400 observations for T and HR given the elicited distributions
       #For each n1, n2, simulate 400 trials
-      assnum <- 200
+      assnum <- 400
       assvec <- rep(NA, assnum)
       AHRvec <- rep(NA, assnum)
       LBAHRvec <- rep(NA, assnum)
@@ -594,23 +591,10 @@ server = function(input, output, session) {
     n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
     calcassvec <- rep(NA, length = length(samplesizevec))
 
-    pboptions(type="shiny", title = "Calculating assurance (1/2)")
-    
-   #no_cores <- detectCores()
-   
-   #clust <- makeCluster(no_cores)
-   
-   #calcassvec <- mcmapply(assFunc, n1vec, n2vec, mc.cores = 1)
-    
-    plan(multicore)
-    
-    handlers("progress")
-    
-    withProgressShiny(message = "Calculating assurance (1/2)",{
-      p <- progressor(along = n1vec)
-      calcassvec <- future_mapply(assFunc, n1vec, n2vec, future.seed = NULL)
-    })
-    
+    pboptions(type="shiny", title = "Calculating assurance")
+
+      calcassvec <- pbmapply(assFunc, n1vec, n2vec)
+
     assvec <- unlist(calcassvec[1,])
     
     eventvec <- unlist(calcassvec[2,])

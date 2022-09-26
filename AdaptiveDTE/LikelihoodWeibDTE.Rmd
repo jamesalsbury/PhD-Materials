@@ -170,26 +170,58 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 1000)
 summary(output)
 plot(output)
 
+#We now need to sample from these posterior distributions
+#We sample future patient data
+
 #Calculating how many control events are remaining
 
 noremainingcontrolevents <-  combinedData %>%
 filter(group=="Control"& event==F) %>%
   count() %>%
    pull()
+
+#What is the  survival probability at time = IAtime?
  
-   
 controlIAsurv <- exp(-(lambda2*IATime)^gamma2)
 
 u <- runif(noremainingcontrolevents, 0, controlIAsurv)
 
+#Simulating the remaining control data
 remainingcontrolevents <- (1/lambda2)*(-log(u))^(1/gamma2)
 
 
 #Now need to simulate the remaining treatment events
 #Using the posteriors for T and HR
 
+noremainingtreatmentevents <- combinedData %>%
+filter(group=="Treatment"& event==F) %>%
+  count() %>%
+   pull()
+
+
 sampledHR <- sample(output[[1]][,1], size =1)
 sampledT <- sample(output[[1]][,2], size =1)
+
+sampledlambda1 <- lambda2*sampledHR^(1/gamma2)
+
+#What is the  survival probability at time = IAtime?
+treatmentIAsurv <- exp(-(lambda2*sampledT)^gamma2-sampledlambda1^gamma1*(IATime^gamma1-sampledT^gamma1))
+
+u <- runif(noremainingtreatmentevents, 0, treatmentIAsurv)
+
+#Sampling the remaining treatment events
+remainingtreatmentevents <- ((1/(lambda1^gamma1))*((lambda1*sampledT)^gamma1-log(u)-(lambda2*sampledT)^gamma2))^(1/gamma1)
+
+#Now we need to combine the new simulated data with the original data set
+
+original <- combinedData[combinedData$event==T,]
+
+
+
+
+
+
+
 
 
 ```
