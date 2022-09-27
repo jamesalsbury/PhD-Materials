@@ -98,11 +98,14 @@ gamma1 <- 0.8
 bigT <- 6
 
 #Sample sizes in each group
-n1 <- 300
-n2 <- 300
+n1 <- 400
+n2 <- 400
 
 #When is the IA time?
 IATime <- 20
+
+#When is the final analysis time?
+trialLength <- 60
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -173,7 +176,10 @@ plot(output)
 #We now need to sample from these posterior distributions
 #We sample future patient data
 
-#Calculating how many control events are remaining
+BPPvec <- rep(NA, 100)
+
+for (i in 1:100){
+  #Calculating how many control events are remaining
 
 noremainingcontrolevents <-  combinedData %>%
 filter(group=="Control"& event==F) %>%
@@ -187,7 +193,8 @@ controlIAsurv <- exp(-(lambda2*IATime)^gamma2)
 u <- runif(noremainingcontrolevents, 0, controlIAsurv)
 
 #Simulating the remaining control data
-remainingcontrolevents <- (1/lambda2)*(-log(u))^(1/gamma2)
+
+remainingcontrolevents <- data.frame(time = (1/lambda2)*(-log(u))^(1/gamma2), group = rep("Control", noremainingcontrolevents), event = rep(F, noremainingcontrolevents))
 
 
 #Now need to simulate the remaining treatment events
@@ -210,18 +217,24 @@ treatmentIAsurv <- exp(-(lambda2*sampledT)^gamma2-sampledlambda1^gamma1*(IATime^
 u <- runif(noremainingtreatmentevents, 0, treatmentIAsurv)
 
 #Sampling the remaining treatment events
-remainingtreatmentevents <- ((1/(lambda1^gamma1))*((lambda1*sampledT)^gamma1-log(u)-(lambda2*sampledT)^gamma2))^(1/gamma1)
+remainingtreatmentevents <- data.frame(time = ((1/(lambda1^gamma1))*((lambda1*sampledT)^gamma1-log(u)-(lambda2*sampledT)^gamma2))^(1/gamma1), group = rep("Treatment", noremainingtreatmentevents), event = rep(F, noremainingtreatmentevents))
 
 #Now we need to combine the new simulated data with the original data set
 
 original <- combinedData[combinedData$event==T,]
 
+finalDataSet <- rbind(original, remainingcontrolevents, remainingtreatmentevents)
 
+finalDataSet$event <- finalDataSet$time<trialLength
 
+finalDataSet$time[finalDataSet$time>IATime] <- trialLength
 
+test <- survdiff(Surv(time, event)~group, data = finalDataSet)
 
+BPPvec[i] <- test$chisq > qchisq(0.95, 1)
+}
 
-
+mean(BPPvec)
 
 
 ```

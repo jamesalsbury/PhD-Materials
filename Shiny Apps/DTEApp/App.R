@@ -31,8 +31,8 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  fileInput("uploadSample", "Upload your control sample"),
-                 numericInput('lambdac', label = '\\( \\lambda_c \\)', value = 0.05),
-                 numericInput('gammac', label = '\\( \\gamma_c \\)', value = 1)
+                 numericInput('lambdac', label = 'scale (\\( \\lambda_c \\))', value = 0.05),
+                 numericInput('gammac', label = 'shape (\\( \\gamma_c \\))', value = 1)
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotControl"),
@@ -61,15 +61,9 @@ ui <- fluidPage(
                column(4, 
                       selectInput("dist1", label = h5("Distribution"), 
                                   choices =  list(Histogram = "hist",
-                                                  Normal = "normal", 
-                                                  'Student-t' = "t",
                                                   Gamma = "gamma",
                                                   'Log normal' = "lognormal",
-                                                  'Log Student-t' = "logt",
                                                   Beta = "beta",
-                                                  'Mirror gamma' = "mirrorgamma",
-                                                  'Mirror log normal' = "mirrorlognormal",
-                                                  'Mirror log Student-t' = "mirrorlogt",
                                                   'Best fitting' = "best"),
                                   #choiceValues = 1:8,
                                   selected = 1
@@ -79,6 +73,9 @@ ui <- fluidPage(
                  numericInput("tdf1", label = h5("Student-t degrees of freedom"),
                               value = 3)
                )
+               ),
+               column(4,
+                      numericInput("massT0", label = h5("Pr(T=0)"), value = 0.2, min = 0, max = 1)
                )
                
              ),
@@ -124,7 +121,11 @@ ui <- fluidPage(
                                      value = 3)
                         
                         
-                      ))
+                      )
+               ),
+               column(4,
+                      numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0.2, min = 0, max = 1)
+               )
                
              ),
              
@@ -152,17 +153,17 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  shinyjs::useShinyjs(),
-                 numericInput("numofpatients", "How many patients could you enrol into the trial?", value=1000),
-                 numericInput("rectime", "How long would it take to enrol all of these patients?", value=6),
+                 numericInput("numofpatients", "Maximum number of patients in the trial", value=1000),
+                 numericInput("rectime", "Recruitment length", value=6),
                  
-                 box(width = 10, title = "Ratio of patients in each group?",
+                 box(width = 10, title = "Ratio of patients in each group",
                      splitLayout(
                        numericInput("n1", "Control", value=1, min=1),
                        numericInput("n2", "Treatment", value=1, min=1)
                      )
                  ),
-                 numericInput("chosenLength", "How long do you want to run the trial for? (Including recruitment time)", value=60),
-                 numericInput("TPP", "What is the TPP for the average hazard ratio you desire?", value = 0.8),
+                 numericInput("chosenLength", "Maximum trial duration (including recruitment time)", value=60),
+                 numericInput("TPP", "Target effect (average hazard ratio)", value = 0.8),
                  actionButton("drawAssurance", "Produce plot")
                ), 
                mainPanel = mainPanel(
@@ -306,7 +307,7 @@ server = function(input, output, session) {
   })
   
   myfit1 <- reactive({
-    fitdist(vals = v1(), probs = p1(), lower = limits1()[1],
+    fitdistdelayT(vals = v1(), probs = p1(), lower = limits1()[1],
             upper = limits1()[2], 
             tdf = input$tdf1)
   })
@@ -318,7 +319,7 @@ server = function(input, output, session) {
   })
 
  
-# Functions for the T tab ---------------------------------
+# Functions for the eliciting length of delay tab ---------------------------------
   
   output$distPlot1 <- renderPlot({
     
@@ -330,9 +331,11 @@ server = function(input, output, session) {
                              xl = limits1()[1], xu = limits1()[2], 
                              fs = input$fs, xlab="T", ylab="Density"))
     
+    print(myfit1())
+    
   })
   
-# Functions for the HR tab ---------------------------------
+# Functions for the post-delay HR tab ---------------------------------
   
   output$distPlot2 <- renderPlot({
     
@@ -356,14 +359,31 @@ server = function(input, output, session) {
     conc.probs[1, 2] <- 0.5
     #Simulates 500 samples from the elicited T and HR distributions
     mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 500, d = c(input$dist1, input$dist2)))
+  
     
     time <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
     #We fill a matrix with the treatment survival probabilities at each time
     SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
     
     for (i in 1:500){
-      bigT <- mySample[i,1]
-      HR <- mySample[i,2]
+      
+      u <- runif(1, 0, 1)
+      
+      if (u>input$massT0){
+        bigT <- mySample[i,1]
+      } else {
+        bigT <- 0
+      }
+      
+      u <- runif(1, 0, 1)
+      
+      if (u>input$massHR1){
+        HR <- mySample[i,2]
+      } else {
+        HR <- 1
+      }
+      
+     
       lambdat <- input$lambdac*HR^(1/input$gammac)
       
       controltime <- seq(0, bigT, by=0.01)
@@ -409,14 +429,12 @@ server = function(input, output, session) {
       geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
     
     
-    zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
-    
-    if (zeroval<0){
-      
-    } else {
+  
     
     #We use the medians of the elicited distributions to show the treatment curve
-    bigTMedian <- feedback(myfit1(), quantiles = 0.5)$fitted.quantiles[input$dist1][, 1]
+   bigTMedian <- feedback(myfit1(), quantiles = 0.5, dist = input$dist1)$fitted.quantiles[input$dist1][, 1]
+    
+   
     HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
     lambdat <- input$lambdac*HRMedian^(1/input$gammac)
     
@@ -470,7 +488,7 @@ server = function(input, output, session) {
       }
     }
     print(p1)
-    }
+  
   })
   
   output$errorFeedback <- renderUI({
@@ -552,8 +570,21 @@ server = function(input, output, session) {
       
       for (i in 1:assnum){
 
-        bigT <- mySample[i,1]
-        HR <- mySample[i,2]
+        u <- runif(1, 0, 1)
+        
+        if (u>input$massT0){
+          bigT <- mySample[i,1]
+        } else {
+          bigT <- 0
+        }
+        
+        u <- runif(1, 0, 1)
+        
+        if (u>input$massHR1){
+          HR <- mySample[i,2]
+        } else {
+          HR <- 1
+        }
         
         lambdat <- input$lambdac*HR^(1/input$gammac)
         
