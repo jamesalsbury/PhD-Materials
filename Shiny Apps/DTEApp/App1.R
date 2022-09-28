@@ -41,7 +41,7 @@ ui <- fluidPage(
              ),
     ),
     
-    # Delay UI ---------------------------------
+    # Length of delay UI ---------------------------------
     tabPanel("Eliciting the length of delay",
              fluidRow(
                column(4, 
@@ -75,7 +75,7 @@ ui <- fluidPage(
                )
                ),
                column(4,
-                      numericInput("massT0", label = h5("Pr(T=0)"), value = 0.2, min = 0, max = 1)
+                      numericInput("massT0", label = h5("Pr(T=0)"), value = 0.05, min = 0, max = 1)
                )
                
              ),
@@ -124,7 +124,7 @@ ui <- fluidPage(
                       )
                ),
                column(4,
-                      numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0.2, min = 0, max = 1)
+                      numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0.05, min = 0, max = 1)
                )
                
              ),
@@ -173,17 +173,17 @@ ui <- fluidPage(
                )
              ),
              
-  ),
-  
-  #Help UI ---------------------------------
-  #Need to say what files can be uploaded in the control sample
-  #Link to SHELF for the elicitation
-  tabPanel("Help",
-           HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper.</a></p>"),
-          HTML("<p>The eliciation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>")
-  ),
-  
-  
+    ),
+    
+    #Help UI ---------------------------------
+    #Need to say what files can be uploaded in the control sample
+    #Link to SHELF for the elicitation
+    tabPanel("Help",
+             HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper.</a></p>"),
+             HTML("<p>The eliciation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>")
+    ),
+    
+    
   ), style='width: 1000px; height: 600px',
   wellPanel(
     fluidRow(
@@ -207,14 +207,14 @@ ui <- fluidPage(
   )
   )
 )
-  
+
 
 
 server = function(input, output, session) {
   
   #shinyjs::hide(id = "feedbackQuantile")
   
-# Functions for the control tab ---------------------------------
+  # Functions for the control tab ---------------------------------
   
   inputData <- reactive({
     #Allows the user to upload a control sample
@@ -271,8 +271,8 @@ server = function(input, output, session) {
     
   })
   
-# Functions for the eliciting distributions tabs ---------------------------------
-
+  # Functions for the eliciting distributions tabs ---------------------------------
+  
   
   limits1 <- reactive({
     eval(parse(text = paste("c(", input$limits1, ")")))
@@ -308,8 +308,8 @@ server = function(input, output, session) {
   
   myfit1 <- reactive({
     fitdistdelayT(vals = v1(), probs = p1(), lower = limits1()[1],
-            upper = limits1()[2], 
-            tdf = input$tdf1)
+                  upper = limits1()[2], 
+                  tdf = input$tdf1)
   })
   
   myfit2 <- reactive({
@@ -317,76 +317,75 @@ server = function(input, output, session) {
             upper = limits2()[2], 
             tdf = input$tdf2)
   })
-
- 
-# Functions for the eliciting length of delay tab ---------------------------------
+  
+  
+  # Functions for the eliciting length of delay tab ---------------------------------
   
   output$distPlot1 <- renderPlot({
     
-    
-    #d = dist[as.numeric(input$radio1)]
-    # dist<-c("hist","normal", "t", "gamma", "lognormal", "logt","beta", "best")
-    suppressWarnings(plotfit(myfit1(), d = input$dist1,
-                             ql = 0.05, qu = 0.95,
-                             xl = limits1()[1], xu = limits1()[2], 
-                             fs = input$fs, xlab="T", ylab="Density"))
+  mySample <- drawsamples()$mySample
+   Tsamples <- data.frame(time = mySample[,1])
+   p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = ..density..)) 
+   
+   print(p1)
     
     
   })
   
-# Functions for the post-delay HR tab ---------------------------------
+  # Functions for the post-delay HR tab ---------------------------------
   
   output$distPlot2 <- renderPlot({
     
     
-    #  dist<-c("hist","normal", "t", "gamma", "lognormal", "logt","beta", "best")
-    suppressWarnings(plotfit(myfit2(), d = input$dist2,
-                             ql = 0.05, qu = 0.95,
-                             xl = limits2()[1], xu = limits2()[2], 
-                             fs = input$fs, xlab="post-delay HR", ylab="Density"))
+    mySample <- drawsamples()$mySample
+    HRsamples <- data.frame(HR = mySample[,2])
+    p1 <- ggplot(data=HRsamples, aes(x=HR)) + geom_histogram(aes(y = ..density..)) 
     
-    
+    print(p1) 
   })
   
-# Functions for the Feedback tab ---------------------------------
+  # Functions for the Feedback tab ---------------------------------
   
   #This function allows the 10 and 90% CI lines to be drawn
+  
+  drawsamples <- reactive({
+    
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    nsamples <- 10000
+    mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = nsamples, d = c(input$dist1, input$dist2)))
+    u <- runif(nsamples, 0, 1)
+
+    mySample[u<input$massT0,1] <- 0
+    mySample[u<input$massHR1,2] <- 1
+    
+    return(list(mySample = mySample, nsamples = nsamples))
+  })
+  
   drawsimlines <- reactive({
     
     gammat <- input$gammac
-    conc.probs <- matrix(0, 2, 2)
-    conc.probs[1, 2] <- 0.5
-    #Simulates 500 samples from the elicited T and HR distributions
-    mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 500, d = c(input$dist1, input$dist2)))
-  
+    
+
+    mySample <- drawsamples()$mySample
+    nsamples <- 500
     
     time <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
-    #We fill a matrix with the treatment survival probabilities at each time
-    SimMatrix <- matrix(NA, nrow = 500, ncol=length(time))
     
-    for (i in 1:500){
+    #We fill a matrix with the treatment survival probabilities at each time
+    SimMatrix <- matrix(NA, nrow = nsamples, ncol=length(time))
+    
+    for (i in 1:nsamples){
       
-      u <- runif(1, 0, 1)
-      
-      if (u>input$massT0){
-        bigT <- mySample[i,1]
-      } else {
-        bigT <- 0
-      }
-      
-      u <- runif(1, 0, 1)
-      
-      if (u>input$massHR1){
-        HR <- mySample[i,2]
-      } else {
-        HR <- 1
-      }
-      
-     
+      bigT <- sample(mySample[,1], 1)
+      HR <- sample(mySample[,2], 1)
+
       lambdat <- input$lambdac*HR^(1/input$gammac)
+      if (bigT!=0){
+        controltime <- seq(0, bigT, by=0.01)
+        controlsurv <- exp(-(input$lambdac*controltime)^input$gammac)
+      }
       
-      controltime <- seq(0, bigT, by=0.01)
-      controlsurv <- exp(-(input$lambdac*controltime)^input$gammac)
       
       treatmenttime <- seq(bigT, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
       treatmentsurv <- exp(-(input$lambdac*bigT)^input$gammac - lambdat^gammat*(treatmenttime^gammat-bigT^gammat))
@@ -405,19 +404,22 @@ server = function(input, output, session) {
     #the elicited distributions
     lowerbound <- rep(NA, length(time))
     upperbound <- rep(NA, length(time))
+    medianTreatment <- rep(NA, length(time))
     for (j in 1:length(time)){
       lowerbound[j] <- quantile(SimMatrix[,j], 0.1)
       upperbound[j] <- quantile(SimMatrix[,j], 0.9)
+      medianTreatment[j] <- quantile(SimMatrix[,j], 0.5)
     }
     
-    return(list(lowerbound=lowerbound, upperbound=upperbound, time=time, SimMatrix = SimMatrix))
+    return(list(lowerbound=lowerbound, upperbound=upperbound, time=time, SimMatrix = SimMatrix, 
+                 medianTreatment = medianTreatment))
     
   })
   
   
   output$plotFeedback <- renderPlot({
     
-    
+    drawsamples()
     #This plots the feedback plot
     gammat <- input$gammac
     controltime <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
@@ -428,27 +430,12 @@ server = function(input, output, session) {
       geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
     
     
-  
-    
-    #We use the medians of the elicited distributions to show the treatment curve
-   bigTMedian <- feedback(myfit1(), quantiles = 0.5, dist = input$dist1)$fitted.quantiles[input$dist1][, 1]
-    
-   
-    HRMedian <- feedback(myfit2(), quantiles = 0.5)$fitted.quantiles[input$dist2][, 1]
-    lambdat <- input$lambdac*HRMedian^(1/input$gammac)
-    
-    treatmenttime1 <- seq(0, bigTMedian, by=0.01)
-    treatmentsurv1 <- exp(-(input$lambdac*treatmenttime1)^input$gammac)
-    treatmenttime1df <- data.frame(treatmenttime1 = treatmenttime1, treatmentsurv1 = treatmentsurv1)
-    p1 <-  p1 + geom_line(data = treatmenttime1df, aes(x = treatmenttime1, y = treatmentsurv1), colour = "green") 
     
     
-    treatmenttime2 <- seq(bigTMedian, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
-    treatmentsurv2 <- exp(-(input$lambdac*bigTMedian)^input$gammac - lambdat^gammat*(treatmenttime2^gammat-bigTMedian^gammat))
-    treatmenttime2df <- data.frame(treatmenttime2 = treatmenttime2, treatmentsurv2 = treatmentsurv2)
+    simlinesmedian <- data.frame(x = drawsimlines()$time, y = drawsimlines()$medianTreatment)
     mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, length=5), accuracy = 5)
-    p1 <-  p1 + geom_line(data = treatmenttime2df, aes(x = treatmenttime2, y = treatmentsurv2), colour = "red") + scale_x_continuous(breaks = mybreaks)
-
+    p1 <-  p1 + geom_line(data = simlinesmedian, aes(x = x, y = y), colour = "red") + scale_x_continuous(breaks = mybreaks)
+    
     print(p1)
     
     #This code adds the three choices to the plots
@@ -464,7 +451,7 @@ server = function(input, output, session) {
             mediandf <- data.frame(x = seq(0, controltime[sum(controlcurve>0.5)], length=2), y = rep(0.5, 2))
             mediandf1 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
             p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
-             scale_x_continuous(breaks = c(mybreaks,controltime[sum(controlcurve>0.5)]), labels = c(mybreaks, round(controltime[sum(controlcurve>0.5)], 1)))
+              scale_x_continuous(breaks = c(mybreaks,controltime[sum(controlcurve>0.5)]), labels = c(mybreaks, round(controltime[sum(controlcurve>0.5)], 1)))
           } else {
             mediandf <- data.frame(x = seq(0, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), y = rep(0.5, 2))
             mediandf1 <- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
@@ -487,18 +474,18 @@ server = function(input, output, session) {
       }
     }
     print(p1)
-  
+    
   })
   
   output$errorFeedback <- renderUI({
-
+    
     zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
     
     #Adds an error message if the elicited distribution for T includes nonsensical values
     if (zeroval<0){
       paste0("Your elicited distribution of T includes values that are less than 0, please change your limits or choose another distribution.")
     }
-
+    
   })
   
   radiobuttons <- reactive({
@@ -512,37 +499,37 @@ server = function(input, output, session) {
     addfeedback <- radiobuttons()
     
     
-      if (!is.null(addfeedback)){
-        for (i in 1:length(addfeedback)){
-          if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
-            
-            quantileMatrix <- drawsimlines()$SimMatrix
-            
-            quantileTime <- drawsimlines()$time
-            
-            quantileVec <- rep(NA, length = nrow(quantileMatrix))
-            
-            for (j in 1:nrow(quantileMatrix)){
-              quantileVec[j] <- quantileTime[which.min(abs(quantileMatrix[j,]-input$feedbackQuantile))]
-            }
-            
-            quantiledf <- data.frame(quantiletime = quantileVec)
-            
-            theme_set(theme_grey(base_size = input$fs))
-            p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1) +
-              xlab("Time")
-            
-            print(p1)
-
+    if (!is.null(addfeedback)){
+      for (i in 1:length(addfeedback)){
+        if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
+          
+          quantileMatrix <- drawsimlines()$SimMatrix
+          
+          quantileTime <- drawsimlines()$time
+          
+          quantileVec <- rep(NA, length = nrow(quantileMatrix))
+          
+          for (j in 1:nrow(quantileMatrix)){
+            quantileVec[j] <- quantileTime[which.min(abs(quantileMatrix[j,]-input$feedbackQuantile))]
           }
+          
+          quantiledf <- data.frame(quantiletime = quantileVec)
+          
+          theme_set(theme_grey(base_size = input$fs))
+          p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1) +
+            xlab("Time")
+          
+          print(p1)
+          
         }
-      }  
-      
-      
-})
+      }
+    }  
     
+    
+  })
   
-# Functions for the Assurance tab ---------------------------------
+  
+  # Functions for the Assurance tab ---------------------------------
   
   #This function calculates the normal assurance given the elicited distributions and other simple questions about the trial
   calculateNormalAssurance <- eventReactive(input$drawAssurance, {
@@ -568,7 +555,7 @@ server = function(input, output, session) {
       
       
       for (i in 1:assnum){
-
+        
         u <- runif(1, 0, 1)
         
         if (u>input$massT0){
@@ -590,7 +577,7 @@ server = function(input, output, session) {
         dataCombined <- SimDTEDataSet(n1, n2, gammat, input$gammac, lambdat, input$lambdac, bigT, input$rectime, input$chosenLength)
         
         coxmodel <- coxph(Surv(time, event)~group, data = dataCombined)
-
+        
         AHRvec[i] <- exp(coef(coxmodel))
         
         TPPvec[i] <- exp(coef(coxmodel)) < input$TPP
@@ -608,7 +595,7 @@ server = function(input, output, session) {
         
         #Counts how many events have been seen up until the total trial length time
         eventsvec[i] <-  sum(dataCombined$time<input$chosenLength)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+        
       }
       
       AHRvec[is.infinite(AHRvec)]<-NA
@@ -626,11 +613,11 @@ server = function(input, output, session) {
     n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
     n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
     calcassvec <- rep(NA, length = length(samplesizevec))
-
+    
     pboptions(type="shiny", title = "Calculating assurance")
-
+    
     calcassvec <- pbmapply(assFunc, n1vec, n2vec)
-
+    
     assvec <- unlist(calcassvec[1,])
     
     LBAHRvec <- unlist(calcassvec[2,])
@@ -679,7 +666,7 @@ server = function(input, output, session) {
     return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
                 eventsseen = eventsseen, AHRsmooth = AHRsmooth, LBsmooth = LBsmooth, UBsmooth = UBsmooth, TPPsmooth = TPPsmooth,
                 LBasssmooth = LBasssmooth, UBasssmooth = UBasssmooth, LBTPPsmooth = LBTPPsmooth, UBTPPsmooth = UBTPPsmooth))
-   
+    
   })    
   
   
@@ -710,7 +697,7 @@ server = function(input, output, session) {
           #This needs looking at
           mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 100, d = c(input$dist1, input$dist2)))
           bigT <- mySample[1,1]
-    
+          
           dslnex <- function(x) {
             y <- numeric(2)
             y[1] <- exp(-(input$lambdac*bigT)^input$gammac-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
@@ -732,7 +719,7 @@ server = function(input, output, session) {
           
           
           dataCombined <- SimDTEDataSet(n1, n2, gammat, input$gammac, lambdat, input$lambdac, bigT, input$rectime, input$chosenLength)
-      
+          
           #Performs a log rank test on the data
           test <- survdiff(Surv(time, event)~group, data = dataCombined)
           #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
@@ -740,44 +727,44 @@ server = function(input, output, session) {
           
           #Counts how many events have been seen up until the total trial length time
           eventsvec[i] <-  sum(dataCombined$time<input$chosenLength)
-        
+          
         } 
       }
-        
-        return(list(assvec = mean(na.omit(assvec)), eventvec = mean(na.omit(eventsvec))))
-      }
+      
+      return(list(assvec = mean(na.omit(assvec)), eventvec = mean(na.omit(eventsvec))))
+    }
     
     
-  #Looking at assurance for varying sample sizes 
-  samplesizevec <- seq(30, input$numofpatients, length=15)
-  n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
-  n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
-  calcassvec <- rep(NA, length = length(samplesizevec))
-  
-  pboptions(type="shiny", title = "Calculating assurance (2/2)")
-  
-  plan(multicore)
-  
-  handlers("progress")
-  
-  withProgressShiny(message = "Calculating assurance (2/2)",{
-    p <- progressor(along = n1vec)
-    calcassvec <- future_mapply(assFunc, n1vec, n2vec, future.seed = NULL)
+    #Looking at assurance for varying sample sizes 
+    samplesizevec <- seq(30, input$numofpatients, length=15)
+    n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
+    n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
+    calcassvec <- rep(NA, length = length(samplesizevec))
+    
+    pboptions(type="shiny", title = "Calculating assurance (2/2)")
+    
+    plan(multicore)
+    
+    handlers("progress")
+    
+    withProgressShiny(message = "Calculating assurance (2/2)",{
+      p <- progressor(along = n1vec)
+      calcassvec <- future_mapply(assFunc, n1vec, n2vec, future.seed = NULL)
+    })
+    #calcassvec <- pbmapply(assFunc, n1vec, n2vec)
+    
+    calcassvec <- unlist(calcassvec[1,])  
+    
+    #How many events are seen given this set up
+    eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
+    
+    #Smooth the assurance, compared to the the sample size vector
+    asssmooth <- loess(calcassvec~samplesizevec)
+    
+    return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
+                eventsseen = eventsseen))
+    
   })
-  #calcassvec <- pbmapply(assFunc, n1vec, n2vec)
-  
-  calcassvec <- unlist(calcassvec[1,])  
-  
-  #How many events are seen given this set up
-  eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
-  
-  #Smooth the assurance, compared to the the sample size vector
-  asssmooth <- loess(calcassvec~samplesizevec)
-  
-  return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-              eventsseen = eventsseen))
-    
-})
   
   output$assurancePlot <- renderPlot({
     
@@ -792,15 +779,15 @@ server = function(input, output, session) {
     TPPUBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBTPPsmooth))
     p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Assurance"), linetype="solid") + xlab("Number of patients") +
       ylab("Assurance") + ylim(0, 1.05) +
-    #+ geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") +
+      #+ geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") +
       geom_line(data = TPPdf, aes(x=x, y=y, colour = 'TPP'), linetype="solid") +
       geom_line(data = assurancenormalLBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed') +
       geom_line(data = assurancenormalUBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed') +
       geom_line(data = TPPLBdf, aes(x=x, y=y, colour = 'TPP'), linetype='dashed') +
       geom_line(data = TPPUBdf, aes(x=x, y=y, colour = 'TPP'), linetype='dashed') 
-      scale_color_manual(name='Type of assurance',
-                         breaks=c('Assurance', 'TPP'),
-                         values=c('Assurance'='blue', 'TPP' = 'green'))
+    scale_color_manual(name='Type of assurance',
+                       breaks=c('Assurance', 'TPP'),
+                       values=c('Assurance'='blue', 'TPP' = 'green'))
     print(p1) 
   })
   
@@ -814,9 +801,9 @@ server = function(input, output, session) {
     p1 <- ggplot() + geom_line(data = AHRdf, aes(x = x, y = y, colour="Average HR"), linetype="solid") + xlab("Number of patients") +
       ylab("Average hazard ratio") + geom_line(data = LBdf, aes(x=x, y=y, colour = "CI"), linetype="dashed") + 
       geom_line(data = UBdf, aes(x=x, y=y, colour = "CI"), linetype="dashed") +
-    scale_color_manual(name='Average hazard ratio',
-                       breaks=c('Average HR', 'CI'),
-                       values=c('Average HR'='red', 'CI'='black'))
+      scale_color_manual(name='Average hazard ratio',
+                         breaks=c('Average HR', 'CI'),
+                         values=c('Average HR'='red', 'CI'='black'))
     print(p1) 
     
     
@@ -824,16 +811,16 @@ server = function(input, output, session) {
     
     
   })
-
-
+  
+  
   output$assuranceText  <- renderUI({
-
+    
     #Show how many events are seen given the set up
-      str1 <- paste0("On average, ", round(calculateNormalAssurance()$eventsseen), " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
-      HTML(paste(str1, sep = '<br/>'))
+    str1 <- paste0("On average, ", round(calculateNormalAssurance()$eventsseen), " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
+    HTML(paste(str1, sep = '<br/>'))
   })
   
-
+  
   # observeEvent(input$exit, {
   #   stopApp(list(parameter1 = myfit1(), parameter2 = myfit2(), 
   #                cp = input$concProb))
