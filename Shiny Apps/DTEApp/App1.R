@@ -9,6 +9,7 @@ library(ggfortify)
 library(nleqslv)
 library(pbapply)
 library(shinyjs)
+library(dplyr)
 
 source("functions.R")
 
@@ -419,7 +420,6 @@ server = function(input, output, session) {
   
   output$plotFeedback <- renderPlot({
     
-    drawsamples()
     #This plots the feedback plot
     gammat <- input$gammac
     controltime <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
@@ -461,8 +461,17 @@ server = function(input, output, session) {
           }
           #This uses the elicited distribution for T and adds 95% points onto the control curve
         } else if (addfeedback[i]=="95% CI for T"){
-          p1 <- p1 + geom_point(aes(x = feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.025)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4) +
-            geom_point(aes(x = feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1], y = controlcurve[sum(controltime<feedback(myfit1(), quantiles = 0.975)$fitted.quantiles[input$dist1][, 1])]), colour="orange", size = 4)
+          mySample <- drawsamples()$mySample
+          lowerT <- quantile(mySample[,1], 0.025) 
+          upperT <- quantile(mySample[,1], 0.975)
+          p1 <- p1 + geom_point(aes(x = upperT, y = controlcurve[sum(controltime<upperT)]), colour="orange", size = 4)
+          if (lowerT==0){
+            p1 <- p1 + geom_point(aes(x = lowerT, y = 1), colour="orange", size = 4) 
+          } else {
+            p1 <- p1 + geom_point(aes(x = lowerT, y = controlcurve[sum(controltime<lowerT)]), colour="orange", size = 4)
+          }
+             
+            
         } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           #This adds the simulated confidence interval lines
           simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
