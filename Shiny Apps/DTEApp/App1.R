@@ -438,6 +438,7 @@ server = function(input, output, session) {
     
     print(p1)
     
+    
     #This code adds the three choices to the plots
     addfeedback <- input$showfeedback 
     shinyjs::hide(id = "feedbackQuantile")
@@ -447,17 +448,20 @@ server = function(input, output, session) {
         #This adds the median survival line (onto the control and treatment)
         if (addfeedback[i]=="Median survival line"){
           #Looks at whether the median time is before or after the delay
-          if (exp(-(input$lambdac*bigTMedian)^input$gammac)<0.5){
-            mediandf <- data.frame(x = seq(0, controltime[sum(controlcurve>0.5)], length=2), y = rep(0.5, 2))
-            mediandf1 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
+          medianTTime <- drawsimlines()$time[sum(drawsimlines()$medianTreatment>0.5)]
+          medianCTime <- (1/input$lambdac)*(-log(0.5))^(1/input$gammac)
+          if (abs(medianTTime-medianCTime)<0.001){
+            mediandf <- data.frame(x = seq(0, medianCTime, length=2), y = rep(0.5, 2))
+            mediandf1 <- data.frame(x = rep(medianCTime, 2), y = seq(0, 0.5, length=2))
             p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
-              scale_x_continuous(breaks = c(mybreaks,controltime[sum(controlcurve>0.5)]), labels = c(mybreaks, round(controltime[sum(controlcurve>0.5)], 1)))
+              scale_x_continuous(breaks = c(mybreaks, medianCTime), labels = c(mybreaks, round(medianCTime, 1)))
           } else {
-            mediandf <- data.frame(x = seq(0, treatmenttime2[sum(treatmentsurv2>0.5)], length=2), y = rep(0.5, 2))
-            mediandf1 <- data.frame(x = rep(treatmenttime2[sum(treatmentsurv2>0.5)], 2), y = seq(0, 0.5, length=2))
-            mediandf2 <- data.frame(x = rep(controltime[sum(controlcurve>0.5)], 2), y = seq(0, 0.5, length=2))
+            mediandf <- data.frame(x = seq(0, medianTTime, length=2), y = rep(0.5, 2))
+            mediandf1 <- data.frame(x = rep(medianTTime, 2), y = seq(0, 0.5, length=2))
+            mediandf2 <- data.frame(x = rep(medianCTime, 2), y = seq(0, 0.5, length=2))
             p1 <- p1 + geom_line(data = mediandf, aes(x = x, y=y), linetype = "dashed") + geom_line(data = mediandf1, aes(x = x, y=y), linetype="dashed") +
-              geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed") + scale_x_continuous(breaks = c(mybreaks, round(controltime[sum(controlcurve>0.5)],1), round(treatmenttime2[sum(treatmentsurv2>0.5)], 1)), labels = c(mybreaks, round(controltime[sum(controlcurve>0.5)],1), round(treatmenttime2[sum(treatmentsurv2>0.5)], 1)))
+              geom_line(data = mediandf2, aes(x = x, y=y), linetype="dashed") +
+              scale_x_continuous(breaks = c(mybreaks,medianCTime, medianTTime), labels = c(mybreaks,  round(medianCTime, 1), round(medianTTime, 1))) 
           }
           #This uses the elicited distribution for T and adds 95% points onto the control curve
         } else if (addfeedback[i]=="95% CI for T"){
