@@ -326,7 +326,46 @@ server = function(input, output, session) {
     
   mySample <- drawsamples()$mySample
    Tsamples <- data.frame(time = mySample[,1])
-   p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = ..density..)) 
+   d <- input$dist1
+   if(d == "best"){
+     d <- myfit1()$best.fitting[1, 1]
+   }
+   
+   dist.title <- ""
+   if(d == "hist"){
+     dist.title = "histogram fit"
+   }
+   
+   if(d == "gamma"){
+     dist.title = paste("Gamma(",
+                        signif(myfit1()$Gamma[1,1], 3),
+                        ", ",
+                        signif(myfit1()$Gamma[1,2], 3),
+                        ")", sep="")
+   }
+   
+   if(d == "lognormal"){
+     dist.title = paste("Log normal(",
+                        signif(myfit1()$Log.normal[1,1], 3),
+                        ", ",
+                        signif(myfit1()$Log.normal[1,2], 3), ")",
+                        sep="")
+   }	
+   
+   if(d == "beta"){
+     dist.title =paste("Beta(",
+                       signif(myfit1()$Beta[1,1], 3),
+                       ", ", signif(myfit1()$Beta[1,2], 3),
+                       ")", sep="")
+   }
+
+
+  if (input$massT0>0){
+    dist.title <- paste(input$massT0, "⋅ 0 +", 1-input$massT0, "⋅", dist.title)
+  }
+   
+   
+   p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = ..density..)) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
    
    print(p1)
     
@@ -340,7 +379,111 @@ server = function(input, output, session) {
     
     mySample <- drawsamples()$mySample
     HRsamples <- data.frame(HR = mySample[,2])
-    p1 <- ggplot(data=HRsamples, aes(x=HR)) + geom_histogram(aes(y = ..density..)) 
+    
+    d <- input$dist2
+    if(d == "best"){
+      d <- myfit2()$best.fitting[1, 1]
+    }
+    
+    dist.title <- ""
+    if(d == "normal"){
+      
+      dist.title <- paste("Normal (mean = ",
+                          signif(myfit2()$Normal[1,1], 3),
+                          ", sd = ",
+                          signif(myfit2()$Normal[1,2], 3), ")",
+                          sep="")
+    }
+    
+    if(d == "t"){
+      
+      
+      dist.title=paste("Student-t(",
+                       signif(myfit2()$Student.t[1,1], 3),
+                       ", ",
+                       signif(myfit2()$Student.t[1,2], 3),
+                       "), df = ",
+                       myfit2()$Student.t[1, 3],
+                       sep="")
+    }
+    
+    if(d == "gamma"){
+      
+      dist.title = paste("Gamma(",
+                         signif(myfit2()$Gamma[1,1], 3),
+                         ", ",
+                         signif(myfit2()$Gamma[1,2], 3),
+                         ")", sep="")
+    }
+    
+    if(d == "lognormal"){
+      
+      dist.title = paste("Log normal(",
+                         signif(myfit2()$Log.normal[1,1], 3),
+                         ", ",
+                         signif(myfit2()$Log.normal[1,2], 3), ")",
+                         sep="")
+    }	
+    
+    if(d == "logt"){ # log student t
+    
+      dist.title = paste("Log T(",
+                         signif(myfit2()$Log.Student.t[1,1], 3),
+                         ", ",
+                         signif(myfit2()$Log.Student.t[1,2], 3),
+                         "), df = ",
+                         myfit2()$Log.Student.t[1,3], sep="")
+      
+    }	
+    
+    if(d == "beta"){
+      
+      dist.title =paste("Beta(",
+                        signif(myfit2()$Beta[1,1], 3),
+                        ", ", signif(myfit2()$Beta[1,2], 3),
+                        ")", sep="")
+    }
+    
+    if(d == "hist"){
+      
+      dist.title = "histogram fit"
+      
+    }
+    
+    if(d == "mirrorgamma"){
+  
+      dist.title = paste("Mirror gamma(",
+                         signif(myfit2()$mirrorgamma[1,1], 3),
+                         ", ",
+                         signif(myfit2()$mirrorgamma[1,2], 3),
+                         ")", sep="")
+    } 
+    
+    if(d == "mirrorlognormal"){
+      
+      dist.title = paste("Mirror log normal(",
+                         signif(myfit2()$mirrorlognormal[1,1], 3),
+                         ", ",
+                         signif(myfit2()$mirrorlognormal[1,2], 3), ")",
+                         sep="")
+    }
+    
+    if(d == "mirrorlogt"){ # mirror log student t
+    
+      dist.title = paste("Mirror log T(",
+                         signif(myfit2()$mirrorlogt[1,1], 3),
+                         ", ",
+                         signif(myfit2()$mirrorlogt[1,2], 3),
+                         "), df = ",
+                         myfit2()$mirrorlogt[1,3], sep="")
+      
+    }	
+    
+    if (input$massHR1>0){
+      dist.title <- paste(input$massHR1, "⋅ 1 +", 1-input$massHR1, "⋅", dist.title)
+    }
+    
+    p1 <- ggplot(data=HRsamples, aes(x=HR)) + geom_histogram(aes(y = ..density..)) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
     
     print(p1) 
   })
@@ -490,16 +633,6 @@ server = function(input, output, session) {
     
   })
   
-  output$errorFeedback <- renderUI({
-    
-    zeroval <- feedback(myfit1(), quantiles = 0.01)$fitted.quantiles[input$dist1][, 1]
-    
-    #Adds an error message if the elicited distribution for T includes nonsensical values
-    if (zeroval<0){
-      paste0("Your elicited distribution of T includes values that are less than 0, please change your limits or choose another distribution.")
-    }
-    
-  })
   
   radiobuttons <- reactive({
     addfeedback <- input$showfeedback

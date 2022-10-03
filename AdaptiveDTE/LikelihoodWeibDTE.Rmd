@@ -88,21 +88,21 @@ plot(x, y, type="l", xlab="post-delay HR", ylab="density")
 We can simulate some data according to some underlying parameters (in practice, we would not know these), combine the data with our prior distributions to obtain posterior distributions for $T$ and post-delay HR. 
 
 ```{r, eval=T, echo=T, cache=T}
-set.seed(53)
+#set.seed(53)
 #Setting up the correct parameters - we would not know this in practice
 
 lambda1 <- 0.04
 lambda2 <- 0.08
 gamma2 <- 0.8
 gamma1 <- 0.8
-bigT <- 6
+bigT <- 20
 
 #Sample sizes in each group
-n1 <- 400
-n2 <- 400
+n1 <- 100
+n2 <- 100
 
 #When is the IA time?
-IATime <- 20
+IATime <- 40
 
 #When is the final analysis time?
 trialLength <- 60
@@ -156,8 +156,8 @@ model {
   
     lambda2 ~ dbeta(1,1)T(0,)
     gamma2 ~ dbeta(1,1)T(0,)
-    HR ~ dnorm(6.6, 4.5)T(0,1)
-    bigT ~ dnorm(6, 1)T(0,)
+    HR ~ dbeta(6.6, 4.5)T(0,1)
+    bigT ~ dnorm(6, 0.01)T(0,)
     lambda1 <- lambda2*pow(HR, 1/gamma2)
     
     }
@@ -208,6 +208,9 @@ filter(group=="Treatment"& event==F) %>%
 
 sampledHR <- sample(output[[1]][,1], size =1)
 sampledT <- sample(output[[1]][,2], size =1)
+
+print(sampledHR)
+print(sampledT)
 
 sampledlambda1 <- lambda2*sampledHR^(1/gamma2)
 
