@@ -17,13 +17,10 @@ ui <- fluidPage(
   withMathJax(),
   
   # Application title
-  titlePanel("Delayed Treatment Effects - Weibull parameterisation"),
+  titlePanel("Assurance: Delayed Treatment Effects"),
   
   # sidebarLayout(
-  mainPanel(tags$style(type="text/css",
-                       ".shiny-output-error { visibility: hidden; }",
-                       ".shiny-output-error:before { visibility: hidden; }"
-  ),
+  mainPanel(
   
   tabsetPanel(
     # Control UI ---------------------------------
@@ -157,11 +154,11 @@ ui <- fluidPage(
                  numericInput("numofpatients", "Maximum number of patients in the trial", value=1000),
                  numericInput("rectime", "Recruitment length", value=6),
                  
-                 box(width = 10, title = "Ratio of patients in each group",
-                     splitLayout(
-                       numericInput("n1", "Control", value=1, min=1),
-                       numericInput("n2", "Treatment", value=1, min=1)
-                     )
+                 
+                 splitLayout(
+                   numericInput("n1", "Ratio control", value=1, min=1),
+                   numericInput("n2", "Ratio treatment", value=1, min=1)
+                   
                  ),
                  numericInput("chosenLength", "Maximum trial duration (including recruitment time)", value=60),
                  numericInput("TPP", "Target effect (average hazard ratio)", value = 0.8),
@@ -186,26 +183,7 @@ ui <- fluidPage(
     
     
   ), style='width: 1000px; height: 600px',
-  wellPanel(
-    fluidRow(
-      column(3, selectInput("outFormat", label = "Report format",
-                            choices = list('html' = "html_document",
-                                           'pdf' = "pdf_document",
-                                           'Word' = "word_document"))
-      ),
-      column(3, offset = 1,
-             numericInput("fs", label = "Font size", value = 12)
-      )),
-    fluidRow(
-      column(3, downloadButton("report", "Download report")
-      ),
-      column(3, downloadButton("downloadData", "Download sample")
-      ),
-      column(3, actionButton("exit", "Quit")
-      )
-    )
-    
-  )
+  
   )
 )
 
@@ -253,7 +231,7 @@ server = function(input, output, session) {
     controlsurv <- exp(-(input$lambdac*controltime)^input$gammac)
     controldf <- data.frame(controltime = controltime,
                             controlsurv = controlsurv)
-    theme_set(theme_grey(base_size = input$fs))
+    theme_set(theme_grey(base_size = 12))
     p1 <- ggplot(data=controldf, aes(x=controltime, y=controlsurv)) +
       geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
     
@@ -324,50 +302,50 @@ server = function(input, output, session) {
   
   output$distPlot1 <- renderPlot({
     
-  mySample <- drawsamples()$mySample
-   Tsamples <- data.frame(time = mySample[,1])
-   d <- input$dist1
-   if(d == "best"){
-     d <- myfit1()$best.fitting[1, 1]
-   }
-   
-   dist.title <- ""
-   if(d == "hist"){
-     dist.title = "histogram fit"
-   }
-   
-   if(d == "gamma"){
-     dist.title = paste("Gamma(",
-                        signif(myfit1()$Gamma[1,1], 3),
-                        ", ",
-                        signif(myfit1()$Gamma[1,2], 3),
+    mySample <- drawsamples()$mySample
+    Tsamples <- data.frame(time = mySample[,1])
+    d <- input$dist1
+    if(d == "best"){
+      d <- myfit1()$best.fitting[1, 1]
+    }
+    
+    dist.title <- ""
+    if(d == "hist"){
+      dist.title = "histogram fit"
+    }
+    
+    if(d == "gamma"){
+      dist.title = paste("Gamma(",
+                         signif(myfit1()$Gamma[1,1], 3),
+                         ", ",
+                         signif(myfit1()$Gamma[1,2], 3),
+                         ")", sep="")
+    }
+    
+    if(d == "lognormal"){
+      dist.title = paste("Log normal(",
+                         signif(myfit1()$Log.normal[1,1], 3),
+                         ", ",
+                         signif(myfit1()$Log.normal[1,2], 3), ")",
+                         sep="")
+    }	
+    
+    if(d == "beta"){
+      dist.title =paste("Beta(",
+                        signif(myfit1()$Beta[1,1], 3),
+                        ", ", signif(myfit1()$Beta[1,2], 3),
                         ")", sep="")
-   }
-   
-   if(d == "lognormal"){
-     dist.title = paste("Log normal(",
-                        signif(myfit1()$Log.normal[1,1], 3),
-                        ", ",
-                        signif(myfit1()$Log.normal[1,2], 3), ")",
-                        sep="")
-   }	
-   
-   if(d == "beta"){
-     dist.title =paste("Beta(",
-                       signif(myfit1()$Beta[1,1], 3),
-                       ", ", signif(myfit1()$Beta[1,2], 3),
-                       ")", sep="")
-   }
-
-
-  if (input$massT0>0){
-    dist.title <- paste(input$massT0, "⋅ 0 +", 1-input$massT0, "⋅", dist.title)
-  }
-   
-   
-   p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = ..density..)) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
-   
-   print(p1)
+    }
+    
+    
+    if (input$massT0>0){
+      dist.title <- paste(input$massT0, "⋅ 0 +", 1-input$massT0, "⋅", dist.title)
+    }
+    
+    
+    p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = ..density..)) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
+    
+    print(p1)
     
     
   })
@@ -426,7 +404,7 @@ server = function(input, output, session) {
     }	
     
     if(d == "logt"){ # log student t
-    
+      
       dist.title = paste("Log T(",
                          signif(myfit2()$Log.Student.t[1,1], 3),
                          ", ",
@@ -451,7 +429,7 @@ server = function(input, output, session) {
     }
     
     if(d == "mirrorgamma"){
-  
+      
       dist.title = paste("Mirror gamma(",
                          signif(myfit2()$mirrorgamma[1,1], 3),
                          ", ",
@@ -469,7 +447,7 @@ server = function(input, output, session) {
     }
     
     if(d == "mirrorlogt"){ # mirror log student t
-    
+      
       dist.title = paste("Mirror log T(",
                          signif(myfit2()$mirrorlogt[1,1], 3),
                          ", ",
@@ -499,7 +477,7 @@ server = function(input, output, session) {
     nsamples <- 10000
     mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = nsamples, d = c(input$dist1, input$dist2)))
     u <- runif(nsamples, 0, 1)
-
+    
     mySample[u<input$massT0,1] <- 0
     mySample[u<input$massHR1,2] <- 1
     
@@ -510,7 +488,7 @@ server = function(input, output, session) {
     
     gammat <- input$gammac
     
-
+    
     mySample <- drawsamples()$mySample
     nsamples <- 500
     
@@ -523,7 +501,7 @@ server = function(input, output, session) {
       
       bigT <- sample(mySample[,1], 1)
       HR <- sample(mySample[,2], 1)
-
+      
       lambdat <- input$lambdac*HR^(1/input$gammac)
       if (bigT!=0){
         controltime <- seq(0, bigT, by=0.01)
@@ -556,7 +534,7 @@ server = function(input, output, session) {
     }
     
     return(list(lowerbound=lowerbound, upperbound=upperbound, time=time, SimMatrix = SimMatrix, 
-                 medianTreatment = medianTreatment))
+                medianTreatment = medianTreatment))
     
   })
   
@@ -568,7 +546,7 @@ server = function(input, output, session) {
     controltime <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
     controlcurve <- exp(-(input$lambdac*controltime)^input$gammac)
     controldf <- data.frame(controltime = controltime, controlcurve = controlcurve)
-    theme_set(theme_grey(base_size = input$fs))
+    theme_set(theme_grey(base_size = 12))
     p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) +
       geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
     
@@ -617,8 +595,8 @@ server = function(input, output, session) {
           } else {
             p1 <- p1 + geom_point(aes(x = lowerT, y = controlcurve[sum(controltime<lowerT)]), colour="orange", size = 4)
           }
-             
-            
+          
+          
         } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           #This adds the simulated confidence interval lines
           simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
@@ -661,7 +639,7 @@ server = function(input, output, session) {
           
           quantiledf <- data.frame(quantiletime = quantileVec)
           
-          theme_set(theme_grey(base_size = input$fs))
+          theme_set(theme_grey(base_size = 12))
           p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1) +
             xlab("Time")
           
@@ -915,7 +893,7 @@ server = function(input, output, session) {
   output$assurancePlot <- renderPlot({
     
     #Plot the assurance calculated in the function
-    theme_set(theme_grey(base_size = input$fs))
+    theme_set(theme_grey(base_size = 12))
     assurancenormaldf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$asssmooth))
     assurancenormalLBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$LBasssmooth))
     assurancenormalUBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBasssmooth))
