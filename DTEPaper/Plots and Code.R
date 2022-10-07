@@ -354,7 +354,8 @@ legend("topright", legend = c("Delay", "Control", "Treatment (best fit)", "Treat
 
 #So we need to simulate some data according to these parameters
 
-source("functions.R")
+
+source("DTEPaper/functions.R")
 
 #png("PowerVaryingFixed.png", units="in", width=8, height=5, res=700)
 powerFunc <- function(bigT, lambda2, gamma2, lambda1, gamma1, n1, n2){
@@ -395,6 +396,70 @@ legend("bottomright", legend = c(expression(paste("Varying ", gamma[1])), expres
 
 
 #This code produces the plot seen in Section 4.1.3
+#########################################################
+##We have done here, but just with the assurance
+##We can look at the power (in both cases) on Monday
+########################################################
+
+
+assFunc <- function(nc, nt, N, recTime, Lmax, lambdac, gammac, massT0, massHR1){
+  #Making the simplification
+  gammat <- gammac
+  #Setting up the assurance vector
+  assvec <- rep(NA, N)
+  for (i in 1:N){
+    #sampling the delay time
+    u <- runif(1)
+    if (u < massT0){
+      bigT <- 0
+    } else {
+      bigT <- rgamma(1, 5.76, 0.899)
+    }
+    #sampling the post-delay HR
+    u <- runif(1)
+    if (u < massHR1){
+      HR <- 1
+    } else {
+      HR <- rbeta(1, 10.8, 6.87)
+    }
+    lambdat <- exp((log(HR)/gammac)+log(lambdac))
+     
+    #Simulating the control and treatment data
+    combinedData <- simulateDTEWeibullData(nc, nt, gammat, gammac, lambdat, lambdac, bigT, recTime, Lmax)
+   
+    #Performing a log-rank test on the combined data set
+    test <- survdiff(Surv(time, event)~group, data = combinedData)
+    assvec[i] <- test$chisq > qchisq(0.95, 1)
+  }
+  return(mean(assvec))
+}
+
+ncvec <- seq(20, 500, by=10)
+ntvec <- seq(20, 500, by=10)
+#Setting up the assurance vector
+finalassvec<- rep(NA, length(ncvec))
+#Finding the assurance for varying sample sizes
+for (j in 1:length(finalassvec)){
+  finalassvec[j] <- assFunc(ncvec[j], ntvec[j], 500, 6, 40, 0.08, 0.8, 0.05, 0.1)
+}
+
+samplesizevec <- ncvec+ntvec
+
+#Smoothing the output
+asssmooth <- loess(finalassvec~samplesizevec)
+
+#Plotting the output
+plot(samplesizevec, predict(asssmooth), ylim=c(0,1), 
+     type = "l", xlab="Total sample size", ylab="Power/assurance", col="blue")
+
+
+############################
+##Up to here
+###########################
+
+
+
+
 png("PowerAss.png", units="in", width=8, height=5, res=700)
 #Calculating the power first
 powerFunc <- function(nc, nt, N, Lmax, lambda2, gamma2){

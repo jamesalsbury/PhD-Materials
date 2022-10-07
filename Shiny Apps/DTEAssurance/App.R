@@ -6,7 +6,6 @@ library(readxl)
 library(rsconnect)
 library(ggplot2)
 library(ggfortify)
-library(nleqslv)
 library(pbapply)
 library(shinyjs)
 library(dplyr)
@@ -147,7 +146,7 @@ ui <- fluidPage(
     ),
     
     # Assurance UI ---------------------------------
-    tabPanel("Assurance",
+    tabPanel("Calculating assurance",
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  shinyjs::useShinyjs(),
@@ -177,8 +176,29 @@ ui <- fluidPage(
     #Need to say what files can be uploaded in the control sample
     #Link to SHELF for the elicitation
     tabPanel("Help",
-             HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper.</a></p>"),
-             HTML("<p>The eliciation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>")
+             HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper</a>. For every tab, there is a brief summary below, for any other questions, comments or
+                  feedback, please contact <a href='mailto:jsalsbury1@sheffield.ac.uk'>James Salsbury</a>.</p>"),
+             HTML("<p><u>Control</u></p>"),
+             HTML("<p>Here, the parameters for the control survival are specified, the parameterisation for the control survival curve is:</p>"),
+             withMathJax(paste0(" $$S_c(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}$$")),
+             HTML("<p>The control tab also allows an upload of an Excel file containing survival data for the control sample. 
+                  The Excel file needs to have two columns: the first column containing the survival time, and the second column containing the event status (1 for dead, 0 for alive).</p>"),
+             HTML("<p><u>Eliciting the two parameters: T and post-delay HR</u></p>"),
+             HTML("<p>These two tabs elicit beliefs from the user about two quantities: the length of delay, T, and the post-delay HR. The parameterisation for the treatment survival curve is:</p>"),
+             withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}, t \\leq T$$")),
+             withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_cT)^{\\gamma_c}-\\lambda_t^{\\gamma_t}(t^{\\gamma+t}-T^{\\gamma_t})\\}, t > T$$")),
+             HTML("<p>The elicitation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>"),
+             HTML("<p>There is also an option to include some mass at T = 0 and HR = 1.</p>"),
+             HTML("<p><u>Feedback</u></p>"),
+             HTML("<p>The initial plot may take ~ 5 seconds to load. The plot shows the control survival curve (from the control tab), along with the median elicited treatment line (calculated from the previous two tabs). 
+                  There are also three optional quantities to view: the first is the median survival time for both groups, the second is a 95% confidence interval for T and the
+                  third shows a 80% confidence interval for the treatment curve. When the median survival time is added to the plot, a second plot is shown below. Initially, this plot is a histogram for the 
+                  treatment median survival time. However, the user is able to change this median to any other quantile of interest.</p>"),
+             HTML("<p><u>Calculating assurance</u></p>"),
+             HTML("<p>This tab allows the user to calculate assurance, given the control parameters and elicited prior distributions  for T and post-delay HR. Some additional questions
+                  about the trial are found on the left-hand panel. The app assumes uniform recruitment and uses a log-rank test for analysis of the simulated data. Depending on your processor speed, this 
+                  calculation can take between 30-40 seconds. Once the calculation is complete, the app shows two plots. The top plot shows assurance (along with standard error curves) and target effect curve - which
+                  shows the proportion of trials in which the target effect was observed. The bottom plot shows the average hazard ratio observed and the corresponding confidence intervals for this. </p>")
     ),
     
     
@@ -203,10 +223,11 @@ server = function(input, output, session) {
     } else {
       #lambdac and gammac are estimated from the uploaded control sample
       controlSample <- read_excel(chosenFile$datapath, sheet=1)
-      weibfit <- survreg(Surv(time, cens)~1, data = controlSample, dist = "weibull")
+      colnames(controlSample) <- c("time", "event")
+      weibfit <- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
       updateTextInput(session, "lambdac", value = round(as.numeric(1/(exp(weibfit$icoef[1]))), 3))
       updateTextInput(session, "gammac", value = round(as.numeric(exp(-weibfit$icoef[2])), 3))
-      return(list(gammac = as.numeric(exp(-weibfit$icoef[2])), lambdac = as.numeric(1/(exp(weibfit$icoef[1]))), controltime = controlSample$time, controlcens = controlSample$cens))
+      return(list(gammac = as.numeric(exp(-weibfit$icoef[2])), lambdac = as.numeric(1/(exp(weibfit$icoef[1]))), controltime = controlSample$time, controlevent = controlSample$event))
     }
     
   })
@@ -241,8 +262,8 @@ server = function(input, output, session) {
       
     } else {
       #Shows well the Weibull parameters fit the uploaded data set
-      controlSample <- data.frame(time = inputData()$controltime, cens = inputData()$controlcens)
-      km <- survival::survfit(Surv(time, cens)~1, data = controlSample)
+      controlSample <- data.frame(time = inputData()$controltime, event = inputData()$controlevent)
+      km <- survival::survfit(Surv(time, event)~1, data = controlSample)
       autoplot(km, conf.int = F, surv.colour = "red", xlab = "Time", ylab="Survival")  + 
         geom_line(data = controldf, aes(x = controltime, y = controlsurv), colour = "blue")
       
@@ -568,6 +589,7 @@ server = function(input, output, session) {
       for (i in 1:length(addfeedback)){
         #This adds the median survival line (onto the control and treatment)
         if (addfeedback[i]=="Median survival line"){
+          shinyjs::show(id = "feedbackQuantile")
           #Looks at whether the median time is before or after the delay
           medianTTime <- drawsimlines()$time[sum(drawsimlines()$medianTreatment>0.5)]
           medianCTime <- (1/input$lambdac)*(-log(0.5))^(1/input$gammac)
@@ -596,14 +618,13 @@ server = function(input, output, session) {
             p1 <- p1 + geom_point(aes(x = lowerT, y = controlcurve[sum(controltime<lowerT)]), colour="orange", size = 4)
           }
           
-          
         } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           #This adds the simulated confidence interval lines
           simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
           simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
           p1 <- p1 + geom_line(data = simlineslower, aes(x=x, y=y), linetype="dashed")+
             geom_line(data = simlinesupper, aes(x=x, y=y), linetype="dashed")
-          shinyjs::show(id = "feedbackQuantile")
+    
         }
       }
     }
@@ -625,7 +646,7 @@ server = function(input, output, session) {
     
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
-        if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
+        if (addfeedback[i]=="Median survival line"){
           
           quantileMatrix <- drawsimlines()$SimMatrix
           
@@ -794,102 +815,6 @@ server = function(input, output, session) {
   })    
   
   
-  #This function calculates the normal assurance given the elicited distributions and other simple questions about the trial
-  calculateFlexibleAssurance <- eventReactive(input$drawAssurance, {
-    
-    timechosen1 <- floor(0.4*input$chosenLength)
-    timechosen2 <- floor(0.75*input$chosenLength)
-    conc.probs <- matrix(0, 2, 2)
-    conc.probs[1, 2] <- 0.5
-    gammat <- input$gammac
-    
-    
-    assFunc <- function(n1, n2){
-      
-      p(sprintf("n=%g", n1))
-      #For each n1, n2, simulate 300 trials
-      assnum <- 50
-      assvec <- rep(NA, assnum)
-      eventsvec <- rep(NA, assnum)
-      
-      for (i in 1:assnum){
-        
-        sampledpoint1 <- sample(na.omit(drawsimlines()$SimMatrix[,which(drawsimlines()$time==timechosen1)]), 1)
-        sampledpoint2 <- sample(na.omit(drawsimlines()$SimMatrix[,which(drawsimlines()$time==timechosen2)]), 1)
-        
-        if (sampledpoint1>sampledpoint2){
-          #This needs looking at
-          mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = 100, d = c(input$dist1, input$dist2)))
-          bigT <- mySample[1,1]
-          
-          dslnex <- function(x) {
-            y <- numeric(2)
-            y[1] <- exp(-(input$lambdac*bigT)^input$gammac-x[1]^x[2]*(timechosen1^x[2]-bigT^x[2])) - sampledpoint1
-            y[2] <- exp(-(input$lambdac*bigT)^input$gammac-x[1]^x[2]*(timechosen2^x[2]-bigT^x[2])) - sampledpoint2
-            y
-          }
-          
-          
-          xstart <- c(0.05,1)
-          
-          output <- nleqslv(xstart, dslnex)
-          
-          lambdat <- output$x[1]
-          gammat <- output$x[2]
-          
-          if (lambdat<0){
-            lambdat <- 0.000001
-          }
-          
-          
-          dataCombined <- SimDTEDataSet(n1, n2, gammat, input$gammac, lambdat, input$lambdac, bigT, input$rectime, input$chosenLength)
-          
-          #Performs a log rank test on the data
-          test <- survdiff(Surv(time, event)~group, data = dataCombined)
-          #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
-          assvec[i] <- test$chisq > qchisq(0.95, 1)
-          
-          #Counts how many events have been seen up until the total trial length time
-          eventsvec[i] <-  sum(dataCombined$time<input$chosenLength)
-          
-        } 
-      }
-      
-      return(list(assvec = mean(na.omit(assvec)), eventvec = mean(na.omit(eventsvec))))
-    }
-    
-    
-    #Looking at assurance for varying sample sizes 
-    samplesizevec <- seq(30, input$numofpatients, length=15)
-    n1vec <- floor(input$n1*(samplesizevec/(input$n1+input$n2)))
-    n2vec <- ceiling(input$n2*(samplesizevec/(input$n1+input$n2)))
-    calcassvec <- rep(NA, length = length(samplesizevec))
-    
-    pboptions(type="shiny", title = "Calculating assurance (2/2)")
-    
-    plan(multicore)
-    
-    handlers("progress")
-    
-    withProgressShiny(message = "Calculating assurance (2/2)",{
-      p <- progressor(along = n1vec)
-      calcassvec <- future_mapply(assFunc, n1vec, n2vec, future.seed = NULL)
-    })
-    #calcassvec <- pbmapply(assFunc, n1vec, n2vec)
-    
-    calcassvec <- unlist(calcassvec[1,])  
-    
-    #How many events are seen given this set up
-    eventsseen <- assFunc(n1vec[length(samplesizevec)], n2vec[length(samplesizevec)])$eventvec
-    
-    #Smooth the assurance, compared to the the sample size vector
-    asssmooth <- loess(calcassvec~samplesizevec)
-    
-    return(list(calcassvec = calcassvec, asssmooth = asssmooth, samplesizevec = samplesizevec, 
-                eventsseen = eventsseen))
-    
-  })
-  
   output$assurancePlot <- renderPlot({
     
     #Plot the assurance calculated in the function
@@ -897,21 +822,19 @@ server = function(input, output, session) {
     assurancenormaldf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$asssmooth))
     assurancenormalLBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$LBasssmooth))
     assurancenormalUBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBasssmooth))
-    #assuranceflexibledf <- data.frame(x = calculateFlexibleAssurance()$samplesizevec, y = predict(calculateFlexibleAssurance()$asssmooth))
     TPPdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$TPPsmooth))
     TPPLBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$LBTPPsmooth))
     TPPUBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBTPPsmooth))
     p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Assurance"), linetype="solid") + xlab("Number of patients") +
       ylab("Assurance") + ylim(0, 1.05) +
-      #+ geom_line(data = assuranceflexibledf, aes(x=x, y=y, colour = "Flexible"), linetype="dashed") +
-      geom_line(data = TPPdf, aes(x=x, y=y, colour = 'TPP'), linetype="solid") +
+      geom_line(data = TPPdf, aes(x=x, y=y, colour = 'target effect'), linetype="solid") +
       geom_line(data = assurancenormalLBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed') +
       geom_line(data = assurancenormalUBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed') +
-      geom_line(data = TPPLBdf, aes(x=x, y=y, colour = 'TPP'), linetype='dashed') +
-      geom_line(data = TPPUBdf, aes(x=x, y=y, colour = 'TPP'), linetype='dashed') 
+      geom_line(data = TPPLBdf, aes(x=x, y=y, colour = 'target effect'), linetype='dashed') +
+      geom_line(data = TPPUBdf, aes(x=x, y=y, colour = 'target effect'), linetype='dashed') 
     scale_color_manual(name='Type of assurance',
-                       breaks=c('Assurance', 'TPP'),
-                       values=c('Assurance'='blue', 'TPP' = 'green'))
+                       breaks=c('Assurance', 'target effect'),
+                       values=c('Assurance'='blue', 'target effect' = 'green'))
     print(p1) 
   })
   
