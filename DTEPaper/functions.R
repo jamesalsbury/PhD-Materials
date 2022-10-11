@@ -1,11 +1,11 @@
-simulateDTEWeibullData <- function(n1, n2, gamma1, gamma2, lambda1, lambda2, bigT, recTime, censTime){
+simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, censTime){
   #Simulates the treatment data
-  CP <- exp(-(lambda2*bigT)^gamma2)
+  CP <- exp(-(lambdac*bigT)^gammac)
   u <- runif(n2)
   
-  treatmenttime <- ifelse(u>CP, (1/lambda2)*(-log(u))^(1/gamma2), (1/(lambda1^gamma1)*((lambda1*bigT)^gamma1-log(u)-(lambda2*bigT)^gamma2))^(1/gamma1))
+  treatmenttime <- ifelse(u>CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*bigT)^gammat-log(u)-(lambdac*bigT)^gammac))^(1/gammat))
   
-  dataCombined <- data.frame(time = c(rweibull(n1, gamma2, 1/lambda2), treatmenttime),
+  dataCombined <- data.frame(time = c(rweibull(n1, gammac, 1/lambdac), treatmenttime),
                              group = c(rep("Control", n1), rep("Treatment", n2)))
   
   

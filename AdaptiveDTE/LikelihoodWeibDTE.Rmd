@@ -91,18 +91,19 @@ We can simulate some data according to some underlying parameters (in practice, 
 #set.seed(53)
 #Setting up the correct parameters - we would not know this in practice
 
-lambda1 <- 0.04
+TPPIA <- function(IATime){
+  TPPval <- rep(NA, 50)
+for (i in 1:50){
+  HR <- rnorm(1, 0.8, sd = 0.148)
+bigT <- rgamma(1, 65.5, 10.9)
+gamma1 <- gamma2 <- 0.8
 lambda2 <- 0.08
-gamma2 <- 0.8
-gamma1 <- 0.8
-bigT <- 20
+lambda1  <- lambda2*HR^(1/gamma2)
+
 
 #Sample sizes in each group
-n1 <- 100
-n2 <- 100
-
-#When is the IA time?
-IATime <- 40
+n1 <- 150
+n2 <- 150
 
 #When is the final analysis time?
 trialLength <- 60
@@ -120,12 +121,12 @@ combinedData <- data.frame(time = c(controldata, treatmentdata), group = c(rep("
 combinedData$event <- combinedData$time<IATime
 
 combinedData$time[combinedData$time>IATime] <- IATime
+# 
+# controlkm <- survfit(Surv(time, event)~group, data = combinedData)
+# 
+# plot(controlkm, col=c("blue", "red"))
 
-controlkm <- survfit(Surv(time, event)~group, data = combinedData)
-
-plot(controlkm, col=c("blue", "red"))
-
-legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+#legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
 
 n <- n1
 m <- n1+n2
@@ -156,88 +157,102 @@ model {
   
     lambda2 ~ dbeta(1,1)T(0,)
     gamma2 ~ dbeta(1,1)T(0,)
-    HR ~ dbeta(6.6, 4.5)T(0,1)
-    bigT ~ dnorm(6, 0.01)T(0,)
+    HR ~ dnorm(0.8, 45.65376)T(0,1)
+    bigT ~ dgamma(65.5, 10.9)
     lambda1 <- lambda2*pow(HR, 1/gamma2)
     
     }
 "
 
-model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datEvent = combinedData$event, n= n, m=m)) 
+model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datEvent = combinedData$event, n= n, m=m), quiet = T) 
                    
                    
-update(model, n.iter=1000)
-output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 1000)
+update(model, n.iter=100)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 500)
+
+# 
+# summary(output)
+# plot(output)
+
+TPPval[i] <- mean(output[[1]][,1]<0.7)
+}
 
 
-summary(output)
-plot(output)
+return(mean(TPPval))
+
+}
+
+IATimeVec <- seq(10, 60, by=10)
+
+outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
+
+plot(IATimeVec, outputvec)
 
 #We now need to sample from these posterior distributions
 #We sample future patient data
 
-BPPvec <- rep(NA, 100)
-
-for (i in 1:100){
-  #Calculating how many control events are remaining
-
-noremainingcontrolevents <-  combinedData %>%
-filter(group=="Control"& event==F) %>%
-  count() %>%
-   pull()
-
-#What is the  survival probability at time = IAtime?
- 
-controlIAsurv <- exp(-(lambda2*IATime)^gamma2)
-
-u <- runif(noremainingcontrolevents, 0, controlIAsurv)
-
-#Simulating the remaining control data
-
-remainingcontrolevents <- data.frame(time = (1/lambda2)*(-log(u))^(1/gamma2), group = rep("Control", noremainingcontrolevents), event = rep(F, noremainingcontrolevents))
-
-
-#Now need to simulate the remaining treatment events
-#Using the posteriors for T and HR
-
-noremainingtreatmentevents <- combinedData %>%
-filter(group=="Treatment"& event==F) %>%
-  count() %>%
-   pull()
-
-
-sampledHR <- sample(output[[1]][,1], size =1)
-sampledT <- sample(output[[1]][,2], size =1)
-
-# print(sampledHR)
-# print(sampledT)
-
-sampledlambda1 <- lambda2*sampledHR^(1/gamma2)
-
-#What is the  survival probability at time = IAtime?
-treatmentIAsurv <- exp(-(lambda2*sampledT)^gamma2-sampledlambda1^gamma1*(IATime^gamma1-sampledT^gamma1))
-
-u <- runif(noremainingtreatmentevents, 0, treatmentIAsurv)
-
-#Sampling the remaining treatment events
-remainingtreatmentevents <- data.frame(time = ((1/(lambda1^gamma1))*((lambda1*sampledT)^gamma1-log(u)-(lambda2*sampledT)^gamma2))^(1/gamma1), group = rep("Treatment", noremainingtreatmentevents), event = rep(F, noremainingtreatmentevents))
-
-#Now we need to combine the new simulated data with the original data set
-
-original <- combinedData[combinedData$event==T,]
-
-finalDataSet <- rbind(original, remainingcontrolevents, remainingtreatmentevents)
-
-finalDataSet$event <- finalDataSet$time<trialLength
-
-finalDataSet$time[finalDataSet$time>IATime] <- trialLength
-
-test <- survdiff(Surv(time, event)~group, data = finalDataSet)
-
-BPPvec[i] <- test$chisq > qchisq(0.95, 1)
-}
-
-mean(BPPvec)
+# BPPvec <- rep(NA, 100)
+# 
+# for (i in 1:100){
+#   #Calculating how many control events are remaining
+# 
+# noremainingcontrolevents <-  combinedData %>%
+# filter(group=="Control"& event==F) %>%
+#   count() %>%
+#    pull()
+# 
+# #What is the  survival probability at time = IAtime?
+#  
+# controlIAsurv <- exp(-(lambda2*IATime)^gamma2)
+# 
+# u <- runif(noremainingcontrolevents, 0, controlIAsurv)
+# 
+# #Simulating the remaining control data
+# 
+# remainingcontrolevents <- data.frame(time = (1/lambda2)*(-log(u))^(1/gamma2), group = rep("Control", noremainingcontrolevents), event = rep(F, noremainingcontrolevents))
+# 
+# 
+# #Now need to simulate the remaining treatment events
+# #Using the posteriors for T and HR
+# 
+# noremainingtreatmentevents <- combinedData %>%
+# filter(group=="Treatment"& event==F) %>%
+#   count() %>%
+#    pull()
+# 
+# 
+# sampledHR <- sample(output[[1]][,1], size =1)
+# sampledT <- sample(output[[1]][,2], size =1)
+# 
+# # print(sampledHR)
+# # print(sampledT)
+# 
+# sampledlambda1 <- lambda2*sampledHR^(1/gamma2)
+# 
+# #What is the  survival probability at time = IAtime?
+# treatmentIAsurv <- exp(-(lambda2*sampledT)^gamma2-sampledlambda1^gamma1*(IATime^gamma1-sampledT^gamma1))
+# 
+# u <- runif(noremainingtreatmentevents, 0, treatmentIAsurv)
+# 
+# #Sampling the remaining treatment events
+# remainingtreatmentevents <- data.frame(time = ((1/(lambda1^gamma1))*((lambda1*sampledT)^gamma1-log(u)-(lambda2*sampledT)^gamma2))^(1/gamma1), group = rep("Treatment", noremainingtreatmentevents), event = rep(F, noremainingtreatmentevents))
+# 
+# #Now we need to combine the new simulated data with the original data set
+# 
+# original <- combinedData[combinedData$event==T,]
+# 
+# finalDataSet <- rbind(original, remainingcontrolevents, remainingtreatmentevents)
+# 
+# finalDataSet$event <- finalDataSet$time<trialLength
+# 
+# finalDataSet$time[finalDataSet$time>IATime] <- trialLength
+# 
+# test <- survdiff(Surv(time, event)~group, data = finalDataSet)
+# 
+# BPPvec[i] <- test$chisq > qchisq(0.95, 1)
+# }
+# 
+# mean(BPPvec)
 
 
 ```
