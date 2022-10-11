@@ -139,7 +139,7 @@ ui <- fluidPage(
                ),
                mainPanel = mainPanel(
                  plotOutput("plotFeedback"),
-                 htmlOutput("errorFeedback"),
+                 htmlOutput("priorWorthFeedback"),
                  plotOutput("quantilePlot")
                )
              ),
@@ -224,7 +224,7 @@ server = function(input, output, session) {
       #lambdac and gammac are estimated from the uploaded control sample
       controlSample <- read_excel(chosenFile$datapath, sheet=1)
       colnames(controlSample) <- c("time", "event")
-      weibfit <- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
+      weibfit <<- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
       updateTextInput(session, "lambdac", value = round(as.numeric(1/(exp(weibfit$icoef[1]))), 3))
       updateTextInput(session, "gammac", value = round(as.numeric(exp(-weibfit$icoef[2])), 3))
       return(list(gammac = as.numeric(exp(-weibfit$icoef[2])), lambdac = as.numeric(1/(exp(weibfit$icoef[1]))), controltime = controlSample$time, controlevent = controlSample$event))
@@ -560,6 +560,30 @@ server = function(input, output, session) {
   })
   
   
+  output$priorWorthFeedback <- renderUI({
+    
+    addfeedback <- radiobuttons()
+    
+    str1 <- ""
+    
+    if (!is.null(addfeedback)){
+      for (i in 1:length(addfeedback)){
+        if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
+          simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
+          simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
+          CIwidth <- simlinesupper[simlinesupper$x==25,]$y - simlineslower[simlineslower$x==25,]$y
+          midpoint <- (simlinesupper[simlinesupper$x==25,]$y + simlineslower[simlineslower$x==25,]$y)/2
+          n <- (16*midpoint*(1-midpoint))/(CIwidth^2)
+          str1 <- paste0("The confidence interval width at t = 25 is equivalent to  ", round(n, 0), 
+                         " patients from a Binomial distribution")
+        }
+      }
+    }  
+    
+    HTML(paste(str1, sep = '<br/>'))
+    
+  })
+  
   output$plotFeedback <- renderPlot({
     
     #This plots the feedback plot
@@ -583,6 +607,7 @@ server = function(input, output, session) {
     
     #This code adds the three choices to the plots
     addfeedback <- input$showfeedback 
+    shinyjs::hide(id = "feedbackQuantile")
     shinyjs::hide(id = "feedbackQuantile")
     
     if (!is.null(addfeedback)){
@@ -624,10 +649,7 @@ server = function(input, output, session) {
           simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
           p1 <- p1 + geom_line(data = simlineslower, aes(x=x, y=y), linetype="dashed")+
             geom_line(data = simlinesupper, aes(x=x, y=y), linetype="dashed")
-          CIwidth <- simlinesupper[simlinesupper$x==25,]$y - simlineslower[simlineslower$x==25,]$y
-          midpoint <- (simlinesupper[simlinesupper$x==25,]$y + simlineslower[simlineslower$x==25,]$y)/2
-          n <- (16*midpoint*(1-midpoint))/(CIwidth^2)
-          print(n)
+          
     
         }
       }
