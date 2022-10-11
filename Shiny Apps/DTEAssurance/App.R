@@ -624,6 +624,10 @@ server = function(input, output, session) {
           simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
           p1 <- p1 + geom_line(data = simlineslower, aes(x=x, y=y), linetype="dashed")+
             geom_line(data = simlinesupper, aes(x=x, y=y), linetype="dashed")
+          CIwidth <- simlinesupper[simlinesupper$x==25,]$y - simlineslower[simlineslower$x==25,]$y
+          midpoint <- (simlinesupper[simlinesupper$x==25,]$y + simlineslower[simlineslower$x==25,]$y)/2
+          n <- (16*midpoint*(1-midpoint))/(CIwidth^2)
+          print(n)
     
         }
       }
