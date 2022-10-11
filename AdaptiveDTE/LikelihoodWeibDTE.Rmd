@@ -92,8 +92,8 @@ We can simulate some data according to some underlying parameters (in practice, 
 #Setting up the correct parameters - we would not know this in practice
 
 TPPIA <- function(IATime){
-  TPPval <- rep(NA, 50)
-for (i in 1:50){
+  TPPval <- rep(NA, 30)
+for (i in 1:30){
   HR <- rnorm(1, 0.8, sd = 0.148)
 bigT <- rgamma(1, 65.5, 10.9)
 gamma1 <- gamma2 <- 0.8
@@ -102,11 +102,11 @@ lambda1  <- lambda2*HR^(1/gamma2)
 
 
 #Sample sizes in each group
-n1 <- 150
-n2 <- 150
+n1 <- 360
+n2 <- 360
 
 #When is the final analysis time?
-trialLength <- 60
+#trialLength <- 60
 
 #Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
 #Control
@@ -157,7 +157,7 @@ model {
   
     lambda2 ~ dbeta(1,1)T(0,)
     gamma2 ~ dbeta(1,1)T(0,)
-    HR ~ dnorm(0.8, 45.65376)T(0,1)
+    HR ~ dnorm(0.8, 45.65376)T(0,)
     bigT ~ dgamma(65.5, 10.9)
     lambda1 <- lambda2*pow(HR, 1/gamma2)
     
@@ -172,21 +172,23 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 500)
 
 # 
 # summary(output)
-# plot(output)
-
-TPPval[i] <- mean(output[[1]][,1]<0.7)
+#plot(output)
+print(IATime)
+print(i)
+TPPval[i] <- mean(output[[1]][,1]<0.75)
 }
 
 
-return(mean(TPPval))
+return(TPPval)
 
 }
 
-IATimeVec <- seq(10, 60, by=10)
+IATimeVec <- seq(30, 100, by=10)
+#IATimeVec <- 60
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
 
-plot(IATimeVec, outputvec)
+#plot(IATimeVec, outputvec)
 
 #We now need to sample from these posterior distributions
 #We sample future patient data
