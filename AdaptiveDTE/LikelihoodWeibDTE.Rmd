@@ -183,7 +183,7 @@ return(TPPval)
 
 }
 
-IATimeVec <- seq(30, 100, by=10)
+IATimeVec <- seq(30, 70, by=10)
 #IATimeVec <- 60
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)

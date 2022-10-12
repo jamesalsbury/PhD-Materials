@@ -28,8 +28,24 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel = sidebarPanel(
                  fileInput("uploadSample", "Upload your control sample"),
-                 numericInput('lambdac', label = 'scale (\\( \\lambda_c \\))', value = 0.05),
-                 numericInput('gammac', label = 'shape (\\( \\gamma_c \\))', value = 1)
+                 splitLayout(
+                   numericInput("lambdacmean", 'mean (\\(\\text{scale} = \\lambda_c \\))', value=0.08, min=0),
+                   numericInput("lambdacsd", 'SD (\\(\\text{scale} = \\lambda_c \\))', value=0.01, min=0)
+                 ),
+                 splitLayout(
+                   numericInput("gammacmean", 'mean (\\(\\text{shape} = \\gamma_c \\))', value=0.8, min=0),
+                   numericInput("gammacsd", 'SD (\\(\\text{shape} = \\gamma_c \\))', value=0.1, min=0)
+                 ),
+                 splitLayout(
+                   actionButton("decreasevar", '10% decrease \\(\\sigma \\)'),
+                   actionButton("increasevar", '10% increase \\(\\sigma \\)')
+                 ),
+                 splitLayout(
+                   hidden(actionButton("AddKM", "Add KM line(s)")),
+                   hidden(actionButton("RemoveKM", "Remove KM line(s)"))
+                 )
+                 
+    
                ), 
                mainPanel = mainPanel(
                  plotOutput("plotControl"),
@@ -211,9 +227,60 @@ ui <- fluidPage(
 
 server = function(input, output, session) {
   
-  #shinyjs::hide(id = "feedbackQuantile")
-  
   # Functions for the control tab ---------------------------------
+  
+  v <- reactiveValues(km = NULL)
+  
+  observeEvent(input$increasevar,{
+    updateTextInput(session, "lambdacsd", value = signif((input$lambdacsd)*1.1, 3))
+    updateTextInput(session, "gammacsd", value = signif((input$gammacsd)*1.1, 3))
+  })
+  
+  observeEvent(input$decreasevar,{
+    updateTextInput(session, "lambdacsd", value = signif((input$lambdacsd)/1.1, 3))
+    updateTextInput(session, "gammacsd", value = signif((input$gammacsd)/1.1, 3))
+  })
+  
+  observeEvent(input$AddKM, {v$km <- "yes"})
+  
+  observeEvent(input$RemoveKM, { v$km <- NULL})
+  
+  drawsimlinescontrol <- reactive({
+   
+    nsamples <- 250
+    
+    time <- seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
+    
+    quicktime <- time[seq(1, length(time), by=5)]
+    
+    #We fill a matrix with the treatment survival probabilities at each time
+    SimMatrix <- matrix(NA, nrow = nsamples, ncol=length(quicktime))
+    
+    lambdacsample <- rnorm(nsamples, mean = input$lambdacmean, sd = input$lambdacsd)
+    gammacsample <- rnorm(nsamples, mean = input$gammacmean, sd = input$gammacsd)
+    
+    for (i in 1:nsamples){
+      SimMatrix[i,] <- exp(-(lambdacsample[i]*quicktime)^gammacsample[i])
+    }
+    
+    #We now look at each time iteration at the distribution
+    #We look at the 0.1 and 0.9 quantile of the distribution
+    #These quantiles can be thought of as confidence intervals for the treatment curve, taken from
+    #the elicited distributions
+   
+    lowerbound <- rep(NA, length(quicktime))
+    upperbound <- rep(NA, length(quicktime))
+    mediancontrol <- rep(NA, length(quicktime))
+    for (j in 1:length(quicktime)){
+      lowerbound[j] <- quantile(SimMatrix[,j], 0.1)
+      upperbound[j] <- quantile(SimMatrix[,j], 0.9)
+      mediancontrol[j] <- quantile(SimMatrix[,j], 0.5)
+    }
+    
+    return(list(lowerbound=lowerbound, upperbound=upperbound, quicktime=quicktime, SimMatrix = SimMatrix, 
+                mediancontrol = mediancontrol))
+    
+  })
   
   inputData <- reactive({
     #Allows the user to upload a control sample
@@ -224,10 +291,20 @@ server = function(input, output, session) {
       #lambdac and gammac are estimated from the uploaded control sample
       controlSample <- read_excel(chosenFile$datapath, sheet=1)
       colnames(controlSample) <- c("time", "event")
-      weibfit <<- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
-      updateTextInput(session, "lambdac", value = round(as.numeric(1/(exp(weibfit$icoef[1]))), 3))
-      updateTextInput(session, "gammac", value = round(as.numeric(exp(-weibfit$icoef[2])), 3))
-      return(list(gammac = as.numeric(exp(-weibfit$icoef[2])), lambdac = as.numeric(1/(exp(weibfit$icoef[1]))), controltime = controlSample$time, controlevent = controlSample$event))
+      weibfit <- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
+      fitsummary <- summary(weibfit)
+      lambdacmean <- 1/(exp(fitsummary$table[1,1]))
+      gammacmean <- exp(-fitsummary$table[2,1])
+      lambdacsd <- abs(lambdacmean - 1/(exp(fitsummary$table[1,1]+2*fitsummary$table[1,2])))
+      gammacsd <-  abs(exp(-fitsummary$table[2,1]+2*fitsummary$table[2,2]) - gammacmean)
+      updateTextInput(session, "lambdacmean", value = signif(lambdacmean, 3))
+      updateTextInput(session, "lambdacsd", value = signif(lambdacsd, 3))
+      updateTextInput(session, "gammacmean", value = signif(gammacmean, 3))
+      updateTextInput(session, "gammacsd", value = signif(gammacsd, 3))
+      shinyjs::show(id = "AddKM")
+      shinyjs::show(id = "RemoveKM")
+      return(list(gammac = as.numeric(exp(-weibfit$icoef[2])), lambdac = as.numeric(1/(exp(weibfit$icoef[1]))), 
+                  controltime = controlSample$time, controlevent = controlSample$event, fitsummary = fitsummary))
     }
     
   })
@@ -247,27 +324,19 @@ server = function(input, output, session) {
   
   output$plotControl <- renderPlot({
     
-    #Shows the user what their control parameters look like
-    controltime <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
-    controlsurv <- exp(-(input$lambdac*controltime)^input$gammac)
-    controldf <- data.frame(controltime = controltime,
-                            controlsurv = controlsurv)
-    theme_set(theme_grey(base_size = 12))
-    p1 <- ggplot(data=controldf, aes(x=controltime, y=controlsurv)) +
-      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
-    
-    print(p1)
-    
-    if (is.null(inputData())){
+    plot(drawsimlinescontrol()$quicktime, drawsimlinescontrol()$mediancontrol, type="l", col="blue", ylim=c(0,1))
+    lines(drawsimlinescontrol()$quicktime, drawsimlinescontrol()$lowerbound, lty=2)
+    lines(drawsimlinescontrol()$quicktime, drawsimlinescontrol()$upperbound, lty=2)
+   
+    if (is.null(v$km)){
       
-    } else {
-      #Shows well the Weibull parameters fit the uploaded data set
+    } else{
       controlSample <- data.frame(time = inputData()$controltime, event = inputData()$controlevent)
       km <- survival::survfit(Surv(time, event)~1, data = controlSample)
-      autoplot(km, conf.int = F, surv.colour = "red", xlab = "Time", ylab="Survival")  + 
-        geom_line(data = controldf, aes(x = controltime, y = controlsurv), colour = "blue")
-      
+      lines(km)
     }
+    
+    
     
   })
   
@@ -515,8 +584,10 @@ server = function(input, output, session) {
     
     time <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
     
+    quicktime <- time[seq(1, length(time), by=5)]
+    
     #We fill a matrix with the treatment survival probabilities at each time
-    SimMatrix <- matrix(NA, nrow = nsamples, ncol=length(time))
+    SimMatrix <- matrix(NA, nrow = nsamples, ncol=length(quicktime))
     
     for (i in 1:nsamples){
       
@@ -533,8 +604,8 @@ server = function(input, output, session) {
       treatmenttime <- seq(bigT, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
       treatmentsurv <- exp(-(input$lambdac*bigT)^input$gammac - lambdat^gammat*(treatmenttime^gammat-bigT^gammat))
       
-      timecombined <- c(controltime, treatmenttime)[1:length(time)]
-      survcombined <- c(controlsurv, treatmentsurv)[1:length(time)]
+      timecombined <- c(controltime, treatmenttime)[1:length(quicktime)]
+      survcombined <- c(controlsurv, treatmentsurv)[1:length(quicktime)]
       
       #The i'th row of the matrix is filled with the survival probabilities for these sampled T and HR
       SimMatrix[i,] <- survcombined
@@ -545,16 +616,16 @@ server = function(input, output, session) {
     #We look at the 0.1 and 0.9 quantile of the distribution
     #These quantiles can be thought of as confidence intervals for the treatment curve, taken from
     #the elicited distributions
-    lowerbound <- rep(NA, length(time))
-    upperbound <- rep(NA, length(time))
-    medianTreatment <- rep(NA, length(time))
-    for (j in 1:length(time)){
+    lowerbound <- rep(NA, length(quicktime))
+    upperbound <- rep(NA, length(quicktime))
+    medianTreatment <- rep(NA, length(quicktime))
+    for (j in 1:length(quicktime)){
       lowerbound[j] <- quantile(SimMatrix[,j], 0.1)
       upperbound[j] <- quantile(SimMatrix[,j], 0.9)
       medianTreatment[j] <- quantile(SimMatrix[,j], 0.5)
     }
     
-    return(list(lowerbound=lowerbound, upperbound=upperbound, time=time, SimMatrix = SimMatrix, 
+    return(list(lowerbound=lowerbound, upperbound=upperbound, quicktime=quicktime, SimMatrix = SimMatrix, 
                 medianTreatment = medianTreatment))
     
   })
