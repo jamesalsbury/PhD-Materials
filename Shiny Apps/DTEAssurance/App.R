@@ -207,7 +207,7 @@ ui <- fluidPage(
              HTML("<p>The elicitation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>"),
              HTML("<p>There is also an option to include some mass at T = 0 and HR = 1.</p>"),
              HTML("<p><u>Feedback</u></p>"),
-             HTML("<p>The initial plot may take ~ 5 seconds to load. The plot shows the control survival curve (from the control tab), along with the median elicited treatment line (calculated from the previous two tabs). 
+             HTML("<p>The plot shows the control survival curve (from the control tab), along with the median elicited treatment line (calculated from the previous two tabs). 
                   There are also three optional quantities to view: the first is the median survival time for both groups, the second is a 95% confidence interval for T and the
                   third shows a 80% confidence interval for the treatment curve. When the median survival time is added to the plot, a second plot is shown below. Initially, this plot is a histogram for the 
                   treatment median survival time. However, the user is able to change this median to any other quantile of interest.</p>"),
