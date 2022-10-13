@@ -9,6 +9,7 @@ library(ggfortify)
 library(pbapply)
 library(shinyjs)
 library(dplyr)
+library(survminer)
 
 source("functions.R")
 
@@ -247,7 +248,7 @@ server = function(input, output, session) {
   
   drawsimlinescontrol <- reactive({
    
-    nsamples <- 250
+    nsamples <- 500
     
     time <- seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
     
@@ -303,8 +304,8 @@ server = function(input, output, session) {
       updateTextInput(session, "gammacsd", value = signif(gammacsd, 3))
       shinyjs::show(id = "AddKM")
       shinyjs::show(id = "RemoveKM")
-      return(list(gammac = as.numeric(exp(-weibfit$icoef[2])), lambdac = as.numeric(1/(exp(weibfit$icoef[1]))), 
-                  controltime = controlSample$time, controlevent = controlSample$event, fitsummary = fitsummary))
+      return(list(gammacmean = gammacmean, lambdacmean = lambdacmean, gammacsd = gammacsd, lambdacsd = lambdacsd,
+                controltime = controlSample$time, controlevent = controlSample$event, fitsummary = fitsummary))
     }
     
   })
@@ -315,8 +316,8 @@ server = function(input, output, session) {
     } else {
       #Tells the user what the best fitting parameters are for their uploaded sample
       str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
-      str2 <- paste0("Lambdac = ", round(inputData()$lambdac, 3))
-      str3 <- paste0("Gammac = ", round(inputData()$gammac, 3))
+      str2 <- paste0("Lambdac = ", round(inputData()$lambdacmean, 3), " with a standard error of ", round(inputData()$lambdacsd, 3))
+      str3 <- paste0("Gammac = ", round(inputData()$gammacmean, 3), " with a standard error of ", round(inputData()$gammacsd, 3))
       HTML(paste(str1, str2, str3, sep = '<br/>'))
     }
     
@@ -324,17 +325,37 @@ server = function(input, output, session) {
   
   output$plotControl <- renderPlot({
     
-    plot(drawsimlinescontrol()$quicktime, drawsimlinescontrol()$mediancontrol, type="l", col="blue", ylim=c(0,1))
-    lines(drawsimlinescontrol()$quicktime, drawsimlinescontrol()$lowerbound, lty=2)
-    lines(drawsimlinescontrol()$quicktime, drawsimlinescontrol()$upperbound, lty=2)
+    controldf <- data.frame(controltime = drawsimlinescontrol()$quicktime, controlcurve = drawsimlinescontrol()$mediancontrol)
+    controllowerbounddf <- data.frame(x = drawsimlinescontrol()$quicktime, y = drawsimlinescontrol()$lowerbound)
+    controlupperbounddf <- data.frame(x = drawsimlinescontrol()$quicktime, y = drawsimlinescontrol()$upperbound)
+    mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, length=5), accuracy = 5)
+    
+    theme_set(theme_grey(base_size = 12))
+    p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) + xlim(0, mybreaks[length(mybreaks)]) + 
+      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1) + geom_line(data = controllowerbounddf, aes(x=x, y=y), linetype="dashed")+
+      geom_line(data = controlupperbounddf, aes(x=x, y=y), linetype="dashed") + scale_x_continuous(breaks = mybreaks)
+    
+    print(p1)
    
     if (is.null(v$km)){
       
     } else{
+      
+      mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, length=5), accuracy = 5)
       controlSample <- data.frame(time = inputData()$controltime, event = inputData()$controlevent)
       km <- survival::survfit(Surv(time, event)~1, data = controlSample)
-      lines(km)
+      theme_set(theme_grey(base_size = 12))
+      p1 <- ggsurvplot(km, data = controlSample, conf.int = T, xlim = c(0, mybreaks[length(mybreaks)]), legend = "none", ylab="Survival", ggtheme = theme_grey(base_size = 12))
+      p1 <- p1$plot +  scale_x_continuous(breaks = mybreaks)
+      p1 <- p1 + geom_line(data = controllowerbounddf, aes(x=x, y=y), linetype="dashed") + 
+        geom_line(data = controlupperbounddf, aes(x=x, y=y), linetype="dashed") + 
+        geom_line(data = controldf, aes(x=controltime, y=controlcurve), colour = "blue")
+     # p1 <- p1 + scale_x_continuous(breaks = mybreaks)
+      print(p1)
+      
     }
+    
+    #legend.title=element_blank()
     
     
     
@@ -576,13 +597,12 @@ server = function(input, output, session) {
   
   drawsimlines <- reactive({
     
-    gammat <- input$gammac
-    
+    gammat <- input$gammacmean
     
     mySample <- drawsamples()$mySample
     nsamples <- 500
     
-    time <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
+    time <- seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
     
     quicktime <- time[seq(1, length(time), by=5)]
     
@@ -594,17 +614,19 @@ server = function(input, output, session) {
       bigT <- sample(mySample[,1], 1)
       HR <- sample(mySample[,2], 1)
       
-      lambdat <- input$lambdac*HR^(1/input$gammac)
+      lambdat <- input$lambdacmean*HR^(1/input$gammacmean)
       if (bigT!=0){
         controltime <- seq(0, bigT, by=0.01)
-        controlsurv <- exp(-(input$lambdac*controltime)^input$gammac)
+        quickcontroltime <- controltime[seq(1, length(controltime), by=5)]
+        controlsurv <- exp(-(input$lambdacmean*quickcontroltime)^input$gammacmean)
       }
       
       
-      treatmenttime <- seq(bigT, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
-      treatmentsurv <- exp(-(input$lambdac*bigT)^input$gammac - lambdat^gammat*(treatmenttime^gammat-bigT^gammat))
+      treatmenttime <- seq(bigT, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
+      quicktreatmenttime <- treatmenttime[seq(1, length(treatmenttime), by=5)]
+      treatmentsurv <- exp(-(input$lambdacmean*bigT)^input$gammacmean - lambdat^gammat*(quicktreatmenttime^gammat-bigT^gammat))
       
-      timecombined <- c(controltime, treatmenttime)[1:length(quicktime)]
+      timecombined <- c(quickcontroltime, quicktreatmenttime)[1:length(quicktime)]
       survcombined <- c(controlsurv, treatmentsurv)[1:length(quicktime)]
       
       #The i'th row of the matrix is filled with the survival probabilities for these sampled T and HR
@@ -640,8 +662,8 @@ server = function(input, output, session) {
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
         if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
-          simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
-          simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
+          simlineslower <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$lowerbound)
+          simlinesupper <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$upperbound)
           CIwidth <- simlinesupper[simlinesupper$x==25,]$y - simlineslower[simlineslower$x==25,]$y
           midpoint <- (simlinesupper[simlinesupper$x==25,]$y + simlineslower[simlineslower$x==25,]$y)/2
           n <- (16*midpoint*(1-midpoint))/(CIwidth^2)
@@ -656,21 +678,16 @@ server = function(input, output, session) {
   })
   
   output$plotFeedback <- renderPlot({
-    
     #This plots the feedback plot
-    gammat <- input$gammac
-    controltime <- seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, by=0.01)
-    controlcurve <- exp(-(input$lambdac*controltime)^input$gammac)
-    controldf <- data.frame(controltime = controltime, controlcurve = controlcurve)
+    
+    controldf <- data.frame(controltime = drawsimlinescontrol()$quicktime, controlcurve = drawsimlinescontrol()$mediancontrol)
     theme_set(theme_grey(base_size = 12))
     p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) +
       geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)
     
     
-    
-    
-    simlinesmedian <- data.frame(x = drawsimlines()$time, y = drawsimlines()$medianTreatment)
-    mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1, length=5), accuracy = 5)
+    simlinesmedian <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$medianTreatment)
+    mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, length=5), accuracy = 5)
     p1 <-  p1 + geom_line(data = simlinesmedian, aes(x = x, y = y), colour = "red") + scale_x_continuous(breaks = mybreaks)
     
     print(p1)
@@ -687,8 +704,8 @@ server = function(input, output, session) {
         if (addfeedback[i]=="Median survival line"){
           shinyjs::show(id = "feedbackQuantile")
           #Looks at whether the median time is before or after the delay
-          medianTTime <- drawsimlines()$time[sum(drawsimlines()$medianTreatment>0.5)]
-          medianCTime <- (1/input$lambdac)*(-log(0.5))^(1/input$gammac)
+          medianTTime <- drawsimlines()$quicktime[sum(drawsimlines()$medianTreatment>0.5)]
+          medianCTime <- (1/input$lambdacmean)*(-log(0.5))^(1/input$gammacmean)
           if (abs(medianTTime-medianCTime)<0.001){
             mediandf <- data.frame(x = seq(0, medianCTime, length=2), y = rep(0.5, 2))
             mediandf1 <- data.frame(x = rep(medianCTime, 2), y = seq(0, 0.5, length=2))
@@ -716,8 +733,8 @@ server = function(input, output, session) {
           
         } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           #This adds the simulated confidence interval lines
-          simlineslower <- data.frame(x = drawsimlines()$time, y = drawsimlines()$lowerbound)
-          simlinesupper <- data.frame(x = drawsimlines()$time, y = drawsimlines()$upperbound)
+          simlineslower <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$lowerbound)
+          simlinesupper <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$upperbound)
           p1 <- p1 + geom_line(data = simlineslower, aes(x=x, y=y), linetype="dashed")+
             geom_line(data = simlinesupper, aes(x=x, y=y), linetype="dashed")
           
@@ -747,7 +764,7 @@ server = function(input, output, session) {
           
           quantileMatrix <- drawsimlines()$SimMatrix
           
-          quantileTime <- drawsimlines()$time
+          quantileTime <- drawsimlines()$quicktime
           
           quantileVec <- rep(NA, length = nrow(quantileMatrix))
           
@@ -758,7 +775,7 @@ server = function(input, output, session) {
           quantiledf <- data.frame(quantiletime = quantileVec)
           
           theme_set(theme_grey(base_size = 12))
-          p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammac)-log(input$lambdac))*1.1) +
+          p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1) +
             xlab("Time")
           
           print(p1)
@@ -777,7 +794,6 @@ server = function(input, output, session) {
   calculateNormalAssurance <- eventReactive(input$drawAssurance, {
     
     #Makes the simplification
-    gammat <- input$gammac
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
@@ -814,9 +830,13 @@ server = function(input, output, session) {
           HR <- 1
         }
         
-        lambdat <- input$lambdac*HR^(1/input$gammac)
+        lambdac <- rnorm(1, mean = input$lambdacmean, sd = input$lambdacsd)
+        gammac <- rnorm(1, mean = input$gammacmean, sd = input$gammacsd)
+        gammat <- gammac
         
-        dataCombined <- SimDTEDataSet(n1, n2, gammat, input$gammac, lambdat, input$lambdac, bigT, input$rectime, input$chosenLength)
+        lambdat <- lambdac*HR^(1/gammac)
+        
+        dataCombined <- SimDTEDataSet(n1, n2, gammat, gammac, lambdat, lambdac, bigT, input$rectime, input$chosenLength)
         
         coxmodel <- coxph(Surv(time, event)~group, data = dataCombined)
         
