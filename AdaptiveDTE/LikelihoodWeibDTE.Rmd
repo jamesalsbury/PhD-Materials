@@ -28,15 +28,16 @@ $$f(t) = \frac{d}{dt}[1-S(t)]$$
 
 Therefore, the above survival probabilities can be manipulated to give the following densities
 
-$$f_c(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamma_2}\}}{t}$$
-$$f_t(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamma_2}\}}{t}\mathbb{1}_{t\leq T}+\gamma_1\lambda_1^{\gamma_1}t^{\gamma_1-1}\text{exp}\{-\lambda_1^{\gamma_1}(t^{\gamma_1}-T^{\gamma_1})-(T\lambda_2)^{\gamma_2}\}\mathbb{1}_{t>T}$$
+$$f_c(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamma_2}\}}{t}$$ $$f_t(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamma_2}\}}{t}\mathbb{1}_{t\leq T}+\gamma_1\lambda_1^{\gamma_1}t^{\gamma_1-1}\text{exp}\{-\lambda_1^{\gamma_1}(t^{\gamma_1}-T^{\gamma_1})-(T\lambda_2)^{\gamma_2}\}\mathbb{1}_{t>T}$$
 
 <!-- Therefore, the joint density is -->
 
-
 <!-- \begin{align} -->
+
 <!-- p(\textbf{x}|\lambda_1, \gamma_1,\lambda_2,\gamma_2, T) &= p(x_{c,1},\ldots,x_{c,n}|\lambda_2, \gamma_2) \times p(x_{t,1},\ldots,x_{t,m}|\lambda_1, \gamma_1,\lambda_2,\gamma_2, T) \\ -->
+
 <!-- &= p(x_{c,1},\ldots,x_{c,n}|\lambda_2, \gamma_2) \times p(x_{t,1},\ldots,x_{t,j}|\lambda_2, \gamma_2) \times p(x_{t,j+1},\ldots,x_{t,m}|\lambda_1, \gamma_1,\lambda_2,\gamma_2, T), -->
+
 <!-- \end{align} -->
 
 <!-- where $x_{t,j}$ is the largest observed $x$ in the treatment group before T. -->
@@ -44,20 +45,24 @@ $$f_t(t) = \frac{\gamma_2(\lambda_2t)^{\gamma_2}\text{exp}\{-(\lambda_2t)^{\gamm
 <!-- The joint likelihood is  -->
 
 <!-- \begin{align} -->
+
 <!-- \mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= \prod^n_{i=1} \frac{\gamma_2(\lambda_2x_{c,i})^{\gamma_2}\text{exp}\{-(\lambda_2x_{c,i})^{\gamma_2}\}}{x_{c,i}} \times \prod^j_{k=1}  \frac{\gamma_2(\lambda_2x_{t,k})^{\gamma_2}\text{exp}\{-(\lambda_2x_{t,k})^{\gamma_2}\}}{x_{t,k}} \times \prod^m_{p=j+1} -->
+
 <!-- \gamma_1\lambda_1^{\gamma_1}x_{t,p}^{\gamma_1-1}\text{exp}\{-\lambda_1^{\gamma_1}(x_{t,p}^{\gamma_1}-T^{\gamma_1})-(T\lambda_2)^{\gamma_2}\} \\ -->
 
-
 <!-- &= \gamma_2^n\lambda_2^{n\gamma_2}\{\prod_{i=1}^nx_{c,i}\}^{\gamma_2}\text{exp}\{-\lambda_2^{\gamma_2}\sum^n_{i=1}(x_{c,i}^{\gamma_2})\}\prod^n_{i=1}\frac{1}{x_{c,i}} \times \gamma_2^j\lambda_2^{j\gamma_2}\{\prod_{k=1}^jx_{t,k}\}^{\gamma_2}\text{exp}\{-\lambda_2^{\gamma_2}\sum^j_{k=1}(x_{t,k}^{\gamma_2})\}\prod^j_{k=1}\frac{1}{x_{t,k}} \times \gamma_1^{m-j}\lambda_1^{\gamma_1(m-j)}\{\prod^m_{p=j+1}x_{t,p}\}^{\gamma_1-1}\text{exp}\{-\lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big]\} -->
+
 <!-- \end{align} -->
 
 <!-- We find the log-likelihood -->
 
 <!-- \begin{align} -->
+
 <!-- \text{log} \mathcal{L}(\lambda_1, \gamma_1,\lambda_2,\gamma_2, T|x_{c,1},\ldots,x_{c,n}, x_{t,1}, \ldots, x_{t, m}) &= n\text{log}\gamma_2 + n\gamma_2\text{log}\lambda_2+\gamma_2\sum^n_{i=1}\text{log}x_{c,i}-\lambda_2^{\gamma_2}\sum^{n}_{i=1}x_{c,i}^{\gamma_2}+\sum^{n}_{i=1}\text{log}\frac{1}{x_{c,i}} + j\text{log}\gamma_2 + j\gamma_2\text{log}\lambda_2+\gamma_2\sum^j_{k=1}\text{log}x_{t,k}-\lambda_2^{\gamma_2}\sum^{j}_{k=1}x_{t,k}^{\gamma_2}+\sum^{j}_{k=1}\text{log}\frac{1}{x_{t,k}}+(m-j)\text{log}\gamma_1+\gamma_1(m-j)\text{log}\lambda_1+(\gamma_1-1)\sum^m_{p=j+1}\text{log}x_{t,p} - \lambda_1^{\gamma_1}\sum^m_{p=j+1}(x_{t,p}^{\gamma_1})+(m-j)\big[(\lambda_1T)^{\gamma_1}-(\lambda_2T)^{\gamma_2}\big] -->
+
 <!-- \end{align} -->
 
-If we let $\gamma_1=\gamma_2$ the hazard ratio is 
+If we let $\gamma_1=\gamma_2$ the hazard ratio is
 
 $$
 \text{HR}=
@@ -69,8 +74,7 @@ $$
 
 In consultation with experts, we have elicited the following distributions:
 
-$$T \sim N(6, 1)$$
-$$\text{post-delay HR} \sim Be(6.6, 4.5)$$
+$$T \sim N(6, 1)$$ $$\text{post-delay HR} \sim Be(6.6, 4.5)$$
 
 These distributions can be seen below
 
@@ -85,25 +89,26 @@ y <- dbeta(x, 6.6, 4.5)
 plot(x, y, type="l", xlab="post-delay HR", ylab="density")
 ```
 
-We can simulate some data according to some underlying parameters (in practice, we would not know these), combine the data with our prior distributions to obtain posterior distributions for $T$ and post-delay HR. 
+We can simulate some data according to some underlying parameters (in practice, we would not know these), combine the data with our prior distributions to obtain posterior distributions for $T$ and post-delay HR.
 
 ```{r, eval=T, echo=T, cache=T}
 #set.seed(53)
 #Setting up the correct parameters - we would not know this in practice
 
 TPPIA <- function(IATime){
-  TPPval <- rep(NA, 30)
-for (i in 1:30){
+  TPPval <- rep(NA, 51)
+  TPPval[1] <- IATime
+for (i in 2:51){
   HR <- rnorm(1, 0.8, sd = 0.148)
-bigT <- rgamma(1, 65.5, 10.9)
+bigT <- 0.8
 gamma1 <- gamma2 <- 0.8
 lambda2 <- 0.08
 lambda1  <- lambda2*HR^(1/gamma2)
 
 
 #Sample sizes in each group
-n1 <- 360
-n2 <- 360
+n1 <- 200
+n2 <- 200
 
 #When is the final analysis time?
 #trialLength <- 60
@@ -175,7 +180,7 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 500)
 #plot(output)
 print(IATime)
 print(i)
-TPPval[i] <- mean(output[[1]][,1]<0.75)
+TPPval[i] <- mean(output[[1]][,1]<0.7)
 }
 
 
@@ -183,7 +188,7 @@ return(TPPval)
 
 }
 
-IATimeVec <- seq(30, 70, by=10)
+IATimeVec <- seq(5, 45, by=10)
 #IATimeVec <- 60
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
@@ -259,9 +264,4 @@ outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
 
 ```
 
-
-There is a question of what to do at this interim analysis stage, we could use these posteriors - especially the one for HR - to look at how much more informed we are at this interim analysis stage than we were compared to before the trial. We could also sample future observations from these posterior distributions and then combine these simulated future observations with the observations seen at the interim analysis stage to calculate Bayesian predictive probabilities.  
-
-
-
-
+There is a question of what to do at this interim analysis stage, we could use these posteriors - especially the one for HR - to look at how much more informed we are at this interim analysis stage than we were compared to before the trial. We could also sample future observations from these posterior distributions and then combine these simulated future observations with the observations seen at the interim analysis stage to calculate Bayesian predictive probabilities.
