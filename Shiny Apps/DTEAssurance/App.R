@@ -21,206 +21,206 @@ ui <- fluidPage(
   
   # sidebarLayout(
   mainPanel(
-  
-  tabsetPanel(
-    # Control UI ---------------------------------
     
-    tabPanel("Control", 
-             sidebarLayout(
-               sidebarPanel = sidebarPanel(
-                 fileInput("uploadSample", "Upload your control sample"),
-                 splitLayout(
-                   numericInput("lambdacmean", 'mean (\\(\\text{scale} = \\lambda_c \\))', value=0.08, min=0),
-                   numericInput("lambdacsd", 'SD (\\(\\text{scale} = \\lambda_c \\))', value=0.01, min=0)
+    tabsetPanel(
+      # Control UI ---------------------------------
+      
+      tabPanel("Control", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   fileInput("uploadSample", "Upload your control sample"),
+                   splitLayout(
+                     numericInput("lambdacmean", 'mean (\\(\\text{scale} = \\lambda_c \\))', value=0.08, min=0),
+                     numericInput("lambdacsd", 'SD (\\(\\text{scale} = \\lambda_c \\))', value=0.01, min=0)
+                   ),
+                   splitLayout(
+                     numericInput("gammacmean", 'mean (\\(\\text{shape} = \\gamma_c \\))', value=0.8, min=0),
+                     numericInput("gammacsd", 'SD (\\(\\text{shape} = \\gamma_c \\))', value=0.1, min=0)
+                   ),
+                   splitLayout(
+                     actionButton("decreasevar", '10% decrease \\(\\sigma \\)'),
+                     actionButton("increasevar", '10% increase \\(\\sigma \\)')
+                   ),
+                   splitLayout(
+                     hidden(actionButton("AddKM", "Add KM line(s)")),
+                     hidden(actionButton("RemoveKM", "Remove KM line(s)"))
+                   )
+                   
+                   
+                 ), 
+                 mainPanel = mainPanel(
+                   plotOutput("plotControl"),
+                   htmlOutput("recommendedParams")
+                 )
+               ),
+      ),
+      
+      # Length of delay UI ---------------------------------
+      tabPanel("Eliciting the length of delay",
+               fluidRow(
+                 column(4, 
+                        textInput("limits1", label = h5("Length of delay limits"), 
+                                  value = "0, 12")
                  ),
-                 splitLayout(
-                   numericInput("gammacmean", 'mean (\\(\\text{shape} = \\gamma_c \\))', value=0.8, min=0),
-                   numericInput("gammacsd", 'SD (\\(\\text{shape} = \\gamma_c \\))', value=0.1, min=0)
+                 column(4,
+                        textInput("values1", label = h5("Length of delay values"), 
+                                  value = "5.5, 6, 6.5")
                  ),
-                 splitLayout(
-                   actionButton("decreasevar", '10% decrease \\(\\sigma \\)'),
-                   actionButton("increasevar", '10% increase \\(\\sigma \\)')
+                 column(4,
+                        textInput("probs1", label = h5("Cumulative probabilities"), 
+                                  value = "0.25, 0.5, 0.75")
+                 )
+               ),
+               fluidRow(
+                 column(4, 
+                        selectInput("dist1", label = h5("Distribution"), 
+                                    choices =  list(Histogram = "hist",
+                                                    Gamma = "gamma",
+                                                    'Log normal' = "lognormal",
+                                                    Beta = "beta",
+                                                    'Best fitting' = "best"),
+                                    #choiceValues = 1:8,
+                                    selected = 1
+                        )),
+                 column(4,conditionalPanel(
+                   condition = "input.dist1 == 't' || input.dist1 == 'logt' || input.dist1 == 'mirrorlogt'",
+                   numericInput("tdf1", label = h5("Student-t degrees of freedom"),
+                                value = 3)
+                 )
                  ),
-                 splitLayout(
-                   hidden(actionButton("AddKM", "Add KM line(s)")),
-                   hidden(actionButton("RemoveKM", "Remove KM line(s)"))
+                 column(4,
+                        numericInput("massT0", label = h5("Pr(T=0)"), value = 0.05, min = 0, max = 1)
                  )
                  
-    
-               ), 
-               mainPanel = mainPanel(
-                 plotOutput("plotControl"),
-                 htmlOutput("recommendedParams")
-               )
-             ),
-    ),
-    
-    # Length of delay UI ---------------------------------
-    tabPanel("Eliciting the length of delay",
-             fluidRow(
-               column(4, 
-                      textInput("limits1", label = h5("Length of delay limits"), 
-                                value = "0, 12")
                ),
-               column(4,
-                      textInput("values1", label = h5("Length of delay values"), 
-                                value = "5.5, 6, 6.5")
-               ),
-               column(4,
-                      textInput("probs1", label = h5("Cumulative probabilities"), 
-                                value = "0.25, 0.5, 0.75")
-               )
-             ),
-             fluidRow(
-               column(4, 
-                      selectInput("dist1", label = h5("Distribution"), 
-                                  choices =  list(Histogram = "hist",
-                                                  Gamma = "gamma",
-                                                  'Log normal' = "lognormal",
-                                                  Beta = "beta",
-                                                  'Best fitting' = "best"),
-                                  #choiceValues = 1:8,
-                                  selected = 1
-                      )),
-               column(4,conditionalPanel(
-                 condition = "input.dist1 == 't' || input.dist1 == 'logt' || input.dist1 == 'mirrorlogt'",
-                 numericInput("tdf1", label = h5("Student-t degrees of freedom"),
-                              value = 3)
-               )
-               ),
-               column(4,
-                      numericInput("massT0", label = h5("Pr(T=0)"), value = 0.05, min = 0, max = 1)
-               )
-               
-             ),
-             plotOutput("distPlot1")
-    ),
-    # post-delay HR UI ---------------------------------
-    tabPanel("Eliciting the post-delay hazard ratio",
-             fluidRow(
-               column(4, 
-                      textInput("limits2", label = h5("Post-delay hazard ratio limits"), 
-                                value = "0, 1")
-               ),
-               column(4,
-                      textInput("values2", label = h5("Post-delay hazard ratio values"), 
-                                value = "0.5, 0.6, 0.7")
-               ),
-               column(4,
-                      textInput("probs2", label = h5("Cumulative probabilities"), 
-                                value = "0.25, 0.5, 0.75")
-               )
-             ),
-             fluidRow(
-               column(4, 
-                      selectInput("dist2", label = h5("Distribution"), 
-                                  choices =  list(Histogram = "hist",
-                                                  Normal = "normal", 
-                                                  'Student-t' = "t",
-                                                  Gamma = "gamma",
-                                                  'Log normal' = "lognormal",
-                                                  'Log Student-t' = "logt",
-                                                  Beta = "beta",
-                                                  'Mirror gamma' = "mirrorgamma",
-                                                  'Mirror log normal' = "mirrorlognormal",
-                                                  'Mirror log Student-t' = "mirrorlogt",
-                                                  'Best fitting' = "best"),
-                                  #choiceValues = 1:8,
-                                  selected = 1
-                      )),
-               column(4,
-                      conditionalPanel(
-                        condition = "input.dist2 == 't' || input.dist2 == 'logt' || input.dist1 == 'mirrorlogt'",
-                        numericInput("tdf2", label = h5("degrees of freedom"),
-                                     value = 3)
-                        
-                        
-                      )
-               ),
-               column(4,
-                      numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0.05, min = 0, max = 1)
-               )
-               
-             ),
-             
-             plotOutput("distPlot2"),
-             htmlOutput("HRProportion")
-    ),
-    
-    # Feedback UI ---------------------------------
-    tabPanel("Feedback", 
-             sidebarLayout(
-               sidebarPanel = sidebarPanel(
-                 checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Treatment Curve (0.1 and 0.9)")),
-                 hidden(numericInput("feedbackQuantile", "Uncertainty about the following survival quantile:", value = 0.5, min = 0, max = 1)),
-               ),
-               mainPanel = mainPanel(
-                 plotOutput("plotFeedback"),
-                 htmlOutput("priorWorthFeedback"),
-                 plotOutput("quantilePlot")
-               )
-             ),
-    ),
-    
-    # Assurance UI ---------------------------------
-    tabPanel("Calculating assurance",
-             sidebarLayout(
-               sidebarPanel = sidebarPanel(
-                 shinyjs::useShinyjs(),
-                 numericInput("numofpatients", "Maximum number of patients in the trial", value=1000),
-                 numericInput("rectime", "Recruitment length", value=6),
-                 
-                 
-                 splitLayout(
-                   numericInput("n1", "Ratio control", value=1, min=1),
-                   numericInput("n2", "Ratio treatment", value=1, min=1)
-                   
+               plotOutput("distPlot1")
+      ),
+      # post-delay HR UI ---------------------------------
+      tabPanel("Eliciting the post-delay hazard ratio",
+               fluidRow(
+                 column(4, 
+                        textInput("limits2", label = h5("Post-delay hazard ratio limits"), 
+                                  value = "0, 1")
                  ),
-                 numericInput("chosenLength", "Maximum trial duration (including recruitment time)", value=60),
-                 numericInput("TPP", "Target effect (average hazard ratio)", value = 0.8),
-                 actionButton("drawAssurance", "Produce plot")
-               ), 
-               mainPanel = mainPanel(
-                 plotOutput("assurancePlot"),
-                 htmlOutput("assuranceText"),
-                 plotOutput("AHRPlot")
-               )
-             ),
-             
-    ),
-    
-    #Help UI ---------------------------------
-    #Need to say what files can be uploaded in the control sample
-    #Link to SHELF for the elicitation
-    tabPanel("Help",
-             HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper</a>. For every tab, there is a brief summary below, for any other questions, comments or
+                 column(4,
+                        textInput("values2", label = h5("Post-delay hazard ratio values"), 
+                                  value = "0.5, 0.6, 0.7")
+                 ),
+                 column(4,
+                        textInput("probs2", label = h5("Cumulative probabilities"), 
+                                  value = "0.25, 0.5, 0.75")
+                 )
+               ),
+               fluidRow(
+                 column(4, 
+                        selectInput("dist2", label = h5("Distribution"), 
+                                    choices =  list(Histogram = "hist",
+                                                    Normal = "normal", 
+                                                    'Student-t' = "t",
+                                                    Gamma = "gamma",
+                                                    'Log normal' = "lognormal",
+                                                    'Log Student-t' = "logt",
+                                                    Beta = "beta",
+                                                    'Mirror gamma' = "mirrorgamma",
+                                                    'Mirror log normal' = "mirrorlognormal",
+                                                    'Mirror log Student-t' = "mirrorlogt",
+                                                    'Best fitting' = "best"),
+                                    #choiceValues = 1:8,
+                                    selected = 1
+                        )),
+                 column(4,
+                        conditionalPanel(
+                          condition = "input.dist2 == 't' || input.dist2 == 'logt' || input.dist1 == 'mirrorlogt'",
+                          numericInput("tdf2", label = h5("degrees of freedom"),
+                                       value = 3)
+                          
+                          
+                        )
+                 ),
+                 column(4,
+                        numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0.05, min = 0, max = 1)
+                 )
+                 
+               ),
+               
+               plotOutput("distPlot2"),
+               htmlOutput("HRProportion")
+      ),
+      
+      # Feedback UI ---------------------------------
+      tabPanel("Feedback", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Treatment Curve (0.1 and 0.9)")),
+                   hidden(numericInput("feedbackQuantile", "Uncertainty about the following survival quantile:", value = 0.5, min = 0, max = 1)),
+                 ),
+                 mainPanel = mainPanel(
+                   plotOutput("plotFeedback"),
+                   htmlOutput("priorWorthFeedback"),
+                   plotOutput("quantilePlot")
+                 )
+               ),
+      ),
+      
+      # Assurance UI ---------------------------------
+      tabPanel("Calculating assurance",
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   shinyjs::useShinyjs(),
+                   numericInput("numofpatients", "Maximum number of patients in the trial", value=1000),
+                   numericInput("rectime", "Recruitment length", value=6),
+                   
+                   
+                   splitLayout(
+                     numericInput("n1", "Ratio control", value=1, min=1),
+                     numericInput("n2", "Ratio treatment", value=1, min=1)
+                     
+                   ),
+                   numericInput("chosenLength", "Maximum trial duration (including recruitment time)", value=60),
+                   numericInput("TPP", "Target effect (average hazard ratio)", value = 0.8),
+                   actionButton("drawAssurance", "Produce plot")
+                 ), 
+                 mainPanel = mainPanel(
+                   plotOutput("assurancePlot"),
+                   htmlOutput("assuranceText"),
+                   plotOutput("AHRPlot")
+                 )
+               ),
+               
+      ),
+      
+      #Help UI ---------------------------------
+      #Need to say what files can be uploaded in the control sample
+      #Link to SHELF for the elicitation
+      tabPanel("Help",
+               HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper</a>. For every tab, there is a brief summary below, for any other questions, comments or
                   feedback, please contact <a href='mailto:jsalsbury1@sheffield.ac.uk'>James Salsbury</a>.</p>"),
-             HTML("<p><u>Control</u></p>"),
-             HTML("<p>Here, the parameters for the control survival are specified, the parameterisation for the control survival curve is:</p>"),
-             withMathJax(paste0(" $$S_c(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}$$")),
-             HTML("<p>The control tab also allows an upload of an Excel file containing survival data for the control sample. 
+               HTML("<p><u>Control</u></p>"),
+               HTML("<p>Here, the parameters for the control survival are specified, the parameterisation for the control survival curve is:</p>"),
+               withMathJax(paste0(" $$S_c(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}$$")),
+               HTML("<p>The control tab also allows an upload of an Excel file containing survival data for the control sample. 
                   The Excel file needs to have two columns: the first column containing the survival time, and the second column containing the event status (1 for dead, 0 for alive).</p>"),
-             HTML("<p><u>Eliciting the two parameters: T and post-delay HR</u></p>"),
-             HTML("<p>These two tabs elicit beliefs from the user about two quantities: the length of delay, T, and the post-delay HR. The parameterisation for the treatment survival curve is:</p>"),
-             withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}, t \\leq T$$")),
-             withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_cT)^{\\gamma_c}-\\lambda_t^{\\gamma_t}(t^{\\gamma+t}-T^{\\gamma_t})\\}, t > T$$")),
-             HTML("<p>The elicitation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>"),
-             HTML("<p>There is also an option to include some mass at T = 0 and HR = 1.</p>"),
-             HTML("<p><u>Feedback</u></p>"),
-             HTML("<p>The plot shows the control survival curve (from the control tab), along with the median elicited treatment line (calculated from the previous two tabs). 
+               HTML("<p><u>Eliciting the two parameters: T and post-delay HR</u></p>"),
+               HTML("<p>These two tabs elicit beliefs from the user about two quantities: the length of delay, T, and the post-delay HR. The parameterisation for the treatment survival curve is:</p>"),
+               withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}, t \\leq T$$")),
+               withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_cT)^{\\gamma_c}-\\lambda_t^{\\gamma_t}(t^{\\gamma+t}-T^{\\gamma_t})\\}, t > T$$")),
+               HTML("<p>The elicitation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>"),
+               HTML("<p>There is also an option to include some mass at T = 0 and HR = 1.</p>"),
+               HTML("<p><u>Feedback</u></p>"),
+               HTML("<p>The plot shows the control survival curve (from the control tab), along with the median elicited treatment line (calculated from the previous two tabs). 
                   There are also three optional quantities to view: the first is the median survival time for both groups, the second is a 95% confidence interval for T and the
                   third shows a 80% confidence interval for the treatment curve. When the median survival time is added to the plot, a second plot is shown below. Initially, this plot is a histogram for the 
                   treatment median survival time. However, the user is able to change this median to any other quantile of interest.</p>"),
-             HTML("<p><u>Calculating assurance</u></p>"),
-             HTML("<p>This tab allows the user to calculate assurance, given the control parameters and elicited prior distributions  for T and post-delay HR. Some additional questions
+               HTML("<p><u>Calculating assurance</u></p>"),
+               HTML("<p>This tab allows the user to calculate assurance, given the control parameters and elicited prior distributions  for T and post-delay HR. Some additional questions
                   about the trial are found on the left-hand panel. The app assumes uniform recruitment and uses a log-rank test for analysis of the simulated data. Depending on your processor speed, this 
                   calculation can take between 30-40 seconds. Once the calculation is complete, the app shows two plots. The top plot shows assurance (along with standard error curves) and target effect curve - which
                   shows the proportion of trials in which the target effect was observed. The bottom plot shows the average hazard ratio observed and the corresponding confidence intervals for this. </p>")
-    ),
+      ),
+      
+      
+    ), style='width: 1000px; height: 600px',
     
-    
-  ), style='width: 1000px; height: 600px',
-  
   )
 )
 
@@ -230,45 +230,54 @@ server = function(input, output, session) {
   
   # Functions for the control tab ---------------------------------
   
+  #Reactive which determines whether addKM button has been clicked
   v <- reactiveValues(km = NULL)
   
+  #If we want to increase variance in the control group parameters
   observeEvent(input$increasevar,{
     updateTextInput(session, "lambdacsd", value = signif((input$lambdacsd)*1.1, 3))
     updateTextInput(session, "gammacsd", value = signif((input$gammacsd)*1.1, 3))
   })
   
+  #If we want to decrease variance in the control group parameters
   observeEvent(input$decreasevar,{
     updateTextInput(session, "lambdacsd", value = signif((input$lambdacsd)/1.1, 3))
     updateTextInput(session, "gammacsd", value = signif((input$gammacsd)/1.1, 3))
   })
   
+  #Changes value of reactive if addKM button clicked
   observeEvent(input$AddKM, {v$km <- "yes"})
   
+  #Changes value of reactive if removeKM button clicked
   observeEvent(input$RemoveKM, { v$km <- NULL})
   
+  #Simulates control curves and plots time-wise CI
   drawsimlinescontrol <- reactive({
-   
+    
+    #Generate 500 control curves
     nsamples <- 500
     
     time <- seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
     
+    #Only consider every 0.05 time - makes it much quicker to run
     quicktime <- time[seq(1, length(time), by=5)]
     
-    #We fill a matrix with the treatment survival probabilities at each time
+    #We fill a matrix with the control survival probabilities at each time
     SimMatrix <- matrix(NA, nrow = nsamples, ncol=length(quicktime))
     
+    #Sample lambdac and gammac from the inputs
     lambdacsample <- rnorm(nsamples, mean = input$lambdacmean, sd = input$lambdacsd)
     gammacsample <- rnorm(nsamples, mean = input$gammacmean, sd = input$gammacsd)
     
+    #Fills matrix with control curves
     for (i in 1:nsamples){
       SimMatrix[i,] <- exp(-(lambdacsample[i]*quicktime)^gammacsample[i])
     }
     
     #We now look at each time iteration at the distribution
     #We look at the 0.1 and 0.9 quantile of the distribution
-    #These quantiles can be thought of as confidence intervals for the treatment curve, taken from
-    #the elicited distributions
-   
+    #These quantiles can be thought of as confidence intervals for the control curve
+    
     lowerbound <- rep(NA, length(quicktime))
     upperbound <- rep(NA, length(quicktime))
     mediancontrol <- rep(NA, length(quicktime))
@@ -294,6 +303,7 @@ server = function(input, output, session) {
       colnames(controlSample) <- c("time", "event")
       weibfit <- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
       fitsummary <- summary(weibfit)
+      #Transforms the Weibull parameters onto our scale
       lambdacmean <- 1/(exp(fitsummary$table[1,1]))
       gammacmean <- exp(-fitsummary$table[2,1])
       lambdacsd <- abs(lambdacmean - 1/(exp(fitsummary$table[1,1]+2*fitsummary$table[1,2])))
@@ -305,7 +315,7 @@ server = function(input, output, session) {
       shinyjs::show(id = "AddKM")
       shinyjs::show(id = "RemoveKM")
       return(list(gammacmean = gammacmean, lambdacmean = lambdacmean, gammacsd = gammacsd, lambdacsd = lambdacsd,
-                controltime = controlSample$time, controlevent = controlSample$event, fitsummary = fitsummary))
+                  controltime = controlSample$time, controlevent = controlSample$event, fitsummary = fitsummary))
     }
     
   })
@@ -325,6 +335,7 @@ server = function(input, output, session) {
   
   output$plotControl <- renderPlot({
     
+    #Plots the median control curve along with the CI
     controldf <- data.frame(controltime = drawsimlinescontrol()$quicktime, controlcurve = drawsimlinescontrol()$mediancontrol)
     controllowerbounddf <- data.frame(x = drawsimlinescontrol()$quicktime, y = drawsimlinescontrol()$lowerbound)
     controlupperbounddf <- data.frame(x = drawsimlinescontrol()$quicktime, y = drawsimlinescontrol()$upperbound)
@@ -336,11 +347,12 @@ server = function(input, output, session) {
       geom_line(data = controlupperbounddf, aes(x=x, y=y), linetype="dashed") + scale_x_continuous(breaks = mybreaks)
     
     print(p1)
-   
+    
     if (is.null(v$km)){
       
     } else{
       
+      #Adds the km plot if addKM button clicked
       mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, length=5), accuracy = 5)
       controlSample <- data.frame(time = inputData()$controltime, event = inputData()$controlevent)
       km <- survival::survfit(Surv(time, event)~1, data = controlSample)
@@ -350,7 +362,7 @@ server = function(input, output, session) {
       p1 <- p1 + geom_line(data = controllowerbounddf, aes(x=x, y=y), linetype="dashed") + 
         geom_line(data = controlupperbounddf, aes(x=x, y=y), linetype="dashed") + 
         geom_line(data = controldf, aes(x=controltime, y=controlcurve), colour = "blue")
-     # p1 <- p1 + scale_x_continuous(breaks = mybreaks)
+      # p1 <- p1 + scale_x_continuous(breaks = mybreaks)
       print(p1)
       
     }
@@ -738,7 +750,7 @@ server = function(input, output, session) {
           p1 <- p1 + geom_line(data = simlineslower, aes(x=x, y=y), linetype="dashed")+
             geom_line(data = simlinesupper, aes(x=x, y=y), linetype="dashed")
           
-    
+          
         }
       }
     }
