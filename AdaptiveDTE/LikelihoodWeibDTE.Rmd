@@ -97,18 +97,19 @@ We can simulate some data according to some underlying parameters (in practice, 
 
 TPPIA <- function(IATime){
   TPPval <- rep(NA, 51)
+  HRval <- rep(NA, 51)
   TPPval[1] <- IATime
 for (i in 2:51){
-  HR <- rnorm(1, 0.8, sd = 0.148)
-bigT <- 0.8
+HR <- rnorm(1, 0.7, sd = 0.08)
+bigT <- rgamma(1, 65.5, 10.9)
 gamma1 <- gamma2 <- 0.8
 lambda2 <- 0.08
 lambda1  <- lambda2*HR^(1/gamma2)
 
-
+HRval[i] <- HR
 #Sample sizes in each group
-n1 <- 200
-n2 <- 200
+n1 <- 300
+n2 <- 300
 
 #When is the final analysis time?
 #trialLength <- 60
@@ -162,7 +163,7 @@ model {
   
     lambda2 ~ dbeta(1,1)T(0,)
     gamma2 ~ dbeta(1,1)T(0,)
-    HR ~ dnorm(0.8, 45.65376)T(0,)
+    HR ~ dnorm(0.7, 156.25)T(0,)
     bigT ~ dgamma(65.5, 10.9)
     lambda1 <- lambda2*pow(HR, 1/gamma2)
     
@@ -176,20 +177,20 @@ update(model, n.iter=100)
 output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 500)
 
 # 
-# summary(output)
+#summary(output)
 #plot(output)
 print(IATime)
 print(i)
-TPPval[i] <- mean(output[[1]][,1]<0.7)
+TPPval[i] <- mean(output[[1]][,1]<0.65)
 }
 
 
-return(TPPval)
+return(list(TPPval = TPPval, HRval = HRval))
 
 }
 
 IATimeVec <- seq(5, 45, by=10)
-#IATimeVec <- 60
+#IATimeVec <- 10
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
 
