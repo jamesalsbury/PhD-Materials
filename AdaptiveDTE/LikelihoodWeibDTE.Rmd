@@ -100,7 +100,7 @@ TPPIA <- function(IATime){
   HRval <- rep(NA, 51)
   TPPval[1] <- IATime
 for (i in 2:51){
-HR <- rnorm(1, 0.7, sd = 0.08)
+HR <- 0.7
 bigT <- rgamma(1, 65.5, 10.9)
 gamma1 <- gamma2 <- 0.8
 lambda2 <- 0.08
@@ -189,7 +189,7 @@ return(list(TPPval = TPPval, HRval = HRval))
 
 }
 
-IATimeVec <- seq(5, 45, by=10)
+IATimeVec <- seq(5, 65, by=10)
 #IATimeVec <- 10
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
