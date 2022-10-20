@@ -29,18 +29,8 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    fileInput("uploadSample", "Upload your control sample"),
-                   splitLayout(
-                     numericInput("lambdacmean", 'mean (\\(\\text{scale} = \\lambda_c \\))', value=0.08, min=0),
-                     numericInput("lambdacsd", 'SD (\\(\\text{scale} = \\lambda_c \\))', value=0.01, min=0)
-                   ),
-                   splitLayout(
-                     numericInput("gammacmean", 'mean (\\(\\text{shape} = \\gamma_c \\))', value=0.8, min=0),
-                     numericInput("gammacsd", 'SD (\\(\\text{shape} = \\gamma_c \\))', value=0.1, min=0)
-                   ),
-                   splitLayout(
-                     actionButton("decreasevar", '10% decrease \\(\\sigma \\)'),
-                     actionButton("increasevar", '10% increase \\(\\sigma \\)')
-                   ),
+                   numericInput("lambdacmean", 'mean (\\(\\text{scale} = \\lambda_c \\))', value=0.08, min=0),
+                   numericInput("gammacmean", 'mean (\\(\\text{shape} = \\gamma_c \\))', value=0.8, min=0),
                    splitLayout(
                      hidden(actionButton("AddKM", "Add KM line(s)")),
                      hidden(actionButton("RemoveKM", "Remove KM line(s)"))
@@ -231,31 +221,16 @@ server = function(input, output, session) {
   # Functions for the control tab ---------------------------------
   
   #Reactive which determines whether addKM button has been clicked
-  v <- reactiveValues(km = NULL)
-  
-  #If we want to increase variance in the control group parameters
-  observeEvent(input$increasevar,{
-    updateTextInput(session, "lambdacsd", value = signif((input$lambdacsd)*1.1, 3))
-    updateTextInput(session, "gammacsd", value = signif((input$gammacsd)*1.1, 3))
-  })
-  
-  #If we want to decrease variance in the control group parameters
-  observeEvent(input$decreasevar,{
-    updateTextInput(session, "lambdacsd", value = signif((input$lambdacsd)/1.1, 3))
-    updateTextInput(session, "gammacsd", value = signif((input$gammacsd)/1.1, 3))
-  })
-  
-  #Changes value of reactive if addKM button clicked
-  observeEvent(input$AddKM, {v$km <- "yes"})
-  
-  #Changes value of reactive if removeKM button clicked
-  observeEvent(input$RemoveKM, { v$km <- NULL})
+  v <- reactiveValues(upload = NULL)
+ 
   
   #Simulates control curves and plots time-wise CI
   drawsimlinescontrol <- reactive({
     
     #Generate 500 control curves
-    nsamples <- 500
+    nsamples <- length(inputData()$scale)
+    
+    print(nsamples)
     
     time <- seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
     
@@ -266,12 +241,16 @@ server = function(input, output, session) {
     SimMatrix <- matrix(NA, nrow = nsamples, ncol=length(quicktime))
     
     #Sample lambdac and gammac from the inputs
-    lambdacsample <- rnorm(nsamples, mean = input$lambdacmean, sd = input$lambdacsd)
-    gammacsample <- rnorm(nsamples, mean = input$gammacmean, sd = input$gammacsd)
+     
+    
+    lambdacsample <- inputData()$scale
+    gammacsample <- inputData()$shape
+    
     
     #Fills matrix with control curves
-    for (i in 1:nsamples){
-      SimMatrix[i,] <- exp(-(lambdacsample[i]*quicktime)^gammacsample[i])
+    for (i in 1:500){
+      chosenMCMCsample <- sample(1:nsamples)
+      SimMatrix[i,] <- exp(-(lambdacsample[chosenMCMCsample]*quicktime)^gammacsample[chosenMCMCsample])
     }
     
     #We now look at each time iteration at the distribution
@@ -292,67 +271,68 @@ server = function(input, output, session) {
     
   })
   
+  
   inputData <- reactive({
     #Allows the user to upload a control sample
-    chosenFile <- input$uploadSample
-    if (is.null(chosenFile)){
+    controlfile <- input$uploadSample
+    
+    if (is.null(controlfile)){
       return(NULL)
+      print("no")
     } else {
+      print("yes")
+      controlMCMC <- readRDS(controlfile$datapath)
       #lambdac and gammac are estimated from the uploaded control sample
-      controlSample <- read_excel(chosenFile$datapath, sheet=1)
-      colnames(controlSample) <- c("time", "event")
-      weibfit <- survreg(Surv(time, event)~1, data = controlSample, dist = "weibull")
-      fitsummary <- summary(weibfit)
-      print(fitsummary$table)
-      #Transforms the Weibull parameters onto our scale
-      lambdacmean <- 1/(exp(fitsummary$table[1,1]))
-      gammacmean <- exp(-fitsummary$table[2,1])
-      lambdacsd <- abs(lambdacmean - 1/(exp(fitsummary$table[1,1]+2*fitsummary$table[1,2])))
-      gammacsd <-  abs(exp(-fitsummary$table[2,1]+2*fitsummary$table[2,2]) - gammacmean)
-      updateTextInput(session, "lambdacmean", value = signif(lambdacmean, 3))
-      updateTextInput(session, "lambdacsd", value = signif(lambdacsd, 3))
-      updateTextInput(session, "gammacmean", value = signif(gammacmean, 3))
-      updateTextInput(session, "gammacsd", value = signif(gammacsd, 3))
-      shinyjs::show(id = "AddKM")
-      shinyjs::show(id = "RemoveKM")
-      return(list(gammacmean = gammacmean, lambdacmean = lambdacmean, gammacsd = gammacsd, lambdacsd = lambdacsd,
-                  controltime = controlSample$time, controlevent = controlSample$event, fitsummary = fitsummary))
-    }
-    
-  })
-  
-  output$recommendedParams <- renderUI({
-    if (is.null(inputData())){
+      shape <- controlMCMC[,1]
+      scale <- controlMCMC[,2]
+      updateTextInput(session, "lambdacmean", value = signif(mean(scale), 3))
+      updateTextInput(session, "gammacmean", value = signif(mean(shape), 3))
+      v$upload <- "yes"
       
-    } else {
-      #Tells the user what the best fitting parameters are for their uploaded sample
-      str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
-      str2 <- paste0("Lambdac = ", round(inputData()$lambdacmean, 3), " with a standard error of ", round(inputData()$lambdacsd, 3))
-      str3 <- paste0("Gammac = ", round(inputData()$gammacmean, 3), " with a standard error of ", round(inputData()$gammacsd, 3))
-      HTML(paste(str1, str2, str3, sep = '<br/>'))
+      return(list(shape = shape, scale = scale))
     }
     
   })
   
+  # output$recommendedParams <- renderUI({
+  #   if (is.null(inputData())){
+  #     
+  #   } else {
+  #     #Tells the user what the best fitting parameters are for their uploaded sample
+  #     str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
+  #     str2 <- paste0("Lambdac = ", round(inputData()$lambdacmean, 3), " with a standard error of ", round(inputData()$lambdacsd, 3))
+  #     str3 <- paste0("Gammac = ", round(inputData()$gammacmean, 3), " with a standard error of ", round(inputData()$gammacsd, 3))
+  #     HTML(paste(str1, str2, str3, sep = '<br/>'))
+  #   }
+  #   
+  # })
+  # 
   output$plotControl <- renderPlot({
     
-    #Plots the median control curve along with the CI
-    controldf <- data.frame(controltime = drawsimlinescontrol()$quicktime, controlcurve = drawsimlinescontrol()$mediancontrol)
-    controllowerbounddf <- data.frame(x = drawsimlinescontrol()$quicktime, y = drawsimlinescontrol()$lowerbound)
-    controlupperbounddf <- data.frame(x = drawsimlinescontrol()$quicktime, y = drawsimlinescontrol()$upperbound)
-    mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, length=5), accuracy = 5)
+
     
-    theme_set(theme_grey(base_size = 12))
-    p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) + xlim(0, mybreaks[length(mybreaks)]) + 
-      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1) + geom_line(data = controllowerbounddf, aes(x=x, y=y), linetype="dashed")+
-      geom_line(data = controlupperbounddf, aes(x=x, y=y), linetype="dashed") + scale_x_continuous(breaks = mybreaks)
+    time <- seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
+    controlsurv <- exp(-(input$lambdacmean*time)^input$gammacmean)
     
-    print(p1)
     
-    if (is.null(v$km)){
-      
-    } else{
-      
+        
+    # #Plots the median control curve along with the CI
+     controldf <- data.frame(controltime = time, controlcurve = controlsurv)
+     mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, length=5), accuracy = 5)
+
+     theme_set(theme_grey(base_size = 12))
+     p1 <- ggplot(data=controldf, aes(x=controltime, y=controlcurve)) + xlim(0, mybreaks[length(mybreaks)]) +
+      geom_line(colour="blue") + xlab("Time") + ylab("Survival") + ylim(0,1)  + scale_x_continuous(breaks = mybreaks)
+
+     print(p1)
+     
+     if (is.null(v$upload)){
+       
+     } else{
+     
+       drawsimlinescontrol()$lowerbound
+     
+
       #Adds the km plot if addKM button clicked
       mybreaks <- plyr::round_any(seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, length=5), accuracy = 5)
       controlSample <- data.frame(time = inputData()$controltime, event = inputData()$controlevent)
@@ -360,12 +340,12 @@ server = function(input, output, session) {
       theme_set(theme_grey(base_size = 12))
       p1 <- ggsurvplot(km, data = controlSample, conf.int = T, xlim = c(0, mybreaks[length(mybreaks)]), legend = "none", ylab="Survival", ggtheme = theme_grey(base_size = 12))
       p1 <- p1$plot +  scale_x_continuous(breaks = mybreaks)
-      p1 <- p1 + geom_line(data = controllowerbounddf, aes(x=x, y=y), linetype="dashed") + 
-        geom_line(data = controlupperbounddf, aes(x=x, y=y), linetype="dashed") + 
+      p1 <- p1 + geom_line(data = controllowerbounddf, aes(x=x, y=y), linetype="dashed") +
+        geom_line(data = controlupperbounddf, aes(x=x, y=y), linetype="dashed") +
         geom_line(data = controldf, aes(x=controltime, y=controlcurve), colour = "blue")
       # p1 <- p1 + scale_x_continuous(breaks = mybreaks)
       print(p1)
-      
+
     }
     
     #legend.title=element_blank()
