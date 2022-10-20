@@ -173,8 +173,8 @@ model {
 model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datEvent = combinedData$event, n= n, m=m), quiet = T) 
                    
                    
-update(model, n.iter=1000)
-output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
+update(model, n.iter=500)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 3000)
 
 # 
 #summary(output)
@@ -189,7 +189,7 @@ return(list(TPPval = TPPval, HRval = HRval))
 
 }
 
-IATimeVec <- seq(5, 65, by=10)
+IATimeVec <- seq(5, 35, by=5)
 #IATimeVec <- 10
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
