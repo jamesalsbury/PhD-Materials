@@ -5,10 +5,10 @@ account: jamesalsbury
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 7204164
-bundleId: 6402914
+bundleId: 6426668
 url: https://jamesalsbury.shinyapps.io/DTEAssurance/
-when: 1665747152.32021
-lastSyncTime: 1665747152.32021
+when: 1666353128.89973
+lastSyncTime: 1666353128.89973
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: CalcAssurance.R|ControlSample.xlsx
+ignoredFiles: CalcAssurance.R|ControlSample.xlsx|samplecontrolMCMC.rds

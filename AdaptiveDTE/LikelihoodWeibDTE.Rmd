@@ -345,13 +345,11 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = combinedD
                    
                    
 update(model, n.iter=500)
-output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 10000)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
 
 
 summary(output)
 plot(output)
-
-
 
 ```
 

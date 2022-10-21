@@ -257,7 +257,6 @@ server = function(input, output, session) {
     #We look at the 0.1 and 0.9 quantile of the distribution
     #These quantiles can be thought of as confidence intervals for the control curve
     
-    print(is.na(SimMatrix))
     
     lowerbound <- rep(NA, length(quicktime))
     upperbound <- rep(NA, length(quicktime))
@@ -267,8 +266,6 @@ server = function(input, output, session) {
       upperbound[j] <- quantile(SimMatrix[,j], 0.95)
       mediancontrol[j] <- quantile(SimMatrix[,j], 0.5)
     }
-    
-    print(SimMatrix[,5])
     
     
     return(list(lowerbound=lowerbound, upperbound=upperbound, quicktime=quicktime, SimMatrix = SimMatrix, 
@@ -305,9 +302,9 @@ server = function(input, output, session) {
     } else {
       #Tells the user what the best fitting parameters are for their uploaded sample
       str1 <- paste0("For your uploaded sample, the best fitting parameters are:")
-      str2 <- paste0("Lambdac = ", signif(mean(inputData()$scale), 3))
-      str3 <- paste0("Gammac = ", signif(mean(inputData()$shape), 3))
-      HTML(paste(str1, str2, str3, sep = '<br/>'))
+      str2 <- withMathJax(paste0("$$\\lambda_c =  ",signif(mean(inputData()$scale), 3),"$$", "and", "$$\\gamma_c =  ",signif(mean(inputData()$shape), 3),"$$"))
+      #str3 <- withMathJax(paste0("$$\\gamma_c =  ",signif(mean(inputData()$shape), 3),"$$"))
+      HTML(paste(str1, str2, sep = '<br/>'))
     }
 
   })
