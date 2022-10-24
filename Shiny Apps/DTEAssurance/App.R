@@ -10,6 +10,7 @@ library(pbapply)
 library(shinyjs)
 library(dplyr)
 library(survminer)
+library(xlsx)
 
 source("functions.R")
 
@@ -24,8 +25,16 @@ ui <- fluidPage(
     
     tabsetPanel(
       # Control UI ---------------------------------
+
       
       tabPanel("Control", 
+               wellPanel(
+                 h4("Instructions"),
+                 tags$ol(
+                   tags$li("You are able to upload an MCMC sample to estimate the control survival curve. 
+                   The MCMC sample must be in one of the following three file formats: '.csv', '.xlsx' or '.rds'. The 
+                           file must contain nothing but two columns of samples. The first column must contain the output for the SHAPE parameter
+                           and the second column must contain the output for the SCALE parameter."))),
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    radioButtons("uploadSampleCheck", "Do you wish to upload a MCMC sample?", choices = c("Yes", "No"), selected = "No"),
@@ -125,7 +134,7 @@ ui <- fluidPage(
                         )
                  ),
                  column(4,
-                        numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0.05, min = 0, max = 1)
+                        numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0, min = 0, max = 1)
                  )
                  
                ),
@@ -140,6 +149,7 @@ ui <- fluidPage(
                  sidebarPanel = sidebarPanel(
                    checkboxGroupInput("showfeedback", "Add to plot", choices = c("Median survival line", "95% CI for T", "CI for Treatment Curve (0.1 and 0.9)")),
                    hidden(numericInput("feedbackQuantile", "Uncertainty about the following survival quantile:", value = 0.5, min = 0, max = 1)),
+                   hidden(numericInput("timeInputFeedback", "Prior information about time:", value = 25, min = 0, max = 100))
                  ),
                  mainPanel = mainPanel(
                    plotOutput("plotFeedback"),
@@ -293,7 +303,7 @@ server = function(input, output, session) {
       chosenFile <- input$uploadSample
       req(chosenFile)
       if (endsWith(chosenFile$name, ".xlsx")){
-        controlMCMC <- read_excel(chosenFile$datapath)
+        controlMCMC <- read_excel(chosenFile$datapath, sheet = 1)
       } else if (endsWith(chosenFile$name, "csv")){
         controlMCMC <- read.csv(chosenFile$datapath)
       } else if (endsWith(chosenFile$name, "rds")){
@@ -301,8 +311,8 @@ server = function(input, output, session) {
       }
 
       #lambdac and gammac are estimated from the uploaded control sample
-      shape <- as.numeric(controlMCMC[,1])
-      scale <- as.numeric(controlMCMC[,2])
+      shape <- unlist(controlMCMC[,1])
+      scale <- unlist(controlMCMC[,2])
       updateTextInput(session, "lambdacmean", value = signif(mean(scale), 3))
       updateTextInput(session, "gammacmean", value = signif(mean(shape), 3))
       return(list(shape = shape, scale = scale))
@@ -665,10 +675,11 @@ server = function(input, output, session) {
         if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           simlineslower <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$lowerbound)
           simlinesupper <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$upperbound)
-          CIwidth <- simlinesupper[simlinesupper$x==25,]$y - simlineslower[simlineslower$x==25,]$y
-          midpoint <- (simlinesupper[simlinesupper$x==25,]$y + simlineslower[simlineslower$x==25,]$y)/2
+          
+          CIwidth <- simlinesupper[simlinesupper$x==input$timeInputFeedback,]$y - simlineslower[simlineslower$x==input$timeInputFeedback,]$y
+          midpoint <- (simlinesupper[simlinesupper$x==input$timeInputFeedback,]$y + simlineslower[simlineslower$x==input$timeInputFeedback,]$y)/2
           n <- (16*midpoint*(1-midpoint))/(CIwidth^2)
-          str1 <- paste0("The confidence interval width at t = 25 is equivalent to  ", round(n, 0), 
+          str1 <- paste0("The confidence interval width at t = ", input$timeInputFeedback, " is equivalent to  ", round(n, 0), 
                          " patients from a Binomial distribution")
         }
       }
@@ -703,7 +714,7 @@ server = function(input, output, session) {
     #This code adds the three choices to the plots
     addfeedback <- input$showfeedback 
     shinyjs::hide(id = "feedbackQuantile")
-    shinyjs::hide(id = "feedbackQuantile")
+    shinyjs::hide(id = "timeInputFeedback")
     
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
@@ -739,6 +750,7 @@ server = function(input, output, session) {
           }
           
         } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
+          shinyjs::show(id = "timeInputFeedback")
           #This adds the simulated confidence interval lines
           simlineslower <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$lowerbound)
           simlinesupper <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$upperbound)
