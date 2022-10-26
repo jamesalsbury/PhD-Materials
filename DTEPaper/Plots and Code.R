@@ -561,7 +561,7 @@ legend("bottomright", legend = c("Power", "Assurance", "Power assuming no delay"
 dev.off()
 
 
-
+png("DTEKM.png", units="in", width=5, height=5, res=700)
 
 controldata <- read.csv(file = "DTEPaper/IPD-control.csv")
 treatmentdata <- read.csv(file = "DTEPaper/IPD-treatment.csv")
@@ -574,6 +574,7 @@ kmfit <- survfit(Surv(time, status)~group, data = combinedData)
 plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
 legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
 
+dev.off()
 
 
 
