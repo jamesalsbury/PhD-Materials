@@ -563,6 +563,16 @@ dev.off()
 
 
 
+controldata <- read.csv(file = "DTEPaper/IPD-control.csv")
+treatmentdata <- read.csv(file = "DTEPaper/IPD-treatment.csv")
+
+combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
+                           status = c(controldata$Status, treatmentdata$Status), 
+                           group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
+
+kmfit <- survfit(Surv(time, status)~group, data = combinedData)
+plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
+legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
 
 
 

@@ -3,7 +3,7 @@ SimDTEDataSet <- function(n1, n2, gamma1, gamma2, lambda1, lambda2, bigT, recTim
   CP <- exp(-(lambda2*bigT)^gamma2)
   u <- runif(n2)
   
-  treatmenttime <- ifelse(u>CP, (1/lambda2)*(-log(u))^(1/gamma2), (1/(lambda1^gamma1)*((lambda1*bigT)^gamma1-log(u)-(lambda2*bigT)^gamma2))^(1/gamma1))
+  treatmenttime <- ifelse(u>=CP, (1/lambda2)*(-log(u))^(1/gamma2), (1/(lambda1^gamma1)*((lambda1*bigT)^gamma1-log(u)-(lambda2*bigT)^gamma2))^(1/gamma1))
   
   dataCombined <- data.frame(time = c(rweibull(n1, gamma2, 1/lambda2), treatmenttime),
                              group = c(rep("Control", n1), rep("Treatment", n2)))

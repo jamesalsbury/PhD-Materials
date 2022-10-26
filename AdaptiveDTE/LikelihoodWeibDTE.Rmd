@@ -354,39 +354,44 @@ There is a question of what to do at this interim analysis stage, we could use t
 
 
 ```{r}
+
+TPPIA <- function(IATime){
+  TPPval <- rep(NA, 100001)
+  HRval <- rep(NA, 100001)
+  TPPval[1] <- IATime
+  for (i in 2:100001){
 HR <- rnorm(1, 0.7, sd = 0.1)
 bigT <- rgamma(1, 65.5, 10.9)
 gamma1 <- gamma2 <- 0.8
 lambda2 <- 0.08
 lambda1  <- lambda2*HR^(1/gamma2)
-IATime <- 40
 
 #Sample sizes in each group
-n1 <- 150000
-n2 <- 150000
+n1 <- 500
+n2 <- 500
 
-#When is the final analysis time?
-#trialLength <- 60
+#What is the survival probability at t = 40?
+survprobcontrol <- exp(-(lambda2*IATime)^gamma2)
+survprobtreatment <- exp(-(lambda2*bigT)^gamma2-lambda1^gamma1*(IATime^gamma1-bigT^gamma1))
 
-#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
-#Control
-controldata <- rweibull(n1, gamma2, 1/lambda2)
-#Treatment
-CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
-u <- runif(n2)
-suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+#Expected number of events at t = 40
+e1 <- (1-survprobcontrol)*n1
+e2 <- (1-survprobtreatment)*n2
 
-combinedData <- data.frame(time = c(controldata, treatmentdata), group = c(rep("Control", n1), rep("Treatment", n2)))
+HRval[i] <- HR
+TPPval[i] <- pnorm(0.65, mean = HR, sd = sqrt(1/e1+1/e2), lower.tail = T)
+}
 
-combinedData$event <- combinedData$time<IATime
+return(list(TPPval = TPPval, HRval = HRval))
 
-combinedData$time[combinedData$time>IATime] <- IATime
-# 
-controlkm <- survfit(Surv(time, event)~group, data = combinedData)
-# 
-plot(controlkm, col=c("blue", "red"))
+}
 
-legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+IATimeVec <- seq(5, 120 ,by=10)
+#IATimeVec <- 10
+
+outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
+
+
 ```
 
 
