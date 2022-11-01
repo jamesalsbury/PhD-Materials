@@ -25,238 +25,134 @@ legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), l
 
 # Robustness of the parameterisation ----------------------------------------------------------------
 
-controldata <- read.csv(file = "DTEPaper/data/Brahmer/IPD-control.csv")
-treatmentdata <- read.csv(file = "DTEPaper/data/Brahmer/IPD-treatment.csv")
-
-combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
-                           status = c(controldata$Status, treatmentdata$Status), 
-                           group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
-
-kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
-
-
-#Finding the Weibull parameters and plotting the line
-weibfit <- survreg(Surv(time, status)~1, data = combinedData[combinedData$group=="Control",], dist = "weibull")
-gammac <- as.numeric(exp(-weibfit$icoef[2]))
-lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
-controltime <- seq(0, 15, by=0.01)
-controlsurv <- exp(-(lambdac*controltime)^gammac)
-lines(controltime, controlsurv, col="blue")
-
-#Now we look at the treatment curve
-#Need to find a least squares estimate for this Weibull parameterisation
-
-THat <- 3
-
-#Scenario 1
-
-kmfit <- survfit(Surv(time, status)~1, data = combinedData[combinedData$group=="Treatment",])
-treatmenttime <- seq(0, THat, by=0.01)
-treatmentsurv <- controlsurv <- exp(-(lambdac*treatmenttime)^gammac)
-lines(treatmenttime, treatmentsurv, col="green")
-
-treatmenttime1 <- seq(THat, 15, by=0.01)
-
-optimfunc1 <- function(par){
-  diff <- 0
-  for (i in 1:length(treatmenttime1)){
-    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^par[2]*(treatmenttime1[i]^par[2]-THat^par[2]))
-    diff <- diff + (y-treatmentsurv)^2 
+DTEDataSetsFunc <- function(author){
+  
+  if (author=="Brahmer"){
+    trialLength <- 15
+    THat <- 3
+  } else if (author=="Yen"){
+    trialLength <- 30
+    THat <- 3.5
+  } else if (author=="Borghaei"){
+    trialLength <- 60
+    THat <- 6
   }
-  return(diff) 
+  
+  controldata <- read.csv(file = paste0("DTEPaper/data/", author, "/IPD-control.csv"))
+  treatmentdata <- read.csv(file = paste0("DTEPaper/data/", author, "/IPD-treatment.csv"))
+  
+  
+  combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
+                             status = c(controldata$Status, treatmentdata$Status), 
+                             group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
+  
+  kmfit <- survfit(Surv(time, status)~group, data = combinedData)
+  plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
+  
+  
+  #Finding the Weibull parameters and plotting the line
+  weibfit <- survreg(Surv(time, status)~1, data = combinedData[combinedData$group=="Control",], dist = "weibull")
+  gammac <- as.numeric(exp(-weibfit$icoef[2]))
+  lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
+  controltime <- seq(0, trialLength, by=0.01)
+  controlsurv <- exp(-(lambdac*controltime)^gammac)
+  lines(controltime, controlsurv, col="blue")
+  
+  #Now we look at the treatment curve
+  #Need to find a least squares estimate for this Weibull parameterisation
+  
+  kmfit <- survfit(Surv(time, status)~1, data = combinedData[combinedData$group=="Treatment",])
+  treatmenttime <- seq(0, THat, by=0.01)
+  treatmentsurv <- controlsurv <- exp(-(lambdac*treatmenttime)^gammac)
+  lines(treatmenttime, treatmentsurv, col="green")
+  
+  treatmenttime1 <- seq(THat, trialLength, by=0.01)
+  
+  
+  #Scenario 1
+  
+  optimfunc1 <- function(par){
+    diff <- 0
+    gammat <- gammac
+    for (i in 1:length(treatmenttime1)){
+      y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
+      treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^gammat*(treatmenttime1[i]^gammat-THat^gammat))
+      diff <- diff + (y-treatmentsurv)^2 
+    }
+    return(diff) 
+  }
+  
+  s1gammat <- gammac
+  s1lambdat <- optimize(optimfunc1, c(0, 2))$minimum
+  treatmentsurv1 <- exp(-(lambdac*THat)^gammac - s1lambdat^s1gammat*(treatmenttime1^s1gammat-THat^s1gammat))
+  lines(treatmenttime1, treatmentsurv1, col="red", lty=1)
+  
+  
+  #Scenario 2
+  
+  
+  optimfunc2 <- function(par){
+    diff <- 0
+    for (i in 1:length(treatmenttime1)){
+      y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
+      treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^par[2]*(treatmenttime1[i]^par[2]-THat^par[2]))
+      diff <- diff + (y-treatmentsurv)^2 
+    }
+    return(diff) 
+  }
+  
+  optimoutput <-  optim(par = c(0.2, 1), fn = optimfunc2)
+  s2lambdat <- optimoutput$par[1]
+  s2gammat <- optimoutput$par[2]
+  treatmentsurv1 <- exp(-(lambdac*THat)^gammac - s2lambdat^s2gammat*(treatmenttime1^s2gammat-THat^s2gammat))
+  lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
+  
+  legend("topright", legend = c("Delay", "Control", expression(paste("Treatment (estimate ", hat(lambda)[t], ")")), expression(paste("Treatment (estimate ", tilde(lambda)[t], ",", tilde(gamma)[t], ")"))), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
+  
+  
+  #Now look at calculating power under the two different scenarios
+  #Scenario 1
+  
+  powerfunc <- function(n, lambdat, gammat){
+    powervec <- rep(NA, 500)
+    for (i in 1:length(powervec)){
+      #Simulating control times
+      u <- runif(n)
+      controltimes <- (1/lambdac)*(-log(u))^(1/gammac)
+      
+      #Simulating treatment times
+      u <- runif(n)
+      CP <- exp(-(lambdac*THat)^gammac)
+      treatmenttimes <- ifelse(u>=CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*THat)^gammat-log(u)-(lambdac*THat)^gammac))^(1/gammat))
+      
+      #combining control and treatment
+      combinedDataPower <- data.frame(time = c(controltimes, treatmenttimes), 
+                                      status = rep(1, 2*n), group = c(rep("Control", n), rep("Treatment", n)))
+      
+      test <- survdiff(Surv(time, status)~group, data = combinedDataPower)
+      #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
+      powervec[i] <- test$chisq > qchisq(0.95, 1)
+    }
+    
+    return(mean(powervec))
+  }
+  
+  nvec <- round(seq(10, 500, length = 20))
+  powervecs1 <- mapply(powerfunc, nvec, s1lambdat, s1gammat) 
+  powervecs2 <- mapply(powerfunc, nvec, s2lambdat, s2gammat) 
+  
+  powers1smooth <- loess(powervecs1~nvec)
+  powers2smooth <- loess(powervecs2~nvec)
+  
+  plot(nvec*2, predict(powers1smooth), type="l", col="blue", ylim=c(0, 1), xlab = "Total sample size", ylab = "Power")
+  lines(nvec*2, predict(powers2smooth), col="red", lty=2)
+  
+  legend("bottomright", legend = c("Scenario 1", "Scenario 2"), col = c("blue", "red"), lty=1:2)
 }
 
-optimoutput <-  optim(par = c(0.2, 1), fn = optimfunc1)
-lambdat <- optimoutput$par[1]
-gammat <- optimoutput$par[2]
-treatmenttime1 <- seq(THat, 15, by=0.01)
-treatmentsurv1 <- exp(-(lambdac*THat)^gammac - lambdat^gammat*(treatmenttime1^gammat-THat^gammat))
-lines(treatmenttime1, treatmentsurv1, col="red", lty=1)
-
-#Scenario 2
-
-optimfunc2 <- function(par){
-  diff <- 0
-  gammat <- gammac
-  for (i in 1:length(treatmenttime1)){
-    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^gammat*(treatmenttime1[i]^gammat-THat^gammat))
-    diff <- diff + (y-treatmentsurv)^2 
-  }
-  return(diff) 
-}
-
-lambdatonly <-  optimize(optimfunc2, c(0, 2))$minimum
-treatmenttime1 <- seq(THat, 15, by=0.01)
-treatmentsurv1 <- exp(-(lambdac*THat)^gammac - lambdatonly^gammac*(treatmenttime1^gammac-THat^gammac))
-lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
-
-legend("topright", legend = c("Delay", "Control", expression(paste("Treatment (estimate ", hat(lambda)[t], ")")), expression(paste("Treatment (estimate ", tilde(lambda)[t], ",", tilde(gamma)[t], ")"))), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
-
-# Doing Yen DTE data set ----------------------------------------------------------------
-
-controldata <- read.csv(file = "DTEPaper/data/Yen/IPD-control.csv")
-treatmentdata <- read.csv(file = "DTEPaper/data/Yen/IPD-treatment.csv")
-
-combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
-                           status = c(controldata$Status, treatmentdata$Status), 
-                           group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
-
-kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
-
-
-#Finding the Weibull parameters and plotting the line
-weibfit <- survreg(Surv(time, status)~1, data = combinedData[combinedData$group=="Control",], dist = "weibull")
-gammac <- as.numeric(exp(-weibfit$icoef[2]))
-lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
-controltime <- seq(0, 35, by=0.01)
-controlsurv <- exp(-(lambdac*controltime)^gammac)
-lines(controltime, controlsurv, col="blue")
-
-#Now we look at the treatment curve
-#Need to find a least squares estimate for this Weibull parameterisation
-
-THat <- 3.5
-
-#Scenario 1
-
-kmfit <- survfit(Surv(time, status)~1, data = combinedData[combinedData$group=="Treatment",])
-treatmenttime <- seq(0, THat, by=0.01)
-treatmentsurv <- controlsurv <- exp(-(lambdac*treatmenttime)^gammac)
-lines(treatmenttime, treatmentsurv, col="green")
-
-treatmenttime1 <- seq(THat, 35, by=0.01)
-
-optimfunc1 <- function(par){
-  diff <- 0
-  for (i in 1:length(treatmenttime1)){
-    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^par[2]*(treatmenttime1[i]^par[2]-THat^par[2]))
-    diff <- diff + (y-treatmentsurv)^2 
-  }
-  return(diff) 
-}
-
-optimoutput <-  optim(par = c(0.2, 1), fn = optimfunc1)
-lambdat <- optimoutput$par[1]
-gammat <- optimoutput$par[2]
-treatmenttime1 <- seq(THat, 35, by=0.01)
-treatmentsurv1 <- exp(-(lambdac*THat)^gammac - lambdat^gammat*(treatmenttime1^gammat-THat^gammat))
-lines(treatmenttime1, treatmentsurv1, col="red", lty=1)
-
-#Scenario 2
-
-optimfunc2 <- function(par){
-  diff <- 0
-  gammat <- gammac
-  for (i in 1:length(treatmenttime1)){
-    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^gammat*(treatmenttime1[i]^gammat-THat^gammat))
-    diff <- diff + (y-treatmentsurv)^2 
-  }
-  return(diff) 
-}
-
-lambdatonly <-  optimize(optimfunc2, c(0, 2))$minimum
-treatmenttime1 <- seq(THat, 35, by=0.01)
-treatmentsurv1 <- exp(-(lambdac*THat)^gammac - lambdatonly^gammac*(treatmenttime1^gammac-THat^gammac))
-lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
-
-legend("topright", legend = c("Delay", "Control", expression(paste("Treatment (estimate ", hat(lambda)[t], ")")), expression(paste("Treatment (estimate ", tilde(lambda)[t], ",", tilde(gamma)[t], ")"))), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
-
-
-# Doing Borghaei DTE data set ----------------------------------------------------------------
-
-controldata <- read.csv(file = "DTEPaper/data/Borghaei/IPD-control.csv")
-treatmentdata <- read.csv(file = "DTEPaper/data/Borghaei/IPD-treatment.csv")
-
-combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
-                           status = c(controldata$Status, treatmentdata$Status), 
-                           group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
-
-kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
-
-
-#Finding the Weibull parameters and plotting the line
-weibfit <- survreg(Surv(time, status)~1, data = combinedData[combinedData$group=="Control",], dist = "weibull")
-gammac <- as.numeric(exp(-weibfit$icoef[2]))
-lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
-controltime <- seq(0, 60, by=0.01)
-controlsurv <- exp(-(lambdac*controltime)^gammac)
-lines(controltime, controlsurv, col="blue")
-
-#Now we look at the treatment curve
-#Need to find a least squares estimate for this Weibull parameterisation
-
-THat <- 6
-
-#Scenario 1
-
-kmfit <- survfit(Surv(time, status)~1, data = combinedData[combinedData$group=="Treatment",])
-treatmenttime <- seq(0, THat, by=0.01)
-treatmentsurv <- controlsurv <- exp(-(lambdac*treatmenttime)^gammac)
-lines(treatmenttime, treatmentsurv, col="green")
-
-treatmenttime1 <- seq(THat, 60, by=0.01)
-
-optimfunc1 <- function(par){
-  diff <- 0
-  for (i in 1:length(treatmenttime1)){
-    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^par[2]*(treatmenttime1[i]^par[2]-THat^par[2]))
-    diff <- diff + (y-treatmentsurv)^2 
-  }
-  return(diff) 
-}
-
-optimoutput <-  optim(par = c(0.2, 1), fn = optimfunc1)
-lambdat <- optimoutput$par[1]
-gammat <- optimoutput$par[2]
-treatmenttime1 <- seq(THat, 60, by=0.01)
-treatmentsurv1 <- exp(-(lambdac*THat)^gammac - lambdat^gammat*(treatmenttime1^gammat-THat^gammat))
-lines(treatmenttime1, treatmentsurv1, col="red", lty=1)
-
-#Scenario 2
-
-optimfunc2 <- function(par){
-  diff <- 0
-  gammat <- gammac
-  for (i in 1:length(treatmenttime1)){
-    y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^gammat*(treatmenttime1[i]^gammat-THat^gammat))
-    diff <- diff + (y-treatmentsurv)^2 
-  }
-  return(diff) 
-}
-
-lambdatonly <-  optimize(optimfunc2, c(0, 2))$minimum
-treatmenttime1 <- seq(THat, 60, by=0.01)
-treatmentsurv1 <- exp(-(lambdac*THat)^gammac - lambdatonly^gammac*(treatmenttime1^gammac-THat^gammac))
-lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
-
-legend("topright", legend = c("Delay", "Control", expression(paste("Treatment (estimate ", hat(lambda)[t], ")")), expression(paste("Treatment (estimate ", tilde(lambda)[t], ",", tilde(gamma)[t], ")"))), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
-
-
-
-
-
-
-
-
-#Need to look at the legend
-
-
-
-
-
-
-
-
-
+DTEDataSetsFunc("Brahmer")
+DTEDataSetsFunc("Yen")
+DTEDataSetsFunc("Borghaei")
 
 
 
