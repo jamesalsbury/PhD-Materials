@@ -30,24 +30,26 @@ DTEDataSetsFunc <- function(author){
   if (author=="Brahmer"){
     trialLength <- 15
     THat <- 3
+    ylabel <- "Progression free survival (% of patients)"
   } else if (author=="Yen"){
     trialLength <- 30
     THat <- 3.5
+    ylabel <- "Overall survival (%)"
   } else if (author=="Borghaei"){
     trialLength <- 60
     THat <- 6
+    ylabel <- "Overall survival (%)"
   }
   
   controldata <- read.csv(file = paste0("DTEPaper/data/", author, "/IPD-control.csv"))
   treatmentdata <- read.csv(file = paste0("DTEPaper/data/", author, "/IPD-treatment.csv"))
-  
   
   combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
                              status = c(controldata$Status, treatmentdata$Status), 
                              group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
   
   kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-  plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
+  plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = ylabel)
   
   
   #Finding the Weibull parameters and plotting the line
@@ -109,45 +111,46 @@ DTEDataSetsFunc <- function(author){
   
   legend("topright", legend = c("Delay", "Control", expression(paste("Treatment (estimate ", hat(lambda)[t], ")")), expression(paste("Treatment (estimate ", tilde(lambda)[t], ",", tilde(gamma)[t], ")"))), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
   
-  
   #Now look at calculating power under the two different scenarios
   #Scenario 1
   
   powerfunc <- function(n, lambdat, gammat){
-    powervec <- rep(NA, 500)
+    powervec <- rep(NA, 1000)
     for (i in 1:length(powervec)){
       #Simulating control times
       u <- runif(n)
       controltimes <- (1/lambdac)*(-log(u))^(1/gammac)
-      
+
       #Simulating treatment times
       u <- runif(n)
       CP <- exp(-(lambdac*THat)^gammac)
       treatmenttimes <- ifelse(u>=CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*THat)^gammat-log(u)-(lambdac*THat)^gammac))^(1/gammat))
-      
+
       #combining control and treatment
-      combinedDataPower <- data.frame(time = c(controltimes, treatmenttimes), 
+      combinedDataPower <- data.frame(time = c(controltimes, treatmenttimes),
                                       status = rep(1, 2*n), group = c(rep("Control", n), rep("Treatment", n)))
-      
+
       test <- survdiff(Surv(time, status)~group, data = combinedDataPower)
       #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
       powervec[i] <- test$chisq > qchisq(0.95, 1)
     }
-    
+
     return(mean(powervec))
   }
-  
-  nvec <- round(seq(10, 500, length = 20))
-  powervecs1 <- mapply(powerfunc, nvec, s1lambdat, s1gammat) 
-  powervecs2 <- mapply(powerfunc, nvec, s2lambdat, s2gammat) 
-  
+
+  png(paste0("DTE", author, "power.png"), units="in", width=5, height=5, res=700)
+  nvec <- round(seq(10, 500, length = 30))
+  powervecs1 <- mapply(powerfunc, nvec, s1lambdat, s1gammat)
+  powervecs2 <- mapply(powerfunc, nvec, s2lambdat, s2gammat)
+
   powers1smooth <- loess(powervecs1~nvec)
   powers2smooth <- loess(powervecs2~nvec)
-  
+
   plot(nvec*2, predict(powers1smooth), type="l", col="blue", ylim=c(0, 1), xlab = "Total sample size", ylab = "Power")
   lines(nvec*2, predict(powers2smooth), col="red", lty=2)
-  
+
   legend("bottomright", legend = c("Scenario 1", "Scenario 2"), col = c("blue", "red"), lty=1:2)
+  dev.off()
 }
 
 DTEDataSetsFunc("Brahmer")
