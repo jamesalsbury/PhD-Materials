@@ -356,10 +356,11 @@ There is a question of what to do at this interim analysis stage, we could use t
 ```{r}
 
 TPPIA <- function(IATime){
-  TPPval <- rep(NA, 100001)
-  HRval <- rep(NA, 100001)
+  n <- 10001
+  TPPval <- rep(NA, n)
+  HRval <- rep(NA, n)
   TPPval[1] <- IATime
-  for (i in 2:100001){
+  for (i in 2:n){
 HR <- rnorm(1, 0.7, sd = 0.1)
 bigT <- rgamma(1, 65.5, 10.9)
 gamma1 <- gamma2 <- 0.8
@@ -367,10 +368,10 @@ lambda2 <- 0.08
 lambda1  <- lambda2*HR^(1/gamma2)
 
 #Sample sizes in each group
-n1 <- 500
-n2 <- 500
+n1 <- 1000
+n2 <- 1000
 
-#What is the survival probability at t = 40?
+#What is the survival probability at t = IATime?
 survprobcontrol <- exp(-(lambda2*IATime)^gamma2)
 survprobtreatment <- exp(-(lambda2*bigT)^gamma2-lambda1^gamma1*(IATime^gamma1-bigT^gamma1))
 
