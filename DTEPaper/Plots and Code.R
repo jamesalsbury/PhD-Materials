@@ -157,9 +157,26 @@ DTEDataSetsFunc("Brahmer")
 DTEDataSetsFunc("Yen")
 DTEDataSetsFunc("Borghaei")
 
+# Looking at the hazard function ----------------------------------------------------------------
+
+gammac <- 0.8
+lambdac <- 0.08
+t <- seq(0, 100, by=0.01)
+HFC <- gammac*lambdac^gammac*t^(gammac-1)
+plot(t, HFC, type="l", ylim=c(0, 0.5), col="blue", ylab = "Hazard function", xlab = "Time")
+
+gammat <-0.8
+lambdat <- 0.04
+HFT <- gammat*lambdat^gammat*t^(gammat-1)
+lines(t, HFT, col="red")
+
+# HR <- HFT/HFC
+# lines(t, HR)
+
+legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty=1)
 
 
-# Figure in the example ----------------------------------------------------------------
+# Power/assurance figure for the example ----------------------------------------------------------------
 
 #png("PowerAss.png", units="in", width=8, height=5, res=700)
 assFunc <- function(nc, nt, N, recTime, Lmax, lambdac, gammac, massT0, massHR1){

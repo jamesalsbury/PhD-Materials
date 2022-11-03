@@ -28,13 +28,14 @@ ui <- fluidPage(
 
       
       tabPanel("Control", 
-               wellPanel(
+               hidden(wellPanel(
+                 id = "instruct_panel",
                  h4("Instructions"),
                  tags$ol(
                    tags$li("You are able to upload an MCMC sample to estimate the control survival curve. 
                    The MCMC sample must be in one of the following three file formats: '.csv', '.xlsx' or '.rds'. The 
                            file must contain nothing but two columns of samples. The first column must contain the output for the SHAPE parameter
-                           and the second column must contain the output for the SCALE parameter."))),
+                           and the second column must contain the output for the SCALE parameter.")))),
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    radioButtons("uploadSampleCheck", "Do you wish to upload a MCMC sample?", choices = c("Yes", "No"), selected = "No"),
@@ -284,8 +285,10 @@ server = function(input, output, session) {
     if (input$uploadSampleCheck=="No"){
       shinyjs::hide(id = "uploadSample")
       shinyjs::reset(id = "uploadSample")
+      shinyjs::hide(id = "instruct_panel")
     } else if (input$uploadSampleCheck=="Yes"){
       shinyjs::show(id = "uploadSample")
+      shinyjs::show(id = "instruct_panel")
     }
     
   })
