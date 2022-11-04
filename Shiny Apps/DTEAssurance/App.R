@@ -10,7 +10,7 @@ library(pbapply)
 library(shinyjs)
 library(dplyr)
 library(survminer)
-library(xlsx)
+#library(xlsx)
 
 source("functions.R")
 
