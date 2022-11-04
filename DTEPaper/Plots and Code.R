@@ -178,7 +178,7 @@ legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty
 
 # Power/assurance figure for the example ----------------------------------------------------------------
 
-#png("PowerAss.png", units="in", width=8, height=5, res=700)
+png("PowerAss.png", units="in", width=8, height=5, res=700)
 
 
 simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, censTime){
@@ -293,11 +293,9 @@ plot(power$nvec*2, predict(power$smoothedout), ylim=c(0,1), type="l", xlab = "To
 lines(ass$nvec*2, predict(ass$smoothedout), col="red", lty=2)
 lines(powerND$nvec*2, predict(powerND$smoothedout), col="blue", lty=3)
 
-
-
-
 legend("bottomright", legend = c("Power", "Assurance", "Power assuming no delay"), col=c("black", "red", "blue"), lty=1:3)
 
+dev.off()
 
 
 

@@ -181,10 +181,10 @@ plot(output)
 #Setting up the correct parameters - we would not know this in practice
 
 TPPIA <- function(IATime){
-  TPPval <- rep(NA, 31)
-  HRval <- rep(NA, 31)
+  TPPval <- rep(NA, 101)
+  HRval <- rep(NA, 101)
   TPPval[1] <- IATime
-for (i in 2:31){
+for (i in 2:101){
 HR <- rnorm(1, 0.7, sd = 0.1414)
 bigT <- rgamma(1, 65.5, 10.9)
 gamma1 <- gamma2 <- 0.8
@@ -193,8 +193,8 @@ lambda1  <- lambda2*HR^(1/gamma2)
 
 HRval[i] <- HR
 #Sample sizes in each group
-n1 <- 800
-n2 <- 800
+n1 <- 400
+n2 <- 400
 
 #When is the final analysis time?
 #trialLength <- 60
@@ -259,7 +259,7 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = combinedD
                    
                    
 update(model, n.iter=500)
-output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 3000)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 2000)
 
 # 
 #summary(output)
@@ -274,7 +274,7 @@ return(list(TPPval = TPPval, HRval = HRval))
 
 }
 
-IATimeVec <- seq(5, 35, by=5)
+IATimeVec <- seq(5, 70, by=10)
 #IATimeVec <- 10
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
@@ -356,7 +356,7 @@ There is a question of what to do at this interim analysis stage, we could use t
 ```{r}
 
 TPPIA <- function(IATime){
-  n <- 10001
+  n <- 1000-1
   TPPval <- rep(NA, n)
   HRval <- rep(NA, n)
   TPPval[1] <- IATime
@@ -368,8 +368,8 @@ lambda2 <- 0.08
 lambda1  <- lambda2*HR^(1/gamma2)
 
 #Sample sizes in each group
-n1 <- 100
-n2 <- 100
+n1 <- 1000
+n2 <- 1000
 
 #What is the survival probability at t = IATime?
 survprobcontrol <- exp(-(lambda2*IATime)^gamma2)
@@ -391,7 +391,7 @@ return(list(TPPval = TPPval, HRval = HRval))
 
 }
 
-IATimeVec <- seq(1, 200 ,by=20)
+IATimeVec <- seq(1, 400 ,by=20)
 #IATimeVec <- 10
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
