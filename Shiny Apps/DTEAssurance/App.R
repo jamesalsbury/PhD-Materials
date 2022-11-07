@@ -90,7 +90,8 @@ ui <- fluidPage(
                  )
                  
                ),
-               plotOutput("distPlot1")
+               plotOutput("distPlot1"),
+               uiOutput("delayFeedbackText")
       ),
       # post-delay HR UI ---------------------------------
       tabPanel("Eliciting the post-delay hazard ratio",
@@ -141,7 +142,7 @@ ui <- fluidPage(
                ),
                
                plotOutput("distPlot2"),
-               htmlOutput("HRProportion")
+               uiOutput("HRFeedbackText")
       ),
       
       # Feedback UI ---------------------------------
@@ -154,8 +155,10 @@ ui <- fluidPage(
                  ),
                  mainPanel = mainPanel(
                    plotOutput("plotFeedback"),
+                   htmlOutput("medianSurvivalFeedback"),
                    htmlOutput("priorWorthFeedback"),
-                   plotOutput("quantilePlot")
+                   plotOutput("quantilePlot"),
+                   htmlOutput("quantileFeedback")
                  )
                ),
       ),
@@ -181,7 +184,8 @@ ui <- fluidPage(
                  mainPanel = mainPanel(
                    plotOutput("assurancePlot"),
                    htmlOutput("assuranceText"),
-                   plotOutput("AHRPlot")
+                   plotOutput("AHRPlot"),
+                   htmlOutput("AHRFeedback")
                  )
                ),
                
@@ -472,6 +476,15 @@ server = function(input, output, session) {
     
     print(p1)
     
+  })
+  
+  output$delayFeedbackText <- renderUI({
+    if (input$massT0>0){
+      str1 <- paste0("As you have given some weight to the treatment being subject to no delay, ", 
+                     input$massT0*100, "% of the samples are set to be 0, with the remaining ", 100*(1-input$massT0), 
+                     "% of samples coming from your elicited distribution - ", input$dist1)
+      HTML(paste(str1, sep = '<br/>'))
+    } 
     
   })
   
@@ -591,6 +604,18 @@ server = function(input, output, session) {
     print(p1) 
   })
   
+  output$HRFeedbackText <- renderUI({
+    if (input$massHR1>0){
+      str1 <- paste0("As you have given some weight to the treatment having no effect compared to control, ", 
+                     input$massHR1*100, "% of the samples are set to be 1, with the remaining ", 100*(1-input$massHR1), 
+                     "% of samples coming from your elicited distribution - ", input$dist2)
+      HTML(paste(str1, sep = '<br/>'))
+    } 
+    
+  })
+  
+  
+  
   # Functions for the Feedback tab ---------------------------------
   
   #This function allows the 10 and 90% CI lines to be drawn
@@ -618,7 +643,7 @@ server = function(input, output, session) {
     
     time <- seq(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
     
-    quicktime <- time[seq(1, length(time), by=5)]
+    quicktime <- time[seq(1, length(time), by=3)]
     
     #We fill a matrix with the treatment survival probabilities at each time
     SimMatrix <- matrix(NA, nrow = nsamples, ncol=length(quicktime))
@@ -631,13 +656,13 @@ server = function(input, output, session) {
       lambdat <- input$lambdacmean*HR^(1/input$gammacmean)
       if (bigT!=0){
         controltime <- seq(0, bigT, by=0.01)
-        quickcontroltime <- controltime[seq(1, length(controltime), by=5)]
+        quickcontroltime <- controltime[seq(1, length(controltime), by=3)]
         controlsurv <- exp(-(input$lambdacmean*quickcontroltime)^input$gammacmean)
       }
       
       
       treatmenttime <- seq(bigT, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1, by=0.01)
-      quicktreatmenttime <- treatmenttime[seq(1, length(treatmenttime), by=5)]
+      quicktreatmenttime <- treatmenttime[seq(1, length(treatmenttime), by=3)]
       treatmentsurv <- exp(-(input$lambdacmean*bigT)^input$gammacmean - lambdat^gammat*(quicktreatmenttime^gammat-bigT^gammat))
       
       timecombined <- c(quickcontroltime, quicktreatmenttime)[1:length(quicktime)]
@@ -692,6 +717,26 @@ server = function(input, output, session) {
     
   })
   
+  output$medianSurvivalFeedback <- renderUI({
+    
+    addfeedback <- radiobuttons()
+    
+    str1 <- ""
+    
+    if (!is.null(addfeedback)){
+      for (i in 1:length(addfeedback)){
+        if (addfeedback[i]=="Median survival line"){
+          medianTTime <- round(drawsimlines()$quicktime[sum(drawsimlines()$medianTreatment>0.5)], 1)
+          medianCTime <- round((1/input$lambdacmean)*(-log(0.5))^(1/input$gammacmean), 1)
+          str1 <- paste0("The median survival time on the control is ", medianCTime, " and the median survival time on the treatment is ", medianTTime)
+        }
+      }
+    }  
+    
+    HTML(paste(str1, sep = '<br/>'))
+    
+  })
+  
   output$plotFeedback <- renderPlot({
     #This plots the feedback plot
     
@@ -723,7 +768,6 @@ server = function(input, output, session) {
       for (i in 1:length(addfeedback)){
         #This adds the median survival line (onto the control and treatment)
         if (addfeedback[i]=="Median survival line"){
-          shinyjs::show(id = "feedbackQuantile")
           #Looks at whether the median time is before or after the delay
           medianTTime <- drawsimlines()$quicktime[sum(drawsimlines()$medianTreatment>0.5)]
           medianCTime <- (1/input$lambdacmean)*(-log(0.5))^(1/input$gammacmean)
@@ -742,6 +786,7 @@ server = function(input, output, session) {
           }
           #This uses the elicited distribution for T and adds 95% points onto the control curve
         } else if (addfeedback[i]=="95% CI for T"){
+          
           mySample <- drawsamples()$mySample
           lowerT <- quantile(mySample[,1], 0.025) 
           upperT <- quantile(mySample[,1], 0.975)
@@ -754,6 +799,7 @@ server = function(input, output, session) {
           
         } else if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           shinyjs::show(id = "timeInputFeedback")
+          shinyjs::show(id = "feedbackQuantile")
           #This adds the simulated confidence interval lines
           simlineslower <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$lowerbound)
           simlinesupper <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$upperbound)
@@ -782,7 +828,7 @@ server = function(input, output, session) {
     
     if (!is.null(addfeedback)){
       for (i in 1:length(addfeedback)){
-        if (addfeedback[i]=="Median survival line"){
+        if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           
           quantileMatrix <- drawsimlines()$SimMatrix
           
@@ -809,6 +855,23 @@ server = function(input, output, session) {
     
   })
   
+  output$quantileFeedback <- renderUI({
+    
+    addfeedback <- radiobuttons()
+    
+    str1 <- ""
+    
+    if (!is.null(addfeedback)){
+      for (i in 1:length(addfeedback)){
+        if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
+          str1 <- paste0("This plot shows the distribution of samples for treatment group for the ", input$feedbackQuantile, " quantile")
+        }
+      }
+    }  
+    
+    HTML(paste(str1, sep = '<br/>'))
+    
+  })
   
   # Functions for the Assurance tab ---------------------------------
   
@@ -972,14 +1035,17 @@ server = function(input, output, session) {
     TPPUBdf <- data.frame(x = calculateNormalAssurance()$samplesizevec, y = predict(calculateNormalAssurance()$UBTPPsmooth))
     p1 <- ggplot() + geom_line(data = assurancenormaldf, aes(x = x, y = y, colour="Assurance"), linetype="solid") + xlab("Number of patients") +
       ylab("Assurance") + ylim(0, 1.05) +
-      geom_line(data = TPPdf, aes(x=x, y=y, colour = 'target effect'), linetype="solid") +
+      geom_line(data = TPPdf, aes(x=x, y=y, colour = 'Target effect'), linetype="solid") +
       geom_line(data = assurancenormalLBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed') +
       geom_line(data = assurancenormalUBdf, aes(x=x, y=y, colour = 'Assurance'), linetype='dashed') +
-      geom_line(data = TPPLBdf, aes(x=x, y=y, colour = 'target effect'), linetype='dashed') +
-      geom_line(data = TPPUBdf, aes(x=x, y=y, colour = 'target effect'), linetype='dashed') 
-    scale_color_manual(name='Type of assurance',
-                       breaks=c('Assurance', 'target effect'),
-                       values=c('Assurance'='blue', 'target effect' = 'green'))
+      geom_line(data = TPPLBdf, aes(x=x, y=y, colour = 'Target effect'), linetype='dashed') +
+      geom_line(data = TPPUBdf, aes(x=x, y=y, colour = 'Target effect'), linetype='dashed') + theme(
+        legend.position = c(.05, .95),
+        legend.justification = c("left", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(6, 6, 6, 6)) + scale_color_manual(name=NULL,
+                       breaks=c('Assurance', 'Target effect'),
+                       values=c('Assurance'='blue', 'Target effect' = 'orange'))
     print(p1) 
   })
   
@@ -993,9 +1059,13 @@ server = function(input, output, session) {
     p1 <- ggplot() + geom_line(data = AHRdf, aes(x = x, y = y, colour="Average HR"), linetype="solid") + xlab("Number of patients") +
       ylab("Average hazard ratio") + geom_line(data = LBdf, aes(x=x, y=y, colour = "CI"), linetype="dashed") + 
       geom_line(data = UBdf, aes(x=x, y=y, colour = "CI"), linetype="dashed") +
-      scale_color_manual(name='Average hazard ratio',
-                         breaks=c('Average HR', 'CI'),
-                         values=c('Average HR'='red', 'CI'='black'))
+      theme(
+        legend.position = c(.95, .95),
+        legend.justification = c("right", "top"),
+        legend.box.just = "right",
+        legend.margin = margin(6, 6, 6, 6)) + scale_color_manual(name=NULL,
+                                                                 breaks=c('Average HR', 'CI'),
+                                                                 values=c('Average HR'='red', 'CI' = 'black'))
     print(p1) 
     
     
@@ -1006,13 +1076,23 @@ server = function(input, output, session) {
   
   
   output$assuranceText  <- renderUI({
-    
     #Show how many events are seen given the set up
-    str1 <- paste0("On average, ", round(calculateNormalAssurance()$eventsseen), " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months")
+    str1 <- paste0("The ","<font color=\"#0000FF\"><b>blue</b></font>", " line is the proportion of trials that give rise to a 'successful' outcome.")
+    str2 <- paste0("The ", "<font color=\"#FFA500\"><b>orange</b></font>", " line is the  proportion of trials in which the estimated average hazard ratio is less than the target effect - ", input$TPP, ".")
+    str3 <- paste0("On average, ", round(calculateNormalAssurance()$eventsseen), " events are seen when ", input$numofpatients, " patients are enroled for ", input$chosenLength, " months.")
+    HTML(paste(str1, str2, str3, sep = '<br/>'))
+  })
+  
+  output$AHRFeedback  <- renderUI({
+    #Show how many events are seen given the set up
+    x <-  round(calculateNormalAssurance()$eventsseen)
+    str1 <- paste0("The ","<font color=\"##FF0000\"><b>red</b></font>", " line is the average estimated hazard ratio.")
     HTML(paste(str1, sep = '<br/>'))
   })
   
   
+  
+  #
   # observeEvent(input$exit, {
   #   stopApp(list(parameter1 = myfit1(), parameter2 = myfit2(), 
   #                cp = input$concProb))
@@ -1033,7 +1113,7 @@ server = function(input, output, session) {
   #   content = function(file) {
   #     # Copy the report file to a temporary directory before processing it, in
   #     # case we don't have write permissions to the current working dir (which
-  #     # can happen when deployed).
+  #     # ca<- happen when deployed).
   #     tempReport <- file.path(tempdir(), "elicitationShinySummaryBivariate.Rmd")
   #     file.copy(system.file("shinyAppFiles", "elicitationShinySummaryBivariate.Rmd",
   #                           package="SHELF"),

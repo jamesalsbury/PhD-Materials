@@ -91,8 +91,9 @@ plot(x, y, type="l", xlab="post-delay HR", ylab="density")
 
 We can simulate some data according to some underlying parameters (in practice, we would not know these), combine the data with our prior distributions to obtain posterior distributions for $T$ and post-delay HR.
 
-```{r}
+This code chunk does this process once, for illustration. 
 
+```{r}
 
 HR <- rnorm(1, 0.7, sd = 0.1)
 bigT <- rgamma(1, 65.5, 10.9)
@@ -175,6 +176,8 @@ summary(output)
 plot(output)
 
 ```
+
+This next code chunk repeats the above process 100 times (for each interim analysis time), it also varies the interim analysis time. 
 
 ```{r, eval=T, echo=T, cache=T}
 #set.seed(53)
@@ -352,11 +355,51 @@ outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
 
 There is a question of what to do at this interim analysis stage, we could use these posteriors - especially the one for HR - to look at how much more informed we are at this interim analysis stage than we were compared to before the trial. We could also sample future observations from these posterior distributions and then combine these simulated future observations with the observations seen at the interim analysis stage to calculate Bayesian predictive probabilities.
 
+```{r}
+
+visualisingMCMCOutput <- function(data_vec, changing){
+  len_dat <- length(data_vec)/2
+  print(len_dat)
+  len_dat_1 <- length(outputvec[,1]$TPPval)
+  print(len_dat_1)
+  if (len_dat%%2==0){
+    par(mfrow=c(2,len_dat/2))
+  } else {
+    par(mfrow=c(2,(len_dat+1)/2))
+  }
+  densityVec <- rep(NA, length = length(len_dat))
+  for (i in 1:len_dat){
+     h <- hist(data_vec[,i]$TPPval[2:len_dat_1], xlim=c(0,1), freq=F)
+     densityVec[i] <- max(h$density)
+  }
+  for (i in 1:len_dat){
+    h <- hist(data_vec[,i]$TPPval[2:len_dat_1], xlim=c(0,1), ylim=c(0, max(densityVec)),
+              main=paste0("Histogram, ", changing, "= ", data_vec[,i]$TPPval[1]), xlab = "Proportion of posterior < TPP", freq=F)
+    #print(mean(data_vec[,i]$TPPval[2:len_dat_1]))
+  }
+  
+  # if (len_dat%%2==0){
+  #   par(mfrow=c(2,len_dat/2))
+  # } else {
+  #   par(mfrow=c(2,(len_dat+1)/2))
+  # }
+  # for (j in 1:len_dat){
+  #   plot(data_vec[,j]$HRval[2:len_dat_1], data_vec[,j]$TPPval[2:len_dat_1], ylab = "Proportion of posterior < TPP",
+  #        xlab = "Sampled HR", xlim = c(0,1), main = paste0("Plot, t = ", data_vec[,j]$TPPval[1]))
+  # }
+}
+
+
+
+```
+
+This next code chunk uses an approximation of the hazard ratio - instead of doing "full" MCMC on it.
+This changes the interim analysis time.
 
 ```{r}
 
 TPPIA <- function(IATime){
-  n <- 1000-1
+  n <- 10001
   TPPval <- rep(NA, n)
   HRval <- rep(NA, n)
   TPPval[1] <- IATime
@@ -397,7 +440,12 @@ IATimeVec <- seq(1, 400 ,by=20)
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
 
 
+visualisingMCMCOutput(outputvec, "t")
+
+
 ```
+
+This next code chunk does exactly the same thing, but we keep interim analysis time constant and only change n. 
 
 ```{r}
 
@@ -439,6 +487,8 @@ nVec <- round(10^seq(0, 5, by=0.5))
 #IATimeVec <- 10
 
 outputvec <- sapply(X = nVec,FUN= TPPIA)
+
+visualisingMCMCOutput(outputvec, "n")
 
 
 ```
