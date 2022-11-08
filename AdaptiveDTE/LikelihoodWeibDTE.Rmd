@@ -434,7 +434,7 @@ return(list(TPPval = TPPval, HRval = HRval))
 
 }
 
-IATimeVec <- seq(1, 400 ,by=20)
+IATimeVec <- seq(1, 200 ,by=20)
 #IATimeVec <- 10
 
 outputvec <- sapply(X = IATimeVec,FUN= TPPIA)
@@ -483,7 +483,7 @@ return(list(TPPval = TPPval, HRval = HRval))
 
 }
 
-nVec <- round(10^seq(0, 5, by=0.5))
+nVec <- round(10^seq(0, 4, by=0.5))
 #IATimeVec <- 10
 
 outputvec <- sapply(X = nVec,FUN= TPPIA)
@@ -494,3 +494,58 @@ visualisingMCMCOutput(outputvec, "n")
 ```
 
 
+```{r}
+
+TPPIA <- function(n1, IATime){
+  n <- 1001
+  TPPval <- rep(NA, n)
+  HRval <- rep(NA, n)
+  TPPval[1] <- n1
+  for (i in 2:n){
+HR <- rnorm(1, 0.7, sd = 0.1)
+bigT <- rgamma(1, 65.5, 10.9)
+gamma1 <- gamma2 <- 0.8
+lambda2 <- 0.08
+lambda1  <- lambda2*HR^(1/gamma2)
+
+
+#What is the survival probability at t = IATime?
+survprobcontrol <- exp(-(lambda2*IATime)^gamma2)
+survprobtreatment <- exp(-(lambda2*bigT)^gamma2-lambda1^gamma1*(IATime^gamma1-bigT^gamma1))
+
+#Expected number of events at t = 40
+e1 <- (1-survprobcontrol)*n1
+e2 <- (1-survprobtreatment)*n1
+
+#print(e1)
+#print(e2)
+#print(sqrt(1/e1+1/e2))
+
+HRval[i] <- HR
+TPPval[i] <- pnorm(0.65, mean = HR, sd = sqrt(1/e1+1/e2), lower.tail = T)
+}
+
+return(TPPval = TPPval)
+
+}
+
+nVec <- round(10^seq(0, 2, by=0.5))
+IATimeVec <- seq(10, 60 ,by=10)
+
+posteriorMatrix <-matrix(rep(list(), length(nVec)+length(IATimeVec)),nrow = length(nVec), ncol = length(IATimeVec))
+
+for (i in 1:length(IATimeVec)){
+  for (j in 1:length(nVec)){
+    posteriorMatrix[j,i] <- list(TPPIA(nVec[j], IATimeVec[i]))
+  }
+}
+
+par(mfrow=c(length(nVec),length(IATimeVec)))
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+    hist(unlist(posteriorMatrix[i,j])[2:1001])
+  }
+}
+
+
+```

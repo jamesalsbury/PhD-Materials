@@ -703,9 +703,10 @@ server = function(input, output, session) {
         if (addfeedback[i]=="CI for Treatment Curve (0.1 and 0.9)"){
           simlineslower <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$lowerbound)
           simlinesupper <- data.frame(x = drawsimlines()$quicktime, y = drawsimlines()$upperbound)
+        
           
-          CIwidth <- simlinesupper[simlinesupper$x==input$timeInputFeedback,]$y - simlineslower[simlineslower$x==input$timeInputFeedback,]$y
-          midpoint <- (simlinesupper[simlinesupper$x==input$timeInputFeedback,]$y + simlineslower[simlineslower$x==input$timeInputFeedback,]$y)/2
+          CIwidth <- simlinesupper[(which.min(abs(simlinesupper$x-input$timeInputFeedback))),]$y - simlineslower[(which.min(abs(simlineslower$x-input$timeInputFeedback))),]$y
+          midpoint <- (simlinesupper[(which.min(abs(simlinesupper$x-input$timeInputFeedback))),]$y + simlineslower[(which.min(abs(simlineslower$x-input$timeInputFeedback))),]$y)/2
           n <- (16*midpoint*(1-midpoint))/(CIwidth^2)
           str1 <- paste0("The confidence interval width at t = ", input$timeInputFeedback, " is equivalent to  ", round(n, 0), 
                          " patients from a Binomial distribution")
