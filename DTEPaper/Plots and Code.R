@@ -8,7 +8,7 @@ library(survival)
 
 # Figure 1 ----------------------------------------------------------------
 
-#png("DTEKM.png", units="in", width=5, height=5, res=700)
+png("DTEKM.png", units="in", width=7, height=6, res=700)
 
 controldata <- read.csv(file = "DTEPaper/data/Brahmer/IPD-control.csv")
 treatmentdata <- read.csv(file = "DTEPaper/data/Brahmer/IPD-treatment.csv")
@@ -18,10 +18,13 @@ combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Sur
                            group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
 
 kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Progression free survival (% of patients)")
-legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", 
+     ylab = "Progression free survival (% of patients)", xaxt = "n", yaxt = "n")
+axis(1, at=seq(0, 21, by=3), labels=seq(0, 21, by=3))
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+legend("topright", legend = c("Docetaxel", "Nivolumab"), col = c("blue", "red"), lty=1)
 
-#dev.off()
+dev.off()
 
 # Robustness of the parameterisation ----------------------------------------------------------------
 
@@ -298,8 +301,8 @@ legend("bottomright", legend = c("Power", "Assurance", "Power assuming no delay"
 dev.off()
 
 
-
-
-
+sum(is.na(predict(ass$smoothedout, 1:500)<0.7))+sum(na.omit(predict(ass$smoothedout, 1:500)<0.7))*2
+sum(is.na(predict(power$smoothedout, 1:500)<0.7))+sum(na.omit(predict(power$smoothedout, 1:500)<0.7))*2
+sum(is.na(predict(powerND$smoothedout, 1:500)<0.7))+sum(na.omit(predict(powerND$smoothedout, 1:500)<0.7))*2
 
 
