@@ -497,7 +497,7 @@ visualisingMCMCOutput(outputvec, "n")
 ```{r}
 
 TPPIA <- function(n1, IATime){
-  n <- 1001
+  n <- 10001
   TPPval <- rep(NA, n)
   HRval <- rep(NA, n)
   TPPval[1] <- n1
@@ -529,8 +529,8 @@ return(TPPval = TPPval)
 
 }
 
-nVec <- 3*(10^seq(0,3))
-IATimeVec <- seq(5, 60 ,length = 4)
+nVec <- 3*(10^seq(0,3, by=0.5))
+IATimeVec <- seq(5, 60 ,length = 6)
 
 posteriorMatrix <-matrix(rep(list(), length(nVec)+length(IATimeVec)),nrow = length(nVec), ncol = length(IATimeVec))
 
@@ -557,4 +557,41 @@ for (i in 1:length(nVec)){
   }
 }
 
+```{r}
+posteriorMatrix <- readRDS("~/R Projects/PhD-Materials/posteriorMatrixJAGS.rds")
+nVec <- 3*(10^seq(0,3))
+IATimeVec <- seq(5, 60 ,length = 4)
 
+par(mfrow=c(length(nVec),length(IATimeVec)))
+densityMat <- matrix(NA, ncol = length(IATimeVec), nrow = length(nVec))
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+    h <- hist(unlist(posteriorMatrix[i,j])[2:1001], xlim=c(0,1), freq = F)
+    densityMat[i,j] <- max(h$density)
+  }
+}
+
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+    hist(unlist(posteriorMatrix[i,j])[2:1001], xlim=c(0,1), xlab = "Proportion of posterior < TPP", ylim=c(0, max(densityMat)), main = paste0("Histogram: t = ", round(IATimeVec[j]), ", n = ", round(nVec[i])), freq = F)
+  }
+}
+
+extremeMassMatrix <-matrix(rep(NA, length(nVec)+length(IATimeVec)),nrow = length(nVec), ncol = length(IATimeVec))
+colnames(extremeMassMatrix) <- IATimeVec
+rownames(extremeMassMatrix) <- nVec
+
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+   x <-  unlist(posteriorMatrix[i,j])
+   extremeMassMatrix[i,j] <- mean(x>0.9|x<0.1)
+  }
+}
+
+
+heatmap(extremeMassMatrix, Colv=NA, Rowv=NA, xlab = "interim time", scale = "none", ylab = "sample size", col= colorRampPalette(brewer.pal(8, "Oranges"))(25))
+
+
+# legend(x="bottomright", legend = c("Min", "Med", "Large"),
+#      fill=colorRampPalette(brewer.pal(8, "Oranges"))(3))
+```
