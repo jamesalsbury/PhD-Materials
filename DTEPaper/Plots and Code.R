@@ -6,7 +6,7 @@ library(truncnorm)
 library(survival)
 
 
-# Figure 1 ----------------------------------------------------------------
+# An example of DTE in a KM plot ----------------------------------------------------------------
 
 png("DTEKM.png", units="in", width=7, height=6, res=700)
 
@@ -163,8 +163,9 @@ DTEDataSetsFunc("Yen")
 DTEDataSetsFunc("Borghaei")
 dev.off()
 
-# Sampling 10 treatment survival curves ----------------------------------------------------------------
-png("DTESimpSurvival.png", units="in", width=8, height=5, res=700)
+# Sampling 10 treatment survival curves and CI ----------------------------------------------------------------
+png("simSamples.png", units="in", width=14, height=6, res=700)
+par(mfrow=c(1,2))
 gammac <- 0.8
 gammat <- 0.8
 lambdac <- 0.08
@@ -181,10 +182,7 @@ for (j in 1:10){
 }
 
 legend("topright", legend = c("Control", "Treatment"), lty = 1, col=c("blue", "red"))
-dev.off()
 
-# Showing the pointwise estimates for the treatment survival curves ----------------------------------------------------------------
-png("DTETreatmentCI.png", units="in", width=8, height=5, res=700)
 gammac <- 0.8
 gammat <- 0.8
 lambdac <- 0.08
@@ -211,18 +209,80 @@ for (j in 1:length(trialtime)){
 lines(trialtime, medianbound, col="red")
 lines(trialtime, lowerbound, lty=2)
 lines(trialtime, upperbound, lty=2)
+legend("topright", legend = c("Control", "Treatment", "Treatment CI"), lty = c(1, 1, 2), col=c("blue", "red", "black"))
 dev.off()
 
 # Showing an example of the more flexible Weibull ----------------------------------------------------------------
-png("MultiFlex.png", units="in", width=8, height=5, res=700)
 gammac <- 0.8
 gammat <- 0.8
 lambdac <- 0.08
 trialtime <- seq(0, 100, by=0.01)
 controlsurv <- exp(-(lambdac*trialtime)^gammac)
+M <- 500
+SimMatrix <- matrix(NA, nrow = M, ncol = length(trialtime))
+for (i in 1:M){
+  bigT <- truncnorm::rtruncnorm(1, mean = 6, sd = 2.97, a = 0)
+  HR <- rbeta(1, 10.8, 6.87)
+  lambdat <- lambdac*HR^(1/gammac)
+  SimMatrix[i,] <- ifelse(trialtime<=bigT, exp(-(lambdac*trialtime)^gammac), exp(-(lambdac*bigT)^gammac-lambdat^gammat*(trialtime^gammat-bigT^gammat)))
+}
+  bigT <- truncnorm::rtruncnorm(1, mean = 6, sd = 2.97, a = 0)
+  s1 <- sample(SimMatrix[,round(length(trialtime)*0.25)], 1)
+  s2 <- 1
+  while (s2>s1){ s2 <- sample(SimMatrix[,round(length(trialtime)*0.6)], 1)}
+  estWeib <- function(par){
+    t1 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(25^par[2]-bigT^par[2])) - s1
+    t2 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(60^par[2]-bigT^par[2])) - s2
+    terror <- t1^2+t2^2
+    return(terror)
+  }
+  
+  output <- optim(par = c(0, 1), fn = estWeib)
+  lambdat <- output$par[1]
+  gammat <- output$par[2]
+  treatmentsurv <- ifelse(trialtime<=bigT, exp(-(lambdac*trialtime)^gammac), exp(-(lambdac*bigT)^gammac-lambdat^gammat*(trialtime^gammat-bigT^gammat)))
+
+png("FlexSeq.png", units="in", width=14, height=12, res=700)
+par(mfrow=c(2,2))
+#First plot
 plot(trialtime, controlsurv, type="l", col="blue", xlab = "Time (months)", yaxt = "n", ylab = "Overall survival (%)")
 axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+points(bigT, exp(-(lambdac*bigT)^gammac))
+legend("topright", legend = "Control", lty = 1, col="blue")
+#Second plot
+plot(trialtime, controlsurv, type="l", col="blue", xlab = "Time (months)", yaxt = "n", ylab = "Overall survival (%)")
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+points(bigT, exp(-(lambdac*bigT)^gammac))
+points(25, s1)
+legend("topright", legend = "Control", lty = 1, col="blue")
+#Third plot
+plot(trialtime, controlsurv, type="l", col="blue", xlab = "Time (months)", yaxt = "n", ylab = "Overall survival (%)")
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+points(bigT, exp(-(lambdac*bigT)^gammac))
+points(25, s1)
+points(60, s2)
+legend("topright", legend = "Control", lty = 1, col="blue")
+#Fourth plot
+plot(trialtime, controlsurv, type="l", col="blue", xlab = "Time (months)", yaxt = "n", ylab = "Overall survival (%)")
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+points(bigT, exp(-(lambdac*bigT)^gammac))
+points(25, s1)
+points(60, s2)
+lines(trialtime, treatmentsurv, col="red")
+legend("topright", legend = c("Control", "Treatment"), lty = 1, col=c("blue", "red"))
+dev.off()
+
+# Sampling 10 flexible lines & then the CI ----------------------------------------------------------------
+png("simSamplesFlex.png", units="in", width=14, height=6, res=700)
+par(mfrow=c(1,2))
+gammac <- 0.8
+gammat <- 0.8
+lambdac <- 0.08
+trialtime <- seq(0, 100, by=0.01)
+controlsurv <- exp(-(lambdac*trialtime)^gammac)
 M <- 500
+plot(trialtime, controlsurv, type="l", col="blue", xlab = "Time (months)", yaxt = "n", ylab = "Overall survival (%)")
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
 SimMatrix <- matrix(NA, nrow = M, ncol = length(trialtime))
 for (i in 1:M){
   bigT <- truncnorm::rtruncnorm(1, mean = 6, sd = 2.97, a = 0)
@@ -232,12 +292,9 @@ for (i in 1:M){
 }
 for (j in 1:10){
   bigT <- truncnorm::rtruncnorm(1, mean = 6, sd = 2.97, a = 0)
- # points(bigT, exp(-(lambdac*bigT)^gammac))
   s1 <- sample(SimMatrix[,round(length(trialtime)*0.25)], 1)
   s2 <- 1
   while (s2>s1){ s2 <- sample(SimMatrix[,round(length(trialtime)*0.6)], 1)}
- # points(25, s1)
-  #points(60, s2)
   estWeib <- function(par){
     t1 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(25^par[2]-bigT^par[2])) - s1
     t2 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(60^par[2]-bigT^par[2])) - s2
@@ -251,9 +308,43 @@ for (j in 1:10){
   treatmentsurv <- ifelse(trialtime<=bigT, exp(-(lambdac*trialtime)^gammac), exp(-(lambdac*bigT)^gammac-lambdat^gammat*(trialtime^gammat-bigT^gammat)))
   lines(trialtime, treatmentsurv, col="red")
 }
+legend("topright", legend = c("Control", "Treatment"), lty = 1, col=c("blue", "red"))
+
+FlexSimMatrix <- matrix(NA, nrow = M, ncol = length(trialtime))
+for (i in 1:M){
+  bigT <- truncnorm::rtruncnorm(1, mean = 6, sd = 2.97, a = 0)
+  s1 <- sample(SimMatrix[,round(length(trialtime)*0.25)], 1)
+  s2 <- 1
+  while (s2>s1){ s2 <- sample(SimMatrix[,round(length(trialtime)*0.6)], 1)}
+  estWeib <- function(par){
+    t1 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(25^par[2]-bigT^par[2])) - s1
+    t2 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(60^par[2]-bigT^par[2])) - s2
+    terror <- t1^2+t2^2
+    return(terror)
+  }
+  
+  output <- optim(par = c(0, 1), fn = estWeib)
+  lambdat <- output$par[1]
+  gammat <- output$par[2]
+  FlexSimMatrix[i,] <- ifelse(trialtime<=bigT, exp(-(lambdac*trialtime)^gammac), exp(-(lambdac*bigT)^gammac-lambdat^gammat*(trialtime^gammat-bigT^gammat)))
+}
+
+lowerbound <- rep(NA, length(trialtime))
+upperbound <- rep(NA, length(trialtime))
+medianbound <- rep(NA, length(trialtime))
+for (i in 1:length(trialtime)){
+  lowerbound[i] <- quantile(FlexSimMatrix[,i], 0.1, na.rm = T)
+  upperbound[i] <- quantile(FlexSimMatrix[,i], 0.9, na.rm = T)
+  medianbound[i] <- quantile(FlexSimMatrix[,i], 0.5, na.rm = T)
+}
+
+plot(trialtime, controlsurv, type="l", col="blue", xlab = "Time (months)", yaxt = "n", ylab = "Overall survival (%)")
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+lines(trialtime, medianbound, col="red")
+lines(trialtime, lowerbound, lty=2)
+lines(trialtime, upperbound, lty=2)
+legend("topright", legend = c("Control", "Treatment", "Treatment CI"), lty = c(1, 1, 2), col = c("blue", "red", "black"))
 dev.off()
-
-
 # Looking at the hazard function ----------------------------------------------------------------
 
 gammac <- 0.8
