@@ -1,0 +1,131 @@
+---
+title: "DTE Interim"
+output: powerpoint_presentation
+date: "2022-11-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(survival)
+library(truncnorm)
+library(rjags)
+```
+
+## Set-up
+
+We are planning a survival trial in which we are anticipating there to be delayed treatment effects (DTE). We have elicited two prior distributions:
+
+- For $T$, the length of delay
+- For HR, the post-delay hazard ratio
+
+How can we use these elicited prior distributions to help us decide when/if to perform any interim analysis?
+
+Given some data, and these elicited prior distributions, we are able to calculate the posterior distributions for both $T$ and HR.
+
+## Calculating posteriors
+
+$T \sim N(6, 2.97^2)$
+HR $\sim Be(10.8, 6.87)$
+
+```{r priors, echo=F}
+x <- seq(0, 12, by=0.01)
+y <- dtruncnorm(x, a = 0, mean = 6, sd = 2.97)
+plot(x, y, type="l", xlab = "Time", ylab = "Density")
+```
+
+```{r prior HR, echo = F}
+
+x <- seq(0, 1, by=0.01)
+y <- dbeta(x, 10.8, 6.87)
+plot(x, y, type="l", xlab = "post-delay HR", ylab = "Density")
+```
+
+
+```{r data, echo = F}
+set.seed(20)
+bigT <- rtruncnorm(1, a = 0, mean = 6, sd = 2.97)
+HR <- rbeta(1, 10.8, 6.87)
+gamma1 <- gamma2 <- 0.8
+lambda2 <- 0.08
+lambda1  <- lambda2*HR^(1/gamma2)
+IATime <- 40
+
+#Sample sizes in each group
+n1 <- 300
+n2 <- 300
+
+#Simulating the control and treatment data - again, we would not normally know the underlying structure, but for illustration this is okay
+#Control
+controldata <- rweibull(n1, gamma2, 1/lambda2)
+#Treatment
+CP <- exp(-(lambda2*bigT)^gamma2)[[1]]
+u <- runif(n2)
+suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambda2)*exp(1/gamma2*log(-log(u))), exp((1/gamma1)*log(1/(lambda1^gamma1)*(-log(u)-(lambda2*bigT)^gamma2+lambda1^gamma1*bigT*gamma1)))))
+
+combinedData <- data.frame(time = c(controldata, treatmentdata), group = c(rep("Control", n1), rep("Treatment", n2)))
+combinedData$event <- combinedData$time<IATime
+combinedData$time[combinedData$time>IATime] <- IATime
+controlkm <- survfit(Surv(time, event)~group, data = combinedData)
+plot(controlkm, col=c("blue", "red"), ylab = "Overall survival", xlab = "Time")
+legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+
+
+```
+
+```{r posteriors, echo = F}
+n <- n1
+m <- n1+n2
+
+#JAGS code which calculates posterior distributions
+
+modelstring="
+
+data {
+  for (j in 1:m){
+    zeros[j] <- 0
+  }
+}
+
+model {
+  C <- 10000
+  for (i in 1:n){
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, log(gamma2)+gamma2*log(lambda2*datTimes[i])-(lambda2*datTimes[i])^gamma2-log(datTimes[i]), -(lambda2*datTimes[i])^gamma2)
+  }
+  for (i in (n+1):m){                                                                                                             
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(gamma2)+gamma2*log(lambda2*datTimes[i])-(lambda2*datTimes[i])^gamma2-log(datTimes[i]), log(gamma2)+gamma2*log(lambda1)+(gamma2-1)*log(datTimes[i])-lambda1^gamma2*(datTimes[i]^gamma2-bigT^gamma2)-(bigT*lambda2)^gamma2), 
+      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i])^gamma2, -(lambda2*bigT)^gamma2-lambda1^gamma2*(datTimes[i]^gamma2-bigT^gamma2)))
+  }
+  
+    lambda2 ~ dbeta(1,1)T(0,)
+    gamma2 ~ dbeta(1,1)T(0,)
+    HR ~ dbeta(10.8, 6.87)T(0,)
+    bigT ~ dnorm(6, 0.1218175)T(0,)
+    lambda1 <- lambda2*pow(HR, 1/gamma2)
+    
+    }
+"
+
+model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datEvent = combinedData$event, n= n, m=m), quiet = T) 
+                   
+                   
+update(model, n.iter=500)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 2000)
+
+
+summary(output)
+plot(output)
+```
+
+
+
+
+
+
+
+
+
+
