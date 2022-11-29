@@ -1,6 +1,10 @@
 ---
 title: "DTE Interim"
-output: powerpoint_presentation
+output:
+  slidy_presentation: default
+  beamer_presentation: default
+  powerpoint_presentation: default
+  ioslides_presentation: default
 date: "2022-11-23"
 ---
 
@@ -9,6 +13,9 @@ knitr::opts_chunk$set(echo = FALSE)
 library(survival)
 library(truncnorm)
 library(rjags)
+library(RColorBrewer)
+library(ggplot2)
+library(reshape)
 ```
 
 ## Set-up
@@ -25,7 +32,7 @@ Given some data, and these elicited prior distributions, we are able to calculat
 ## Calculating posteriors
 
 $T \sim N(6, 2.97^2)$
-HR $\sim Be(10.8, 6.87)$
+HR $\sim$ Be(10.8, 6.87)
 
 ```{r priors, echo=F}
 x <- seq(0, 12, by=0.01)
@@ -72,7 +79,7 @@ legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), l
 
 ```
 
-```{r posteriors, echo = F}
+```{r posteriors, echo = F, cache = T, warning=F, message=F}
 n <- n1
 m <- n1+n2
 
@@ -115,13 +122,140 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = combinedD
 update(model, n.iter=500)
 output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 2000)
 
-
-summary(output)
 plot(output)
 ```
 
 
+## Set-up
 
+Now we have this mechanism, how can we use it to investigate the problem of choosing the 'optimum' time to perform an interim analysis?
+What do these posteriors tell us?
+
+We can change the interim analysis time and see what effect this has on the posteriors. We hypothesize that as we increase the IA time, the posterior for the HR will be more concentrated around the "true" value. 
+
+To investigate this, we choose some target effect and calculate the proportion of the posterior which is less than this target value. 
+
+## Changing interim analysis time
+
+We have some prior distributions for $T$ and HR, we sample 100 trials according to these - with a sample size of 300 (in each arm). We repeat this for four different interim analysis times: 5, 23, 42 and 60. The histograms below show the proportion of the posterior that is less than this target effect. We see that as we increase the interim analysis time (after 5 months), we don't really seem to gain any more information. 
+
+```{r}
+posteriorMatrix <- readRDS("posteriorMatrixJAGS.rds")
+nVec <- 3*(10^seq(0,3, by=1))
+IATimeVec <- seq(5, 60 ,length = 4)
+par(mfrow=c(1,4))
+i <- 3
+for (j in 1:length(IATimeVec)){
+    hist(unlist(posteriorMatrix[i,j])[2:51], xlim=c(0,1), xlab = "Proportion of posterior < TPP", main = paste0("Histogram: t = ", round(IATimeVec[j]), ", n = ", round(nVec[i])), freq = F)
+}
+```
+
+## Set-up
+
+```{r}
+posteriorMatrix <- readRDS("posteriorMatrixJAGS.rds")
+nVec <- 3*(10^seq(0,3, by=1))
+IATimeVec <- seq(5, 60 ,length = 4)
+par(mfrow=c(length(nVec),length(IATimeVec)))
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+    hist(unlist(posteriorMatrix[i,j])[2:51], xlim=c(0,1), xlab = "Proportion of posterior < TPP", main = paste0("Histogram: t = ", round(IATimeVec[j]), ", n = ", round(nVec[i])), freq = F)
+}
+}
+
+extremeMassMatrix <-matrix(rep(NA, length(nVec)+length(IATimeVec)),nrow = length(nVec), ncol = length(IATimeVec))
+colnames(extremeMassMatrix) <- round(IATimeVec)
+rownames(extremeMassMatrix) <- nVec
+
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+   x <-  unlist(posteriorMatrix[i,j])
+   extremeMassMatrix[i,j] <- mean(x>0.9|x<0.1)
+  }
+}
+extremeMassMatrix <- melt(extremeMassMatrix)
+
+ggplot(extremeMassMatrix, aes(factor(X2), forcats::fct_rev(factor(X1)))) + geom_tile(aes(fill=value)) + scale_fill_distiller(palette = "Reds", direction = 1) + xlab("IA time") + ylab("sample size")
+
+```
+
+## Approximation
+
+We can approximate this by using the formula:
+
+$$1.96\pm \sqrt{\frac{1}{E_1}+\frac{1}{E_2}},$$
+
+where $E_i$ is the expected number of events in group i. 
+
+This approximation produces the following histograms:
+
+```{r}
+TPPIA <- function(n1, IATime){
+  n <- 10001
+  TPPval <- rep(NA, n)
+  HRval <- rep(NA, n)
+  TPPval[1] <- n1
+  for (i in 2:n){
+HR <- rnorm(1, 0.7, sd = 0.1)
+bigT <- rgamma(1, 65.5, 10.9)
+gamma1 <- gamma2 <- 0.8
+lambda2 <- 0.08
+lambda1  <- lambda2*HR^(1/gamma2)
+
+
+#What is the survival probability at t = IATime?
+survprobcontrol <- exp(-(lambda2*IATime)^gamma2)
+survprobtreatment <- exp(-(lambda2*bigT)^gamma2-lambda1^gamma1*(IATime^gamma1-bigT^gamma1))
+
+#Expected number of events at t = 40
+e1 <- (1-survprobcontrol)*n1
+e2 <- (1-survprobtreatment)*n1
+
+#print(e1)
+#print(e2)
+#print(sqrt(1/e1+1/e2))
+
+HRval[i] <- HR
+TPPval[i] <- pnorm(0.65, mean = HR, sd = sqrt(1/e1+1/e2), lower.tail = T)
+}
+
+return(TPPval = TPPval)
+
+}
+
+nVec <- 3*(10^seq(0,3, by=1))
+IATimeVec <- seq(5, 60 ,length = 4)
+
+posteriorMatrix <-matrix(rep(list(), length(nVec)+length(IATimeVec)),nrow = length(nVec), ncol = length(IATimeVec))
+
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+    posteriorMatrix[i,j] <- list(TPPIA(nVec[i], IATimeVec[j]))
+  }
+}
+
+par(mfrow=c(length(nVec),length(IATimeVec)))
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+    hist(unlist(posteriorMatrix[i,j])[2:1001], xlim=c(0,1), xlab = "Proportion of posterior < TPP", main = paste0("Histogram: t = ", round(IATimeVec[j]), ", n = ", round(nVec[i])), freq = F)
+}
+}
+ 
+extremeMassMatrix <-matrix(rep(NA, length(nVec)+length(IATimeVec)),nrow = length(nVec), ncol = length(IATimeVec))
+colnames(extremeMassMatrix) <- round(IATimeVec)
+rownames(extremeMassMatrix) <- nVec
+
+for (i in 1:length(nVec)){
+  for (j in 1:length(IATimeVec)){
+   x <-  unlist(posteriorMatrix[i,j])
+   extremeMassMatrix[i,j] <- mean(x>0.9|x<0.1)
+  }
+}
+extremeMassMatrix <- melt(extremeMassMatrix)
+
+ggplot(extremeMassMatrix, aes(factor(X2), forcats::fct_rev(factor(X1)))) + geom_tile(aes(fill=value)) + scale_fill_distiller(palette = "Reds", direction = 1) + xlab("IA time") + ylab("sample size")
+
+```
 
 
 

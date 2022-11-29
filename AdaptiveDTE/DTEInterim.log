@@ -1,0 +1,5 @@
+
+
+! kpathsea: Running mktexfmt pdflatex.fmt
+! /usr/local/bin/mktexfmt: kpsewhich -var-value=TEXMFROOT failed, aborting early.
+! BEGIN failed--compilation aborted at /usr/local/bin/mktexfmt line 25.
