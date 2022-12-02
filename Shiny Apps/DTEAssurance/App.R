@@ -472,10 +472,10 @@ server = function(input, output, session) {
     }
     
     
-    p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = ..density..)) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
+    p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = after_stat(density))) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
     
     print(p1)
-    
+   
   })
   
   output$delayFeedbackText <- renderUI({
@@ -599,7 +599,7 @@ server = function(input, output, session) {
       dist.title <- paste(input$massHR1, "⋅ 1 +", 1-input$massHR1, "⋅", dist.title)
     }
     
-    p1 <- ggplot(data=HRsamples, aes(x=HR)) + geom_histogram(aes(y = ..density..)) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
+    p1 <- ggplot(data=HRsamples, aes(x=HR)) + geom_histogram(aes(y = after_stat(density))) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
     
     print(p1) 
   })
@@ -844,7 +844,7 @@ server = function(input, output, session) {
           quantiledf <- data.frame(quantiletime = quantileVec)
           
           theme_set(theme_grey(base_size = 12))
-          p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = ..density..), binwidth = 5) + xlim(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1) +
+          p1 <- ggplot(data=quantiledf, aes(x=quantiletime)) + geom_histogram(aes(y = after_stat(density)), binwidth = 5) + xlim(0, exp((1.527/input$gammacmean)-log(input$lambdacmean))*1.1) +
             xlab("Time")
           
           print(p1)
