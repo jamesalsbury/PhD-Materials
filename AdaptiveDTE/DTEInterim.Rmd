@@ -1,10 +1,13 @@
 ---
 title: "DTE Interim"
 output:
+  html_document:
+    df_print: paged
   slidy_presentation: default
   beamer_presentation: default
   powerpoint_presentation: default
   ioslides_presentation: default
+  pdf_document: default
 date: "2022-11-23"
 ---
 
