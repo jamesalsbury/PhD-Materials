@@ -817,20 +817,24 @@ plot(output)
 
 
 ```{r}
-controldata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Borghaei/IPD-control.csv"))
+
+trialLength <- 30
+
+
+simRemaining <- function(IATime){
+  controldata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Borghaei/IPD-control.csv"))
 treatmentdata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Borghaei/IPD-treatment.csv"))
 combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
                              status = c(controldata$Status, treatmentdata$Status), 
                              group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
 
-IATime <- 20
 combinedData[combinedData$time>IATime,]$time <- IATime
 combinedData[combinedData$time==IATime,]$status <- 0
 
 #Plotting this data
-kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n")
-axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+# kmfit <- survfit(Surv(time, status)~group, data = combinedData)
+# plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n", xlim=c(0, trialLength))
+# axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
 
 n <- nrow(controldata)
 m <- nrow(combinedData)
@@ -880,24 +884,71 @@ weibcontrolfit <- survreg(Surv(Survival.time, Status)~1, data = controldata, dis
 fitsummary <- summary(weibcontrolfit)
 lambdacmean <- 1/(exp(fitsummary$table[1,1]))
 gammacmean <- exp(-fitsummary$table[2,1])
-trialLength <- 60
 
 controltime <- seq(0, trialLength, by=0.01)
 controlsurv <- exp(-(lambdacmean*controltime)^gammacmean)
 
-#Plotting this data
-kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n", xlim=c(0, trialLength))
-axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
-lines(controltime, controlsurv)
+BPPvec <- rep(NA, 100)
 
+for (j in 1:100){
 sampledHR <- sample(output[[1]][,1], 1)
 sampledbigT <- sample(output[[1]][,2], 1)
+sampledlambdat <- lambdacmean*sampledHR^(1/gammacmean)
+treatmentsurv <- ifelse(controltime<sampledbigT, exp(-(lambdacmean*controltime)^gammacmean), exp(-(lambdacmean*sampledbigT)^gammacmean-sampledlambdat^gammacmean*(controltime^gammacmean-sampledbigT^gammacmean)))
 
-treatmentsurv <- ifelse(controltime<sampledbigT, exp(-(lambdacmean*controltime)^gammacmean), )
+
+#How many events are remaining?
+controleventsremaining <- nrow(combinedData %>%
+  filter(group == "Control") %>%
+  filter(status==0) %>%
+  filter(time==IATime))
+
+treatmenteventsremaining <- nrow(combinedData %>%
+  filter(group == "Treatment") %>%
+  filter(status==0) %>%
+    filter(time==IATime))
+
+#There can't be any events before the interim analysis time
+#So we need to find out where the curve is at the interim analysis time
+
+#For the control curve
 
 
+controlIAsurv <- exp(-(lambdacmean*IATime)^gammacmean)
+treatmentIAsurv <- exp(-(lambdacmean*sampledbigT)^gammacmean-sampledlambdat^gammacmean*(IATime^gammacmean-sampledbigT^gammacmean))
 
+#Need to simulate the remaining data
+#Remaining survival probabilities
+controlprobs <- runif(controleventsremaining, 0, controlIAsurv)
+treatmentprobs <- runif(treatmenteventsremaining, 0, treatmentIAsurv)
+
+#Remaining event times
+controltimes <- (1/lambdacmean)*(-log(controlprobs))^(1/gammacmean)
+
+treatmenttimes <- ((1/(sampledlambdat^gammacmean))*(-log(treatmentprobs)-(lambdacmean*sampledbigT)^gammacmean)+sampledbigT^gammacmean)^(1/gammacmean)
+
+newcombinedData <- combinedData %>%
+  filter(time!=IATime)
+
+remainingEvents <- data.frame(time = c(controltimes, treatmenttimes), group = c(rep("Control", controleventsremaining), rep("Treatment", treatmenteventsremaining)), status = rep(1, controleventsremaining+treatmenteventsremaining))
+
+newcombinedData <- rbind(newcombinedData, remainingEvents)
+newcombinedData[newcombinedData$time>trialLength,]$time <- trialLength
+newcombinedData[newcombinedData$time==trialLength,]$status <- 0
+
+test <- survdiff(Surv(time, status)~group, data = newcombinedData)
+
+BPPvec[j] <- test$chisq > qchisq(0.95, 1)
+}
+
+mean(BPPvec)
+}
+
+IATimeVec <- seq(10, 25, by=5)
+out <- sapply(IATimeVec, simRemaining)
+
+
+plot(IATimeVec, out)
 ```
 
 
