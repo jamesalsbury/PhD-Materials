@@ -816,4 +816,91 @@ plot(output)
 ```
 
 
+```{r}
+controldata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Borghaei/IPD-control.csv"))
+treatmentdata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Borghaei/IPD-treatment.csv"))
+combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
+                             status = c(controldata$Status, treatmentdata$Status), 
+                             group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
+
+IATime <- 20
+combinedData[combinedData$time>IATime,]$time <- IATime
+combinedData[combinedData$time==IATime,]$status <- 0
+
+#Plotting this data
+kmfit <- survfit(Surv(time, status)~group, data = combinedData)
+plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n")
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+
+n <- nrow(controldata)
+m <- nrow(combinedData)
+
+#JAGS code which calculates posterior distributions
+
+modelstring="
+
+data {
+  for (j in 1:m){
+    zeros[j] <- 0
+  }
+}
+
+model {
+  C <- 10000
+  for (i in 1:n){
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, log(gamma2)+gamma2*log(lambda2*datTimes[i])-(lambda2*datTimes[i])^gamma2-log(datTimes[i]), -(lambda2*datTimes[i])^gamma2)
+  }
+  for (i in (n+1):m){                                                                                                             
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(gamma2)+gamma2*log(lambda2*datTimes[i])-(lambda2*datTimes[i])^gamma2-log(datTimes[i]), log(gamma2)+gamma2*log(lambda1)+(gamma2-1)*log(datTimes[i])-lambda1^gamma2*(datTimes[i]^gamma2-bigT^gamma2)-(bigT*lambda2)^gamma2), 
+      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i])^gamma2, -(lambda2*bigT)^gamma2-lambda1^gamma2*(datTimes[i]^gamma2-bigT^gamma2)))
+  }
+  
+    lambda2 ~ dbeta(1,1)T(0,)
+    gamma2 ~ dbeta(1,1)T(0,)
+    HR ~ dnorm(0.7, 10)T(0,)
+    bigT ~ dnorm(6, 1)T(0,)
+    lambda1 <- lambda2*pow(HR, 1/gamma2)
+    
+    }
+"
+
+model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$time, datEvent = combinedData$status, n= n, m=m), quiet = T) 
+                   
+                   
+update(model, n.iter=500)
+output=coda.samples(model=model, variable.names=c("bigT", "HR"), n.iter = 5000)
+
+plot(output)
+
+weibcontrolfit <- survreg(Surv(Survival.time, Status)~1, data = controldata, dist = "weibull")
+fitsummary <- summary(weibcontrolfit)
+lambdacmean <- 1/(exp(fitsummary$table[1,1]))
+gammacmean <- exp(-fitsummary$table[2,1])
+trialLength <- 60
+
+controltime <- seq(0, trialLength, by=0.01)
+controlsurv <- exp(-(lambdacmean*controltime)^gammacmean)
+
+#Plotting this data
+kmfit <- survfit(Surv(time, status)~group, data = combinedData)
+plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n", xlim=c(0, trialLength))
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+lines(controltime, controlsurv)
+
+sampledHR <- sample(output[[1]][,1], 1)
+sampledbigT <- sample(output[[1]][,2], 1)
+
+treatmentsurv <- ifelse(controltime<sampledbigT, exp(-(lambdacmean*controltime)^gammacmean), )
+
+
+
+```
+
+
+
+
 
