@@ -596,6 +596,9 @@ heatmap(extremeMassMatrix, Colv=NA, Rowv=NA, xlab = "interim time", scale = "non
 #      fill=colorRampPalette(brewer.pal(8, "Oranges"))(3))
 ```
 
+########################################
+##Go from here
+########################################
 
 
 ```{r}
@@ -690,13 +693,13 @@ combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Sur
                              group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
 
 #We can change the IA time here
-#IATime <- 40
+IATime <- 20
 combinedData[combinedData$time>IATime,]$time <- IATime
 combinedData[combinedData$time==IATime,]$status <- 0
   
-# kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-# plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n")
-# axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+kmfit <- survfit(Surv(time, status)~group, data = combinedData)
+plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n")
+axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
 
 #We can combine this data with vague priors to see whether we can capture the behaviour properly
 
@@ -755,16 +758,20 @@ sapply(IATimeVec, JAGSFunc)
 
 
 ```{r}
-#Now try the Brahmer data set
+#Now try the Yen data set
+JAGSFunc <- function(IATime){
 controldata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Yen/IPD-control.csv"))
 treatmentdata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Yen/IPD-treatment.csv"))
 combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
                              status = c(controldata$Status, treatmentdata$Status), 
                              group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
-  
-kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n")
-axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+#   
+# kmfit <- survfit(Surv(time, status)~group, data = combinedData)
+# plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = "Overall survival (%)", yaxt = "n")
+# axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+
+combinedData[combinedData$time>IATime,]$time <- IATime
+combinedData[combinedData$time==IATime,]$status <- 0
 
 #We can combine this data with vague priors to see whether we can capture the behaviour properly
 
@@ -808,18 +815,22 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = combinedD
                    
                    
 update(model, n.iter=1000)
-output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
+output=coda.samples(model=model, variable.names=c("HR"), n.iter = 5000)
 
-summary(output)
-plot(output)
+output <- as.numeric(output[[1]])
+hist(output, freq = F, xlab = "HR", xlim=c(0.2, 1), ylim=c(0, 6), main = paste0("T = ", IATime))
+}
+
+par(mfrow=c(3, 3))
+
+IATimeVec <- seq(5, 30, by=3)
+sapply(IATimeVec, JAGSFunc)
 
 ```
 
 
 ```{r}
-
 trialLength <- 30
-
 
 simRemaining <- function(IATime){
   controldata <- read.csv(file = paste0("~/R Projects/PhD-Materials/DTEPaper/data/Borghaei/IPD-control.csv"))
