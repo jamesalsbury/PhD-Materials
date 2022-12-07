@@ -1,7 +1,5 @@
 #Here is the R script used to produce the figures/results from the DTE paper
 
-#This finds the assurance for the example in Section 2.1
-
 library(truncnorm)
 library(survival)
 
