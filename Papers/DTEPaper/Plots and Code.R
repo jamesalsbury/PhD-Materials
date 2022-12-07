@@ -5,13 +5,12 @@
 library(truncnorm)
 library(survival)
 
-
 # An example of DTE in a KM plot ----------------------------------------------------------------
 
 png("DTEKM.png", units="in", width=7, height=6, res=700)
 
-controldata <- read.csv(file = "DTEPaper/data/Brahmer/IPD-control.csv")
-treatmentdata <- read.csv(file = "DTEPaper/data/Brahmer/IPD-treatment.csv")
+controldata <- read.csv(file = "Papers/DTEPaper/data/Brahmer/IPD-control.csv")
+treatmentdata <- read.csv(file = "Papers/DTEPaper/data/Brahmer/IPD-treatment.csv")
 
 combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
                            status = c(controldata$Status, treatmentdata$Status), 
@@ -44,8 +43,8 @@ DTEDataSetsFunc <- function(author){
     ylabel <- "Overall survival (%)"
   }
   
-  controldata <- read.csv(file = paste0("DTEPaper/data/", author, "/IPD-control.csv"))
-  treatmentdata <- read.csv(file = paste0("DTEPaper/data/", author, "/IPD-treatment.csv"))
+  controldata <- read.csv(file = paste0("Papers/DTEPaper/data/", author, "/IPD-control.csv"))
+  treatmentdata <- read.csv(file = paste0("Papers/DTEPaper/data/", author, "/IPD-treatment.csv"))
   
   combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
                              status = c(controldata$Status, treatmentdata$Status), 
