@@ -4,6 +4,56 @@ library(truncnorm)
 library(survival)
 library(rjags)
 
+
+lambdac <- 0.08
+gammat <- gammac <- 0.8
+trialLength <- 60
+
+assFunc <- function(n){
+  assvec <- rep(NA, 10000)
+  for (i in 1:length(assvec)){
+    bigT <- rnorm(1, mean = 6, sd = 0.741)
+    HR <- rnorm(1, mean = 0.6, sd = 0.148)
+    lambdat  <- lambdac*HR^(1/gammac)
+    
+    
+    #Simulating the control data
+    controldata <- rweibull(n, gammac, 1/lambdac)
+    #Treatment
+    CP <- exp(-(lambdac*bigT)^gammac)[[1]]
+    u <- runif(n)
+    suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambdac)*exp(1/gammac*log(-log(u))), ((1/(lambdat^gammac))*(-log(u)-(lambdac*bigT)^gammac)+bigT^gammac)^(1/gammac)))
+    
+    combinedData <- data.frame(time = c(controldata, treatmentdata), status = rep(0, n+n), group = c(rep("Control", n), rep("Treatment", n)))
+    
+    combinedData$status <- combinedData$time<trialLength
+    
+    combinedData$time[combinedData$time>trialLength] <- trialLength
+    
+    
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+    #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
+    assvec[i] <- test$chisq > qchisq(0.95, 1)
+  }
+  return(mean(assvec))
+}
+
+nvec <- seq(50, 500, by=10)
+out <- sapply(nvec, assFunc)
+
+outsmooth <- loess(out~nvec)
+
+plot(nvec*2, predict(outsmooth), ylim=c(0,1), ylab = "Assurance", xlab = "Total sample size", type="l")
+
+predictionvec <- rep(NA, 500)
+for (k in 1:length(predictionvec)){
+  predictionvec[k] <- predict(outsmooth, newdata = k)
+}
+predictionvec
+
+min(which(predictionvec>0.8))
+
+
 # Posterior updating of the hazard ratio ----------------------------------------------------------------
 
 #Let us show a real example of a clinical trial which exhibits DTE
