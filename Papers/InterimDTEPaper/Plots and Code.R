@@ -10,7 +10,7 @@ gammat <- gammac <- 0.8
 trialLength <- 60
 
 assFunc <- function(n){
-  assvec <- rep(NA, 10000)
+  assvec <- rep(NA, 1000)
   for (i in 1:length(assvec)){
     bigT <- rnorm(1, mean = 6, sd = 0.741)
     HR <- rnorm(1, mean = 0.6, sd = 0.148)
@@ -38,7 +38,7 @@ assFunc <- function(n){
   return(mean(assvec))
 }
 
-nvec <- seq(50, 500, by=10)
+nvec <- seq(50, 500, by=50)
 out <- sapply(nvec, assFunc)
 
 outsmooth <- loess(out~nvec)
@@ -52,6 +52,47 @@ for (k in 1:length(predictionvec)){
 predictionvec
 
 min(which(predictionvec>0.8))
+
+
+# Looking at how the KM plots change as we change the IA time ----------------------------------------------------------------
+set.seed(3)
+lambdac <- 0.08
+gammat <- gammac <- 0.8
+n <- 330
+IAVec <- seq(10, 60, by=10)
+
+bigT <- rnorm(1, mean = 6, sd = 0.741)
+HR <- rnorm(1, mean = 0.6, sd = 0.148)
+lambdat  <- lambdac*HR^(1/gammac)
+
+#Simulating the control data
+controldata <- rweibull(n, gammac, 1/lambdac)
+#Treatment
+CP <- exp(-(lambdac*bigT)^gammac)[[1]]
+u <- runif(n)
+suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambdac)*exp(1/gammac*log(-log(u))), ((1/(lambdat^gammac))*(-log(u)-(lambdac*bigT)^gammac)+bigT^gammac)^(1/gammac)))
+
+combinedData <- data.frame(time = c(controldata, treatmentdata), status = rep(0, n+n), group = c(rep("Control", n), rep("Treatment", n)))
+
+par(mfrow=c(2,3))
+
+for (j in 1:length(IAVec)){
+  combinedData1 <- combinedData
+  
+  combinedData1$status <- combinedData1$time<IAVec[j]
+  
+  combinedData1$time[combinedData1$time>IAVec[j]] <- IAVec[j]
+  
+  kmfit <- survfit(Surv(time, status)~group, data = combinedData1)
+  
+  plot(kmfit, col = c("blue", "red"), xlab = "Time", xlim=c(0,60), ylab = "Survial", main = paste0("Interim time = ", IAVec[j]))
+}
+
+
+# Looking at how the BPP changes as we change the IA time ----------------------------------------------------------------
+
+#We need to do the posterior updating at each IA time, we 
+
 
 
 # Posterior updating of the hazard ratio ----------------------------------------------------------------
