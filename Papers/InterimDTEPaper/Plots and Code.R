@@ -94,11 +94,11 @@ for (j in 1:length(IAVec)){
 
 #We need to do the posterior updating at each IA time, and then sample from these posteriors to generate future data
 par(mfrow=c(1,1))
-set.seed(4)
+set.seed(3)
 lambdac <- 0.08
 gammat <- gammac <- 0.8
 n <- 330
-IATime <- 10
+IATime <- 30
 
 bigT <- rnorm(1, mean = 6, sd = 0.741)
 HR <- rnorm(1, mean = 0.6, sd = 0.148)
