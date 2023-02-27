@@ -366,7 +366,7 @@ legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty
 png("PowerAss.png", units="in", width=8, height=5, res=700)
 
 
-simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, censTime){
+simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, eventRate){
   #Simulates the treatment data
   CP <- exp(-(lambdac*bigT)^gammac)
   u <- runif(n2)
@@ -379,6 +379,15 @@ simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, big
   
   #Adds a random uniformly distributed value, based on the recruitment time
   dataCombined$time <- dataCombined$time + runif(n1+n2, min = 0, max = recTime)
+  
+  #Order the data set by event times
+  dataCombined <- dataCombined[order(dataCombined$time),]
+  
+  #Calculate the number of events required (comes from eventRate)
+  numEventsRequired <- floor((n1+n2)*eventRate)
+  
+  #Work at at what time point this number of events have occured
+  censTime <- dataCombined$time[numEventsRequired] 
   
   #If the time is less than the total trial length time then the event has happened
   dataCombined$event <- dataCombined$time < censTime
@@ -397,25 +406,30 @@ simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, big
 }
 
 powerassFunc <- function(type, n){
-  gammac <- 0.8
-  lambdac <- 0.08
+  t0 <- 10
+  t0prime <- 30
   recTime <- 6
-  Lmax <- 36
   massT0 <- 0.05
   massHR1 <- 0.1
   N <- 500
-  #Making the simplification
-  gammat <- gammac
   #Setting up the assurance vector
   vec <- rep(NA, N)
   for (i in 1:N){
     #sampling the delay time
     if (type=="assurance"){
+      #Sampling the control parameters
+      S1t0 <- truncnorm::rtruncnorm(1, mean = 0.45, sd = 0.01, a = 0)
+      S1t0prime <- truncnorm::rtruncnorm(1, mean = 0.15, sd = 0.01, a = 0)
+      gammac <- (log(log(S1t0prime)/log(S1t0)))/(log(t0prime/t0))
+      lambdac <- -log(S1t0)/(t0^gammac)
+      #Making the simplification
+      gammat <- gammac
+      #Sampling the elicited parameters (T and HR)
       u <- runif(1)
       if (u < massT0){
         bigT <- 0
       } else {
-        bigT <- truncnorm::rtruncnorm(1, mean = 6, sd = 2.97, a = 0)
+        bigT <- truncnorm::rtruncnorm(1, mean = 4, sd = 1.48, a = 0)
       }
       #sampling the post-delay HR
       u <- runif(1)
@@ -425,34 +439,29 @@ powerassFunc <- function(type, n){
         HR <- rbeta(1, 10.8, 6.87)
       }
     } else if (type=="power"){
-      u <- runif(1)
-      if (u < massT0){
-        bigT <- 0
-      } else {
-        bigT <- 6
-      }
-      #sampling the post-delay HR
-      u <- runif(1)
-      if (u < massHR1){
-        HR <- 1
-      } else {
-        HR <- 0.6
-      }
+      S1t0 <- 0.45
+      S1t0prime <- 0.15
+      gammac <- (log(log(S1t0prime)/log(S1t0)))/(log(t0prime/t0))
+      lambdac <- -log(S1t0)/(t0^gammac)
+      bigT <- 4
+      HR <- 0.6112054
+      #Making the simplification
+      gammat <- gammac
     } else if (type=="powerND"){
+      S1t0 <- 0.45
+      S1t0prime <- 0.15
+      gammac <- (log(log(S1t0prime)/log(S1t0)))/(log(t0prime/t0))
+      lambdac <- -log(S1t0)/(t0^gammac)
       bigT <- 0
-      #sampling the post-delay HR
-      u <- runif(1)
-      if (u < massHR1){
-        HR <- 1
-      } else {
-        HR <- 0.6
-      }
+      HR <- 0.6112054
+      #Making the simplification
+      gammat <- gammac
     }
     
     lambdat <- exp((log(HR)/gammac)+log(lambdac))
     
     #Simulating the control and treatment data
-    combinedData <- simulateDTEWeibullData(n, n, gammat, gammac, lambdat, lambdac, bigT, recTime, Lmax)
+    combinedData <- simulateDTEWeibullData(n, n, gammat, gammac, lambdat, lambdac, bigT, recTime, 0.8)
     
     #Performing a log-rank test on the combined data set
     test <- survdiff(Surv(time, event)~group, data = combinedData)
@@ -464,7 +473,7 @@ powerassFunc <- function(type, n){
 
 calcAssPowerFunc <- function(type){
   nvec <- seq(20, 500, by=10)
-  output <- sapply(X = nvec, FUN = powerassFunc, type= type)
+  output <- sapply(X = nvec, FUN = powerassFunc, type = type)
   smoothedout <- loess(output~nvec)
   return(list(smoothedout = smoothedout, nvec = nvec))
   
