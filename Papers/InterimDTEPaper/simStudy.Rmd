@@ -1,0 +1,56 @@
+---
+title: "Chen2013"
+output: html_document
+date: "2023-02-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(survival)
+#PHM
+nEvents <- 512
+nPatients <- 680
+HR <- 0.75
+recTime <- 34
+lambdac <- 1/180
+lambdat <- lambdac*HR
+
+powervec <- rep(NA, 1000)
+censvec <- rep(NA, 1000)
+
+for (i in 1:1000){
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
+                           rep("Treatment", nPatients/2)))
+
+combinedData$time <- combinedData$time + runif(1, min = 0, max = recTime)
+
+combinedData <- combinedData[order(combinedData$time),]
+
+censTime <- combinedData[nEvents,]$time
+
+combinedData$status <- combinedData$time<=censTime
+
+combinedData[combinedData$status==F,]$time <- censTime
+
+#sum(combinedData$status==1)
+
+test <- survdiff(Surv(time, status)~group, data = combinedData)
+
+#fit <- survfit(Surv(time, status)~group, data = combinedData)
+
+#plot(fit, col = c("blue", "red"))
+
+powervec[i] <- test$chisq > qchisq(0.95, 1)
+censvec[i] <- censTime
+}
+
+mean(powervec)
+mean(censvec)
+
+```
+

@@ -98,7 +98,7 @@ set.seed(3)
 lambdac <- 0.08
 gammat <- gammac <- 0.8
 n <- 330
-IATime <- 30
+nEvents <- 200
 
 bigT <- rnorm(1, mean = 6, sd = 0.741)
 HR <- rnorm(1, mean = 0.6, sd = 0.148)
@@ -112,6 +112,12 @@ u <- runif(n)
 suppressWarnings(treatmentdata <- ifelse(u>CP, (1/lambdac)*exp(1/gammac*log(-log(u))), ((1/(lambdat^gammac))*(-log(u)-(lambdac*bigT)^gammac)+bigT^gammac)^(1/gammac)))
 
 combinedData <- data.frame(time = c(controldata, treatmentdata), status = rep(0, n+n), group = c(rep("Control", n), rep("Treatment", n)))
+
+#Order the data set by event times
+combinedData <- combinedData[order(combinedData$time),]
+
+#Work at at what time point this number of events have occured
+censTime <- combinedData$time[nEvents] 
 
 combinedData$status <- combinedData$time<IATime
 
