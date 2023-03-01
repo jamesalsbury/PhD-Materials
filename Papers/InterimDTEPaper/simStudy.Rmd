@@ -6,18 +6,26 @@ date: "2023-02-28"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(survival)
 ```
 
 ## R Markdown
 
+This paper by Chen (2013) highlights some of the challenges for when delayed treatment effects are present in a clinical trial. 
+
+‘In an immuno-oncologic RCT with long-term survival and DTE, one needs to reconsider the implementation of conventional interim analyses when the intention is to stop the study early for either positive or futile outcome. If the treatments exhibit delayed clinical benefit, implementation of superiority interim analysis may have smaller stopping probability for a positive outcome whereas futility interim analysis could increase the chance of terminating the study early and erroneously discarding an active agent.’
+
+‘Furthermore, the conventional IA at the IF of 50% may not be the optimal analysis time since the study duration post interim analysis could take substantially longer due to the decreasing event rate.’
+
+
+
 ```{r}
-library(survival)
 #PHM
 nEvents <- 512
 nPatients <- 680
 HR <- 0.75
 recTime <- 34
-lambdac <- 1/180
+lambdac <- 1/19
 lambdat <- lambdac*HR
 
 powervec <- rep(NA, 1000)
@@ -25,32 +33,198 @@ censvec <- rep(NA, 1000)
 
 for (i in 1:1000){
   combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
-                           rep("Treatment", nPatients/2)))
-
-combinedData$time <- combinedData$time + runif(1, min = 0, max = recTime)
-
-combinedData <- combinedData[order(combinedData$time),]
-
-censTime <- combinedData[nEvents,]$time
-
-combinedData$status <- combinedData$time<=censTime
-
-combinedData[combinedData$status==F,]$time <- censTime
-
-#sum(combinedData$status==1)
-
-test <- survdiff(Surv(time, status)~group, data = combinedData)
-
-#fit <- survfit(Surv(time, status)~group, data = combinedData)
-
-#plot(fit, col = c("blue", "red"))
-
-powervec[i] <- test$chisq > qchisq(0.95, 1)
-censvec[i] <- censTime
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData$time <- combinedData$time + runif(1, min = 0, max = recTime)
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+  test <- survdiff(Surv(time, status)~group, data = combinedData)
+  
+  powervec[i] <- test$chisq > qchisq(0.95, 1)
+  censvec[i] <- censTime
 }
-
+ 
 mean(powervec)
-mean(censvec)
+median(censvec)
 
+
+```
+
+```{r}
+#DTE
+nEvents <- 512
+nPatients <- 680
+HR <- 0.75
+recTime <- 34
+lambdac <- 1/19
+lambdat <- lambdac*HR
+
+powervec <- rep(NA, 1000)
+censvec <- rep(NA, 1000)
+
+for (i in 1:1000){
+  
+  CP <- exp(-(lambdac*3))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(3*lambdat-log(u)-3*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData$time <- combinedData$time + runif(1, min = 0, max = recTime)
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+  test <- survdiff(Surv(time, status)~group, data = combinedData)
+  
+  powervec[i] <- test$chisq > qchisq(0.95, 1)
+  censvec[i] <- censTime
+}
+ 
+mean(powervec)
+median(censvec)
+
+```
+
+
+```{r}
+#PHM with IA
+nEvents <- 512
+nIAEvents <- 512*0.5
+nPatients <- 680
+HR <- 0.75
+recTime <- 34
+lambdac <- 1/19
+lambdat <- lambdac*HR
+
+powervec <- rep(NA, 1000)
+#censvec <- rep(NA, 1000)
+
+for (i in 1:1000){
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData$time <- combinedData$time + runif(1, min = 0, max = recTime)
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  IACombinedData <- combinedData
+  
+  IATime <- IACombinedData[nIAEvents,]$time
+  
+  IACombinedData$status <- IACombinedData$time<=IATime
+  
+  IACombinedData[IACombinedData$status==F,]$time <- IATime
+  
+  test <- survdiff(Surv(time, status)~group, data = IACombinedData)
+  
+  if (test$chisq>(qchisq(1-0.0054, 1))){
+    powervec[i] <- 1
+    censvec[i] <- IATime
+  } else {
+
+  censTime <- combinedData[nEvents,]$time
+  censvec[i] <- censTime
+  combinedData$status <- combinedData$time<=censTime
+  combinedData[combinedData$status==F,]$time <- censTime
+  test <- survdiff(Surv(time, status)~group, data = combinedData)
+  if (test$chisq>(qchisq(1-0.0492, 1))){
+    powervec[i] <- 2
+  } else{
+    powervec[i] <- 0
+  }
+  }
+  
+}
+ 
+#Power
+1- sum(powervec==0)/length(powervec)
+
+#Probability of stopping early
+sum(powervec==1)/length(powervec)
+
+#Probability of being successful at final look (but not first, by definition)
+sum(powervec==2)/length(powervec)
+#Average length of trial
+median(censvec)
+```
+
+```{r}
+#NPHM (DTE) with IA
+nEvents <- 512
+nIAEvents <- 512*0.5
+nPatients <- 680
+HR <- 0.75
+recTime <- 34
+lambdac <- 1/19
+lambdat <- lambdac*HR
+
+powervec <- rep(NA, 1000)
+#censvec <- rep(NA, 1000)
+
+for (i in 1:1000){
+  
+   CP <- exp(-(lambdac*3))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(3*lambdat-log(u)-3*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  
+  combinedData$time <- combinedData$time + runif(1, min = 0, max = recTime)
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  IACombinedData <- combinedData
+  
+  IATime <- IACombinedData[nIAEvents,]$time
+  
+  IACombinedData$status <- IACombinedData$time<=IATime
+  
+  IACombinedData[IACombinedData$status==F,]$time <- IATime
+  
+  test <- survdiff(Surv(time, status)~group, data = IACombinedData)
+  
+  if (test$chisq>(qchisq(1-0.0054, 1))){
+    powervec[i] <- 1
+    censvec[i] <- IATime
+  } else {
+
+  censTime <- combinedData[nEvents,]$time
+  censvec[i] <- censTime
+  combinedData$status <- combinedData$time<=censTime
+  combinedData[combinedData$status==F,]$time <- censTime
+  test <- survdiff(Surv(time, status)~group, data = combinedData)
+  if (test$chisq>(qchisq(1-0.0492, 1))){
+    powervec[i] <- 2
+  } else{
+    powervec[i] <- 0
+  }
+  }
+  
+}
+ 
+#Power
+1- sum(powervec==0)/length(powervec)
+
+#Probability of stopping early
+sum(powervec==1)/length(powervec)
+
+#Probability of being successful at final look (but not first, by definition)
+sum(powervec==2)/length(powervec)
+#Average length of trial
+median(censvec)
 ```
 
