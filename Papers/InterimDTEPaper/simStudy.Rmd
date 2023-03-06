@@ -11,7 +11,8 @@ library(survival)
 
 ## R Markdown
 
-This paper by Chen (2013) highlights some of the challenges for when delayed treatment effects are present in a clinical trial. 
+This paper by [Chen (2013)](https://pubmed.ncbi.nlm.nih.gov/24829754/) is one of the first papers to consider the challenges faced when delayed treatment effects (DTEs) may be present in a clinical trial. The paper performs some simulation studies, some of which we recreate here. We are specifically interested in group sequential design (GSD) for when DTEs are present, and the recommendations that the literature makes about these.
+
 
 ‘In an immuno-oncologic RCT with long-term survival and DTE, one needs to reconsider the implementation of conventional interim analyses when the intention is to stop the study early for either positive or futile outcome. If the treatments exhibit delayed clinical benefit, implementation of superiority interim analysis may have smaller stopping probability for a positive outcome whereas futility interim analysis could increase the chance of terminating the study early and erroneously discarding an active agent.’
 
