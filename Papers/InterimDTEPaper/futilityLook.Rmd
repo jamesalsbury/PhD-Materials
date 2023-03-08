@@ -1,7 +1,7 @@
 ---
-title: "Chen2013"
+title: "futilityLook"
 output: html_document
-date: "2023-02-28"
+date: "2023-03-08"
 ---
 
 ```{r setup, include=FALSE}
@@ -9,431 +9,24 @@ knitr::opts_chunk$set(echo = TRUE)
 library(survival)
 ```
 
-## R Markdown
+We are looking at including futility looks into the clinical trial. We recreate the results from [Korn and Freidlin (2018)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6366306/pdf/JCO.2018.77.7144.pdf). We have the following setup:
+We require 512 events, a sample size of 680. We assume the hazard ratio is 0.75, we have uniform recruitment for 34 months. We have exponential survival in the control arm, with a median survival of $\approx$ 12.5 months. We introduce three futility rules:
 
-This paper by [Chen (2013)](https://pubmed.ncbi.nlm.nih.gov/24829754/) is one of the first papers to consider the challenges faced when delayed treatment effects (DTEs) may be present in a clinical trial. The paper performs some simulation studies, some of which we recreate here. We are specifically interested in group sequential design (GSD) for when DTEs are present, and the recommendations that the literature makes about these.
+1) Wieand rule
+* At 50% information, stop if the observed HR > 1
+* At 75% information, stop if the observed HR > 1
 
+2) O'Brien-Fleming $\beta$ spending
+* At 33% information, stop if the observed HR > 0.998
+* At 67% information, stop if the observed HR > 0.913
 
-‘In an immuno-oncologic RCT with long-term survival and DTE, one needs to reconsider the implementation of conventional interim analyses when the intention is to stop the study early for either positive or futile outcome. If the treatments exhibit delayed clinical benefit, implementation of superiority interim analysis may have smaller stopping probability for a positive outcome whereas futility interim analysis could increase the chance of terminating the study early and erroneously discarding an active agent.’
+3) Proposed rule - by Korn and Freidlin
+* At 50% information (assuming that 2/3 observed events have occurred later than 3 months), stop if the observed HR > 1
+* At 75% information (assuming that 2/3 observed events have occurred later than 3 months), stop if the observed HR > 1
 
-‘Furthermore, the conventional IA at the IF of 50% may not be the optimal analysis time since the study duration post interim analysis could take substantially longer due to the decreasing event rate.’
+This is the results for when we do not have DTE present
 
-
-
-```{r}
-#PHM
-nEvents <- 512
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  censTime <- combinedData[nEvents,]$time
-  
-  combinedData$status <- combinedData$time<=censTime
-  
-  combinedData[combinedData$status==F,]$time <- censTime
-  
-  test <- survdiff(Surv(time, status)~group, data = combinedData)
-  
-  powervec[i] <- test$chisq > qchisq(0.95, 1)
-  censvec[i] <- censTime
-}
- 
-mean(powervec)
-median(censvec)
-```
-
-```{r}
-#DTE
-
-nEvents <- 512
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-  
-  CP <- exp(-(lambdac*3))
-  u <- runif(nPatients/2)
-  
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(3*lambdat-log(u)-3*lambdac))), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  censTime <- combinedData[nEvents,]$time
-  
-  combinedData$status <- combinedData$time<=censTime
-  
-  combinedData[combinedData$status==F,]$time <- censTime
-  
-  test <- survdiff(Surv(time, status)~group, data = combinedData)
-  
-  powervec[i] <- test$chisq > qchisq(0.95, 1)
-  censvec[i] <- censTime
-}
- 
-mean(powervec)
-median(censvec)
-
-```
-
-
-```{r}
-#PHM with IA
-nEvents <- 512
-nIAEvents <- 512*0.5
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-#censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  IACombinedData <- combinedData
-  
-  IATime <- IACombinedData[nIAEvents,]$time
-  
-  IACombinedData$status <- IACombinedData$time<=IATime
-  
-  IACombinedData[IACombinedData$status==F,]$time <- IATime
-  
-  test <- survdiff(Surv(time, status)~group, data = IACombinedData)
-  
-  if (test$chisq>(qchisq(1-0.0054, 1))){
-    powervec[i] <- 1
-    censvec[i] <- IATime
-  } else {
-
-  censTime <- combinedData[nEvents,]$time
-  censvec[i] <- censTime
-  combinedData$status <- combinedData$time<=censTime
-  combinedData[combinedData$status==F,]$time <- censTime
-  test <- survdiff(Surv(time, status)~group, data = combinedData)
-  if (test$chisq>(qchisq(1-0.0492, 1))){
-    powervec[i] <- 2
-  } else{
-    powervec[i] <- 0
-  }
-  }
-  
-}
- 
-#Power
-1- sum(powervec==0)/length(powervec)
-
-#Probability of stopping early
-sum(powervec==1)/length(powervec)
-
-#Probability of being successful at final look (but not first, by definition)
-sum(powervec==2)/length(powervec)
-#Average length of trial
-median(censvec)
-```
-
-```{r}
-#NPHM (DTE) with IA
-nEvents <- 512
-nIAEvents <- 512*0.5
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-  
-   CP <- exp(-(lambdac*3))
-  u <- runif(nPatients/2)
-  
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(3*lambdat-log(u)-3*lambdac))), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  IACombinedData <- combinedData
-  
-  IATime <- IACombinedData[nIAEvents,]$time
-  
-  IACombinedData$status <- IACombinedData$time<=IATime
-  
-  IACombinedData[IACombinedData$status==F,]$time <- IATime
-  
-  test <- survdiff(Surv(time, status)~group, data = IACombinedData)
-  
-  if (test$chisq>(qchisq(1-0.0054, 1))){
-    powervec[i] <- 1
-    censvec[i] <- IATime
-  } else {
-
-  censTime <- combinedData[nEvents,]$time
-  censvec[i] <- censTime
-  combinedData$status <- combinedData$time<=censTime
-  combinedData[combinedData$status==F,]$time <- censTime
-  test <- survdiff(Surv(time, status)~group, data = combinedData)
-  if (test$chisq>(qchisq(1-0.0492, 1))){
-    powervec[i] <- 2
-  } else{
-    powervec[i] <- 0
-  }
-  }
-  
-}
- 
-#Power
-1- sum(powervec==0)/length(powervec)
-
-#Probability of stopping early
-sum(powervec==1)/length(powervec)
-
-#Probability of being successful at final look (but not first, by definition)
-sum(powervec==2)/length(powervec)
-#Average length of trial
-median(censvec)
-```
-
-```{r}
-#PHM with IA for futility
-nEvents <- 512
-nIAEvents <- 512*0.5
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-#censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  IACombinedData <- combinedData
-  
-  IATime <- IACombinedData[nIAEvents,]$time
-  
-  IACombinedData$status <- IACombinedData$time<=IATime
-  
-  IACombinedData[IACombinedData$status==F,]$time <- IATime
-  
-  IACombinedData
-  
-  survreg(Surv(time, status)~group, data = IACombinedData, dist = "exp")
-  
-  
-  
-  
-  
-  
-  test <- survdiff(Surv(time, status)~group, data = IACombinedData)
-  
-  if (test$chisq>(qchisq(1-0.0054, 1))){
-    powervec[i] <- 1
-    censvec[i] <- IATime
-  } else {
-
-  censTime <- combinedData[nEvents,]$time
-  censvec[i] <- censTime
-  combinedData$status <- combinedData$time<=censTime
-  combinedData[combinedData$status==F,]$time <- censTime
-  test <- survdiff(Surv(time, status)~group, data = combinedData)
-  if (test$chisq>(qchisq(1-0.0492, 1))){
-    powervec[i] <- 2
-  } else{
-    powervec[i] <- 0
-  }
-  }
-  
-}
- 
-#Power
-1- sum(powervec==0)/length(powervec)
-
-#Probability of stopping early
-sum(powervec==1)/length(powervec)
-
-#Probability of being successful at final look (but not first, by definition)
-sum(powervec==2)/length(powervec)
-#Average length of trial
-median(censvec)
-```
-
-```{r}
-#Calculating conditional power
-r <- 2
-D <- 512
-d <- 256
-delta1 <- 1
-gamma <- 1.967	
-nEvents <- 512
-nIAEvents <- 512*0.5
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-#censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  IACombinedData <- combinedData
-  
-  IATime <- IACombinedData[nIAEvents,]$time
-  
-  IACombinedData$status <- IACombinedData$time<=IATime
-  
-  IACombinedData[IACombinedData$status==F,]$time <- IATime
-  
-  coxmodel <- coxph(Surv(time, status) ~ group, data = IACombinedData)
-  
-  deltad <- as.numeric(exp(coef(coxmodel)))
-  
-  powervec[i] <- pnorm((1/r)*sqrt(D/(D-d))*(sqrt(D)*log(delta1/deltad)-r*gamma))
-  
-}
-
-hist(powervec) 
-
-```
-
-```{r}
-#Calculating conditional power
-r <- 2
-D <- 512
-d <- 256
-delta1 <- 1
-gamma <- 1.967	
-nEvents <- 512
-nIAEvents <- 512*0.5
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-#censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-   CP <- exp(-(lambdac*3))
-  u <- runif(nPatients/2)
-  
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(3*lambdat-log(u)-3*lambdac))), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  IACombinedData <- combinedData
-  
-  IATime <- IACombinedData[nIAEvents,]$time
-  
-  IACombinedData$status <- IACombinedData$time<=IATime
-  
-  IACombinedData[IACombinedData$status==F,]$time <- IATime
-  
-  coxmodel <- coxph(Surv(time, status) ~ group, data = IACombinedData)
-  
-  deltad <- as.numeric(exp(coef(coxmodel)))
-  
-  powervec[i] <- pnorm((1/r)*sqrt(D/(D-d))*(sqrt(D)*log(delta1/deltad)-r*gamma))
-  
-}
-
-hist(powervec, ylim=c(0,600)) 
-
-```
-
-Now we consider the results seen in Korn and Friedlin
-https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6366306/pdf/JCO.2018.77.7144.pdf
-
-```{r}
-#PHM
-nEvents <- 512
-nPatients <- 680
-HR <- 0.75
-recTime <- 34
-lambdac <- 1/18
-lambdat <- lambdac*HR
-
-powervec <- rep(NA, 1000)
-censvec <- rep(NA, 1000)
-
-for (i in 1:1000){
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
-                             rep("Treatment", nPatients/2)))
-  
-  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
-  
-  combinedData <- combinedData[order(combinedData$time),]
-  
-  censTime <- combinedData[nEvents,]$time
-  
-  combinedData$status <- combinedData$time<=censTime
-  
-  combinedData[combinedData$status==F,]$time <- censTime
-  
-  test <- survdiff(Surv(time, status)~group, data = combinedData)
-  
-  powervec[i] <- test$chisq > qchisq(0.95, 1)
-  censvec[i] <- censTime
-}
- 
-mean(powervec)
-median(censvec)
-```
-
-```{r}
+```{r, echo=F}
 #Adding in the futility rules
 nEvents <- 512
 nPatients <- 680
@@ -442,7 +35,7 @@ recTime <- 34
 lambdac <- 1/18
 lambdat <- lambdac*HR
 
-nSims <- 1e3
+nSims <- 1e2
 powervec <- rep(NA, nSims)
 Wieandpowervec <- rep(NA, nSims)
 OBFpowervec <- rep(NA, nSims)
@@ -452,10 +45,223 @@ censvec <- rep(NA, nSims)
 Wieandcensvec <- rep(NA, nSims)
 OBFcensvec <- rep(NA, nSims)
 propcensvec <- rep(NA, nSims)
-#censvec <- rep(NA, 1000)
 
 for (i in 1:nSims){
   combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  censvec[i] <- censTime
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+  #No interim analysis
+  
+  test <- survdiff(Surv(time, status)~group, data = combinedData)
+  
+  powervec[i] <- test$chisq > qchisq(0.95, 1)
+  
+  #Wieand rule
+  
+  IACombinedData1 <- combinedData
+  
+  IATime1 <- IACombinedData1[nEvents*0.5,]$time
+  
+  IACombinedData1$status <- IACombinedData1$time<=IATime1
+  
+  IACombinedData1[IACombinedData1$status==F,]$time <- IATime1
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    Wieandpowervec[i] <- 1
+    Wieandcensvec[i] <- IATime1
+  } else {
+    
+  IACombinedData2 <- combinedData
+  
+  IATime2 <- IACombinedData2[nEvents*0.75,]$time
+  
+  IACombinedData2$status <- IACombinedData2$time<=IATime2
+  
+  IACombinedData2[IACombinedData2$status==F,]$time <- IATime2
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData2)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    Wieandpowervec[i] <- 2
+    Wieandcensvec[i] <- IATime2
+  } else {
+    Wieandcensvec[i] <- censTime
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+    if (test$chisq > qchisq(0.95, 1)){
+      Wieandpowervec[i] <- 4
+    } else {
+      Wieandpowervec[i] <- 3
+    }
+  }
+  }
+  
+  #O'Brien-Fleming approach
+  
+  IACombinedData1 <- combinedData
+  
+  IATime1 <- IACombinedData1[nEvents*0.5,]$time
+  
+  IACombinedData1$status <- IACombinedData1$time<=IATime1
+  
+  IACombinedData1[IACombinedData1$status==F,]$time <- IATime1
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>0.998){
+    OBFpowervec[i] <- 1
+    OBFcensvec[i] <- IATime1
+  } else {
+    
+  IACombinedData2 <- combinedData
+  
+  IATime2 <- IACombinedData2[nEvents*0.75,]$time
+  
+  IACombinedData2$status <- IACombinedData2$time<=IATime2
+  
+  IACombinedData2[IACombinedData2$status==F,]$time <- IATime2
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData2)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>0.913){
+    OBFpowervec[i] <- 2
+    OBFcensvec[i] <- IATime2
+  } else {
+    OBFcensvec[i] <- censTime
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+    if (test$chisq > qchisq(0.95, 1)){
+      OBFpowervec[i] <- 4
+    } else {
+      OBFpowervec[i] <- 3
+    }
+    
+  }
+  
+  }
+  
+   #Proposed approach
+  
+  
+  propvec <- rep(NA, nrow(combinedData))
+  
+  lessthan3 <- sum(combinedData$time<3)
+  
+  for (j in 1:nrow(combinedData)){
+    if (combinedData$time[j]<3){
+      propvec[j] <- 0
+    } else {
+      propvec[j] <- 1 - lessthan3/j
+    }
+  }
+   
+  thresholdEvent <- sum(propvec<(2/3))
+  
+  firstIAEvent <- max(thresholdEvent, nEvents*0.5)
+  
+  IACombinedData1 <- combinedData
+  
+  IATime1 <- IACombinedData1[firstIAEvent,]$time
+  
+  IACombinedData1$status <- IACombinedData1$time<=IATime1
+  
+  IACombinedData1[IACombinedData1$status==F,]$time <- IATime1
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  #print(deltad)
+  
+  if (deltad>1){
+    propcensvec[i] <- IATime1
+    proppowervec[i] <- 1
+  } else {
+  
+  secondIAEvent <- max(thresholdEvent, nEvents*0.75)    
+    
+  IACombinedData2 <- combinedData
+  
+  IATime2 <- IACombinedData2[secondIAEvent,]$time
+  
+  IACombinedData2$status <- IACombinedData2$time<=IATime2
+  
+  IACombinedData2[IACombinedData2$status==F,]$time <- IATime2
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData2)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    propcensvec[i] <- IATime2
+    proppowervec[i] <- 2
+  } else {
+    propcensvec[i] <- censTime
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+    if (test$chisq > qchisq(0.95, 1)){
+     proppowervec[i] <- 4
+    } else {
+     proppowervec[i] <- 3
+    }
+  }
+  }
+}
+
+simResults <- data.frame(No.interim = c(mean(powervec==1), mean(censvec)), Wieand = c(mean(Wieandpowervec==4), mean(Wieandcensvec)), OBF = c(mean(OBFpowervec==4), mean(OBFcensvec)), Proposed = c(mean(proppowervec==4), mean(propcensvec)))
+
+rownames(simResults) <- c("Power", "Mean time")
+
+knitr::kable(simResults)
+```
+
+This is the results for when we have DTE (3 months delay)
+
+```{r, echo=F}
+#Adding in the futility rules
+nEvents <- 512
+nPatients <- 680
+HR <- 0.75
+recTime <- 34
+lambdac <- 1/18
+lambdat <- lambdac*HR
+lengthDelay <- 3
+
+nSims <- 1e2
+powervec <- rep(NA, nSims)
+Wieandpowervec <- rep(NA, nSims)
+OBFpowervec <- rep(NA, nSims)
+proppowervec <- rep(NA, nSims)
+
+censvec <- rep(NA, nSims)
+Wieandcensvec <- rep(NA, nSims)
+OBFcensvec <- rep(NA, nSims)
+propcensvec <- rep(NA, nSims)
+
+for (i in 1:nSims){
+  CP <- exp(-(lambdac*lengthDelay))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(lengthDelay*lambdat-log(u)-lengthDelay*lambdac))), group = c(rep("Control", nPatients/2),
                              rep("Treatment", nPatients/2)))
   
   combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
@@ -633,20 +439,20 @@ for (i in 1:nSims){
     } else {
      proppowervec[i] <- 3
     }
-    
   }
-  
   }
-  
-  
 }
 
 simResults <- data.frame(No.interim = c(mean(powervec==1), mean(censvec)), Wieand = c(mean(Wieandpowervec==4), mean(Wieandcensvec)), OBF = c(mean(OBFpowervec==4), mean(OBFcensvec)), Proposed = c(mean(proppowervec==4), mean(propcensvec)))
 
+rownames(simResults) <- c("Power", "Mean time")
 
+knitr::kable(simResults)
 ```
 
-```{r}
+This is the results for when we have DTE (6 months delay)
+
+```{r, echo=F}
 #Adding in the futility rules
 nEvents <- 512
 nPatients <- 680
@@ -654,8 +460,9 @@ HR <- 0.75
 recTime <- 34
 lambdac <- 1/18
 lambdat <- lambdac*HR
+lengthDelay <- 6
 
-nSims <- 1e3
+nSims <- 1e2
 powervec <- rep(NA, nSims)
 Wieandpowervec <- rep(NA, nSims)
 OBFpowervec <- rep(NA, nSims)
@@ -665,13 +472,12 @@ censvec <- rep(NA, nSims)
 Wieandcensvec <- rep(NA, nSims)
 OBFcensvec <- rep(NA, nSims)
 propcensvec <- rep(NA, nSims)
-#censvec <- rep(NA, 1000)
 
 for (i in 1:nSims){
-  CP <- exp(-(lambdac*3))
+  CP <- exp(-(lambdac*lengthDelay))
   u <- runif(nPatients/2)
   
-  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(3*lambdat-log(u)-3*lambdac))), group = c(rep("Control", nPatients/2),
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(lengthDelay*lambdat-log(u)-lengthDelay*lambdac))), group = c(rep("Control", nPatients/2),
                              rep("Treatment", nPatients/2)))
   
   combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
@@ -849,22 +655,232 @@ for (i in 1:nSims){
     } else {
      proppowervec[i] <- 3
     }
+  }
+  }
+}
+
+simResults <- data.frame(No.interim = c(mean(powervec==1), mean(censvec)), Wieand = c(mean(Wieandpowervec==4), mean(Wieandcensvec)), OBF = c(mean(OBFpowervec==4), mean(OBFcensvec)), Proposed = c(mean(proppowervec==4), mean(propcensvec)))
+
+rownames(simResults) <- c("Power", "Mean time")
+
+knitr::kable(simResults)
+```
+
+This is the results for when the HR is 1 (no effect)
+
+```{r, echo=F}
+#Adding in the futility rules
+nEvents <- 512
+nPatients <- 680
+HR <- 1
+recTime <- 34
+lambdac <- 1/18
+lambdat <- lambdac*HR
+lengthDelay <- 6
+
+nSims <- 1e2
+powervec <- rep(NA, nSims)
+Wieandpowervec <- rep(NA, nSims)
+OBFpowervec <- rep(NA, nSims)
+proppowervec <- rep(NA, nSims)
+
+censvec <- rep(NA, nSims)
+Wieandcensvec <- rep(NA, nSims)
+OBFcensvec <- rep(NA, nSims)
+propcensvec <- rep(NA, nSims)
+
+for (i in 1:nSims){
+  CP <- exp(-(lambdac*lengthDelay))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(lengthDelay*lambdat-log(u)-lengthDelay*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData$time <- combinedData$time + runif(nPatients, min = 0, max = recTime)
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  censvec[i] <- censTime
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+  #No interim analysis
+  
+  test <- survdiff(Surv(time, status)~group, data = combinedData)
+  
+  powervec[i] <- test$chisq > qchisq(0.95, 1)
+  
+  #Wieand rule
+  
+  IACombinedData1 <- combinedData
+  
+  IATime1 <- IACombinedData1[nEvents*0.5,]$time
+  
+  IACombinedData1$status <- IACombinedData1$time<=IATime1
+  
+  IACombinedData1[IACombinedData1$status==F,]$time <- IATime1
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    Wieandpowervec[i] <- 1
+    Wieandcensvec[i] <- IATime1
+  } else {
+    
+  IACombinedData2 <- combinedData
+  
+  IATime2 <- IACombinedData2[nEvents*0.75,]$time
+  
+  IACombinedData2$status <- IACombinedData2$time<=IATime2
+  
+  IACombinedData2[IACombinedData2$status==F,]$time <- IATime2
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData2)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    Wieandpowervec[i] <- 2
+    Wieandcensvec[i] <- IATime2
+  } else {
+    Wieandcensvec[i] <- censTime
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+    if (test$chisq > qchisq(0.95, 1)){
+      Wieandpowervec[i] <- 4
+    } else {
+      Wieandpowervec[i] <- 3
+    }
     
   }
   
   }
   
+  #O'Brien-Fleming approach
   
+  IACombinedData1 <- combinedData
+  
+  IATime1 <- IACombinedData1[nEvents*0.5,]$time
+  
+  IACombinedData1$status <- IACombinedData1$time<=IATime1
+  
+  IACombinedData1[IACombinedData1$status==F,]$time <- IATime1
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>0.998){
+    OBFpowervec[i] <- 1
+    OBFcensvec[i] <- IATime1
+  } else {
+    
+  IACombinedData2 <- combinedData
+  
+  IATime2 <- IACombinedData2[nEvents*0.75,]$time
+  
+  IACombinedData2$status <- IACombinedData2$time<=IATime2
+  
+  IACombinedData2[IACombinedData2$status==F,]$time <- IATime2
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData2)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>0.913){
+    OBFpowervec[i] <- 2
+    OBFcensvec[i] <- IATime2
+  } else {
+    OBFcensvec[i] <- censTime
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+    if (test$chisq > qchisq(0.95, 1)){
+      OBFpowervec[i] <- 4
+    } else {
+      OBFpowervec[i] <- 3
+    }
+    
+  }
+  
+  }
+  
+   #Proposed approach
+  
+  
+  propvec <- rep(NA, nrow(combinedData))
+  
+  lessthan3 <- sum(combinedData$time<3)
+  
+  for (j in 1:nrow(combinedData)){
+    if (combinedData$time[j]<3){
+      propvec[j] <- 0
+    } else {
+      propvec[j] <- 1 - lessthan3/j
+    }
+  }
+   
+  thresholdEvent <- sum(propvec<(2/3))
+  
+  firstIAEvent <- max(thresholdEvent, nEvents*0.5)
+  
+  IACombinedData1 <- combinedData
+  
+  IATime1 <- IACombinedData1[firstIAEvent,]$time
+  
+  IACombinedData1$status <- IACombinedData1$time<=IATime1
+  
+  IACombinedData1[IACombinedData1$status==F,]$time <- IATime1
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  #print(deltad)
+  
+  if (deltad>1){
+    propcensvec[i] <- IATime1
+    proppowervec[i] <- 1
+  } else {
+  
+  secondIAEvent <- max(thresholdEvent, nEvents*0.75)    
+    
+  IACombinedData2 <- combinedData
+  
+  IATime2 <- IACombinedData2[secondIAEvent,]$time
+  
+  IACombinedData2$status <- IACombinedData2$time<=IATime2
+  
+  IACombinedData2[IACombinedData2$status==F,]$time <- IATime2
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData2)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    propcensvec[i] <- IATime2
+    proppowervec[i] <- 2
+  } else {
+    propcensvec[i] <- censTime
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+    if (test$chisq > qchisq(0.95, 1)){
+     proppowervec[i] <- 4
+    } else {
+     proppowervec[i] <- 3
+    }
+  }
+  }
 }
 
 simResults <- data.frame(No.interim = c(mean(powervec==1), mean(censvec)), Wieand = c(mean(Wieandpowervec==4), mean(Wieandcensvec)), OBF = c(mean(OBFpowervec==4), mean(OBFcensvec)), Proposed = c(mean(proppowervec==4), mean(propcensvec)))
 
+rownames(simResults) <- c("Power", "Mean time")
 
+knitr::kable(simResults)
 ```
-
-
-
-
 
 
 
