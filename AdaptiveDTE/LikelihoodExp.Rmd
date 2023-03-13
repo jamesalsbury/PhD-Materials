@@ -101,60 +101,60 @@ n <- length(controlData)
 m <- length(treatmentData)
 treatmentData <- sort(treatmentData)
 
-# #Coding the log-likelihood function we derived
-# nll <- function(bigTEst, lambdacEst, lambdatEst){
-#   j <- sum(treatmentData < bigTEst)
-#   loglikelihood <- (n+j)*log(lambdacEst)-lambdacEst*(sum(controlData)+sum(treatmentData[1:j]))+
-#   (m-j)*(log(lambdatEst)+lambdatEst*bigTEst-lambdacEst*bigTEst) - lambdatEst*sum(treatmentData[(j+1):m])
-#   #Returning the negative ll as this is what the mle() function expects
-#  return(-loglikelihood)
-# }
-# 
-# #Finding the maximum likelihood estimators for T, lambdac and lambdat
-# #If we change the starting value of bigTEst then the estimation just settles on this initial value
-# est <- stats4::mle(minuslogl = nll, start = list(bigTEst = 20,lambdacEst = 0.01, lambdatEst = 0.01), lower=  list(bigTEst=2, lambdacEst = 0.0001, lambdatEst = 0.0001), upper = list(bigTEst = 60))
-# 
-# #Showing the output of the mle() function
-# est
-# 
-# 
-# #Let us just look at the likelihood for T (we are assuming we know what lambdat and lambdac are here)
-# 
-# nllT <- function(bigTEst){
-#   j <- sum(treatmentData < bigTEst)
-#   loglikelihood <- (n+j)*log(lambdac)-lambdac*(sum(controlData)+sum(treatmentData[1:j]))+
-#   (m-j)*(log(lambdat)+lambdat*bigTEst-lambdac*bigTEst) - lambdat*sum(treatmentData[(j+1):m])
-#   #Returning the negative ll as this is what the mle() function expects
-#  return(-loglikelihood)
-# }
-# 
-# #Still not identifiable, why?
-# #estT <- stats4::mle(minuslogl = nllT, start = list(bigTEst = 20), lower=list(bigTEst = 0.5), upper = list(bigTEst = 60))
-# 
-# #Let us look at the plot of bigT vs loglikelihood
-# 
-# bigTVec <- seq(1, 40, by=0.001)
-# 
-# estT1 <- sapply(X = bigTVec, FUN = nllT)
-# 
-# #Quite obvious where the minumum is, so why isn't it finding it?
-# plot(bigTVec, estT1, type="l")
-# 
-# bigTVec[which.min(estT1)]
-# 
-# #Let's try optimize
-# 
-# optimize(nllT, interval = c(1, 60))
-# 
-# #Optimize works!
-# 
-# nlloptim <- function(x){
-#   j <- sum(treatmentData < x[1])
-#   loglikelihood <- (n+j)*log(x[2])-x[2]*(sum(controlData)+sum(treatmentData[1:j]))+
-#   (m-j)*(log(x[3])+x[3]*x[1]-x[2]*x[1]) - x[3]*sum(treatmentData[(j+1):m])
-#   #Returning the negative ll as this is what the mle() function expects
-#  return(-loglikelihood)
-# }
+#Coding the log-likelihood function we derived
+nll <- function(bigTEst, lambdacEst, lambdatEst){
+  j <- sum(treatmentData < bigTEst)
+  loglikelihood <- (n+j)*log(lambdacEst)-lambdacEst*(sum(controlData)+sum(treatmentData[1:j]))+
+  (m-j)*(log(lambdatEst)+lambdatEst*bigTEst-lambdacEst*bigTEst) - lambdatEst*sum(treatmentData[(j+1):m])
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
+
+#Finding the maximum likelihood estimators for T, lambdac and lambdat
+#If we change the starting value of bigTEst then the estimation just settles on this initial value
+est <- stats4::mle(minuslogl = nll, start = list(bigTEst = 20,lambdacEst = 0.01, lambdatEst = 0.01), lower=  list(bigTEst=2, lambdacEst = 0.0001, lambdatEst = 0.0001), upper = list(bigTEst = 60))
+
+#Showing the output of the mle() function
+est
+
+
+#Let us just look at the likelihood for T (we are assuming we know what lambdat and lambdac are here)
+
+nllT <- function(bigTEst){
+  j <- sum(treatmentData < bigTEst)
+  loglikelihood <- (n+j)*log(lambdac)-lambdac*(sum(controlData)+sum(treatmentData[1:j]))+
+  (m-j)*(log(lambdat)+lambdat*bigTEst-lambdac*bigTEst) - lambdat*sum(treatmentData[(j+1):m])
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
+
+#Still not identifiable, why?
+#estT <- stats4::mle(minuslogl = nllT, start = list(bigTEst = 20), lower=list(bigTEst = 0.5), upper = list(bigTEst = 60))
+
+#Let us look at the plot of bigT vs loglikelihood
+
+bigTVec <- seq(1, 40, by=0.001)
+
+estT1 <- sapply(X = bigTVec, FUN = nllT)
+
+#Quite obvious where the minumum is, so why isn't it finding it?
+plot(bigTVec, estT1, type="l")
+
+bigTVec[which.min(estT1)]
+
+#Let's try optimize
+
+optimize(nllT, interval = c(1, 60))
+
+#Optimize works!
+
+nlloptim <- function(x){
+  j <- sum(treatmentData < x[1])
+  loglikelihood <- (n+j)*log(x[2])-x[2]*(sum(controlData)+sum(treatmentData[1:j]))+
+  (m-j)*(log(x[3])+x[3]*x[1]-x[2]*x[1]) - x[3]*sum(treatmentData[(j+1):m])
+  #Returning the negative ll as this is what the mle() function expects
+ return(-loglikelihood)
+}
 
 
 SA <- GenSA(par = c(20, 0.01, 0.01), fn = nlloptim, lower=c(0.5, 0.001, 0.001), upper=c(60, 10, 10))
