@@ -11,7 +11,7 @@ library(truncnorm)
 ```
 
 We are looking at including futility looks into the clinical trial. We recreate the results from [Korn and Freidlin (2018)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6366306/pdf/JCO.2018.77.7144.pdf). We have the following setup:
-We require 512 events, a sample size of 680. We assume the hazard ratio is 0.75, we have uniform recruitment for 34 months. We have exponential survival in the control arm, with a median survival of $\approx$ 12.5 months. We introduce three futility rules:
+We require 512 events, a sample size of 680. We assume the hazard ratio is 0.75, we have uniform recruitment for 34 months. We have exponential survival in the control arm, with a median survival of 12 months. We introduce three futility rules:
 
 1) Wieand rule
 * At 50% information, stop if the observed HR > 1
@@ -33,7 +33,7 @@ recTime <- 34
 lambdac <- -log(0.5)/12
 lambdat <- lambdac*HR
 
-nSims <- 1e3
+nSims <- 1e2
 powervec <- rep(NA, nSims)
 Wieandpowervec <- rep(NA, nSims)
 OBFpowervec <- rep(NA, nSims)
@@ -74,7 +74,11 @@ for (i in 1:nSims){
   
   test <- survdiff(Surv(time, status)~group, data = combinedData)
   
-  powervec[i] <- test$chisq > qchisq(0.95, 1)
+  coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  powervec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
   
   #Wieand rule
   
@@ -112,8 +116,11 @@ for (i in 1:nSims){
     Wieandcensvec[i] <- IATime2
   } else {
     Wieandcensvec[i] <- censTime
+    
     test <- survdiff(Surv(time, status)~group, data = combinedData)
-    if (test$chisq > qchisq(0.95, 1)){
+    coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+    if (test$chisq > qchisq(0.95, 1)&deltad<1){
       Wieandpowervec[i] <- 4
     } else {
       Wieandpowervec[i] <- 3
@@ -159,8 +166,9 @@ for (i in 1:nSims){
     OBFcensvec[i] <- IATime2
   } else {
     OBFcensvec[i] <- censTime
-    test <- survdiff(Surv(time, status)~group, data = combinedData)
-    if (test$chisq > qchisq(0.95, 1)){
+    coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+    if (test$chisq > qchisq(0.95, 1)&deltad<1){
       OBFpowervec[i] <- 4
     } else {
       OBFpowervec[i] <- 3
@@ -225,8 +233,9 @@ for (i in 1:nSims){
     proppowervec[i] <- 2
   } else {
     propcensvec[i] <- censTime
-    test <- survdiff(Surv(time, status)~group, data = combinedData)
-    if (test$chisq > qchisq(0.95, 1)){
+    coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+    if (test$chisq > qchisq(0.95, 1)&deltad<1){
      proppowervec[i] <- 4
     } else {
      proppowervec[i] <- 3
@@ -287,7 +296,7 @@ recTime <- 34
 lambdac <- -log(0.5)/12
 
 
-nSims <- 1e3
+nSims <- 1e2
 assvec <- rep(NA, nSims)
 Wieandassvec <- rep(NA, nSims)
 OBFassvec <- rep(NA, nSims)
@@ -333,7 +342,10 @@ for (i in 1:nSims){
   
   test <- survdiff(Surv(time, status)~group, data = combinedData)
   
-  assvec[i] <- test$chisq > qchisq(0.95, 1)
+  coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  assvec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
   
   #Wieand rule
   
@@ -370,9 +382,9 @@ for (i in 1:nSims){
     Wieandassvec[i] <- 2
     Wieandcensvec[i] <- IATime2
   } else {
-    Wieandcensvec[i] <- censTime
-    test <- survdiff(Surv(time, status)~group, data = combinedData)
-    if (test$chisq > qchisq(0.95, 1)){
+    coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+    if (test$chisq > qchisq(0.95, 1)&deltad<1){
       Wieandassvec[i] <- 4
     } else {
       Wieandassvec[i] <- 3
@@ -418,8 +430,9 @@ for (i in 1:nSims){
     OBFcensvec[i] <- IATime2
   } else {
     OBFcensvec[i] <- censTime
-    test <- survdiff(Surv(time, status)~group, data = combinedData)
-    if (test$chisq > qchisq(0.95, 1)){
+    coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+    if (test$chisq > qchisq(0.95, 1)&deltad<1){
       OBFassvec[i] <- 4
     } else {
       OBFassvec[i] <- 3
@@ -484,8 +497,9 @@ for (i in 1:nSims){
     propassvec[i] <- 2
   } else {
     propcensvec[i] <- censTime
-    test <- survdiff(Surv(time, status)~group, data = combinedData)
-    if (test$chisq > qchisq(0.95, 1)){
+    coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+    if (test$chisq > qchisq(0.95, 1)&deltad<1){
      propassvec[i] <- 4
     } else {
      propassvec[i] <- 3
@@ -505,40 +519,50 @@ return(simResults)
 ```
 
 
-We have the following distributions for T and HR:
-$T \sim N(0, 0^2)$
+We have the following distributions for T and HR:  
+
+$T \sim N(0, 0^2)$  
+
 HR $\sim N(0.75, 0.001^2)$
 
 ```{r, echo=F}
 knitr::kable(futilityAssFunc(HRMean = 0.75, HRsd = 0.001, lengthDelayMean = 0, lengthDelaysd = 0))
 ```
 
-We have the following distributions for T and HR:
-$T \sim N(3, 0.01^2)$
+We have the following distributions for T and HR:  
+
+$T \sim N(3, 0.01^2)$  
+
 HR $\sim N(0.75, 0.001^2)$
 
 ```{r, echo=F}
 knitr::kable(futilityAssFunc(HRMean = 0.75, HRsd = 0.001, lengthDelayMean = 3, lengthDelaysd = 0.01))
 ```
 
-We have the following distributions for T and HR:
-$T \sim N(3, 0.01^2)$
+We have the following distributions for T and HR:  
+
+$T \sim N(3, 0.01^2)$  
+
 HR $\sim N(0.75, 0.01^2)$
 
 ```{r, echo=F}
 knitr::kable(futilityAssFunc(HRMean = 0.75, HRsd = 0.01, lengthDelayMean = 3, lengthDelaysd = 0.01))
 ```
 
-We have the following distributions for T and HR:
-$T \sim N(6, 0.01^2)$
+We have the following distributions for T and HR:  
+
+$T \sim N(6, 0.01^2)$  
+
 HR $\sim N(0.75, 0.001^2)$
 
 ```{r, echo=F}
 knitr::kable(futilityAssFunc(HRMean = 0.75, HRsd = 0.001, lengthDelayMean = 6, lengthDelaysd = 0.01))
 ```
 
-We have the following distributions for T and HR:
-$T \sim N(3, 0.01^2)$
+We have the following distributions for T and HR:  
+
+$T \sim N(3, 0.01^2)$  
+
 HR $\sim N(1, 0.001^2)$
 
 ```{r, echo=F}

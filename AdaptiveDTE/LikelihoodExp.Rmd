@@ -161,6 +161,8 @@ SA <- GenSA(par = c(20, 0.01, 0.01), fn = nlloptim, lower=c(0.5, 0.001, 0.001), 
 
 MLEestimates <- SA$par
 
+plot(controlkm)
+
 
 controlTime <- seq(0, 40, by=0.01)
 controlSurv <- exp(-MLEestimates[2]*controlTime)
