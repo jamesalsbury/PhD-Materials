@@ -33,7 +33,7 @@ recTime <- 34
 lambdac <- -log(0.5)/12
 lambdat <- lambdac*HR
 
-nSims <- 1e2
+nSims <- 1e3
 powervec <- rep(NA, nSims)
 Wieandpowervec <- rep(NA, nSims)
 OBFpowervec <- rep(NA, nSims)
@@ -295,8 +295,7 @@ nPatients <- 680
 recTime <- 34
 lambdac <- -log(0.5)/12
 
-
-nSims <- 1e2
+nSims <- 1e3
 assvec <- rep(NA, nSims)
 Wieandassvec <- rep(NA, nSims)
 OBFassvec <- rep(NA, nSims)
@@ -569,5 +568,148 @@ HR $\sim N(1, 0.001^2)$
 knitr::kable(futilityAssFunc(HRMean = 1, HRsd = 0.001, lengthDelayMean = 3, lengthDelaysd = 0.01))
 ```
 
+# Doing the Bayesian updating at the interim
 
+We need to find a way of updating the prior distributions at any interim analysis
+
+
+```{r}
+
+HR <- rnorm(1, mean = 0.75, sd = 0.05)
+bigT <- rnorm(1, mean = 3, sd = 0.000001)
+lambdac <- -log(0.5)/12
+lambdat  <- lambdac*HR
+nEvents <- 512
+nPatients <- 680
+recTime <- 34
+
+CP <- exp(-(lambdac*bigT))
+u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData <- combinedData[order(combinedData$time),]
+
+  samplevec <- sample(1:nPatients)
+
+  for (k in 1:nPatients){
+    combinedData[samplevec[k],]$time <- combinedData[samplevec[k],]$time + runif(1, min = floor(k/20), max = ceiling(k/20))
+  }
+  
+ combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+  #Look at a futility stop 50% the way through the events
+  
+  IAData <- combinedData
+  
+  IATime  <- IAData[nEvents*0.5,]$time
+  
+  IAData$status <- IAData$time<=IATime
+  
+  IAData[IAData$status==F,]$time <- IATime
+  
+  IAData <- IAData[order(IAData$group),]
+  
+  
+  controlkm <- survfit(Surv(time, status)~group, data = IAData)
+# 
+plot(controlkm, col=c("blue", "red"))
+
+legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+
+n <- nPatients/2
+m <- nPatients
+
+#JAGS code which calculates posterior distributions
+
+modelstring="
+
+data {
+  for (j in 1:m){
+    zeros[j] <- 0
+  }
+}
+
+model {
+  C <- 10000
+  for (i in 1:n){
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, log(lambda2)-(lambda2*datTimes[i]), -(lambda2*datTimes[i]))
+  }
+  for (i in (n+1):m){                                                                                                             
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(lambda2)-(lambda2*datTimes[i]), log(lambda1)-lambda1*(datTimes[i]-bigT)-(bigT*lambda2)), 
+      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i]), -(lambda2*bigT)-lambda1*(datTimes[i]-bigT)))
+  }
+  
+    lambda2 ~ dbeta(1, 1)T(0,)
+    HR ~ dnorm(0.75, 400)T(0,)
+    bigT ~ dnorm(3, 1/0.000001^2)T(0,)
+    lambda1 <- lambda2*HR
+    
+    }
+"
+
+model = jags.model(textConnection(modelstring), data = list(datTimes = IAData$time, datEvent = IAData$status, n= n, m=m), quiet = T) 
+                   
+                   
+update(model, n.iter=500)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
+
+
+summary(output)
+plot(output)
+
+```
+
+
+```{r}
+
+HR <- 0.5
+bigT <- 3
+lambdac <- -log(0.5)/12
+lambdat  <- lambdac*HR
+nEvents <- 10000
+nPatients <- 15000
+recTime <- 34
+
+CP <- exp(-(lambdac*bigT))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  # combinedData <- combinedData[order(combinedData$time),]
+  # 
+  # samplevec <- sample(1:nPatients)
+  # 
+  # for (k in 1:nPatients){
+  #   combinedData[samplevec[k],]$time <- combinedData[samplevec[k],]$time + runif(1, min = floor(k/20), max = ceiling(k/20))
+  # }
+  
+ 
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+  controlkm <- survfit(Surv(time, status)~group, data = combinedData)
+  
+  plot(controlkm, col=c("blue", "red"))
+
+legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+
+```
 

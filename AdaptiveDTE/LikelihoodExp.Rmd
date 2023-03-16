@@ -181,7 +181,7 @@ lines(treatmentTime2, treatmentSurv2, col = "red")
 
 
 ```{r}
-#Now we can try it with JAGS - set the initial values of the paramaters to be the likelihoods?
+#Now we can try it with JAGS - set the initial values of the parameters to be the likelihoods?
 
 n <- n1
 m <- n1+n2
