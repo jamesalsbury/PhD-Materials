@@ -574,9 +574,15 @@ We need to find a way of updating the prior distributions at any interim analysi
 
 
 ```{r}
+library(rjags)
 
-HR <- rnorm(1, mean = 0.75, sd = 0.05)
-bigT <- rnorm(1, mean = 3, sd = 0.000001)
+bigTsd <- 0.001
+
+HRVec <- rep(NA, 100)
+
+for (j in 1:100){
+  HR <- rnorm(1, mean = 0.75, sd = 0.05)
+bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = bigTsd)
 lambdac <- -log(0.5)/12
 lambdat  <- lambdac*HR
 nEvents <- 512
@@ -616,13 +622,16 @@ u <- runif(nPatients/2)
   IAData[IAData$status==F,]$time <- IATime
   
   IAData <- IAData[order(IAData$group),]
-  
-  
+
   controlkm <- survfit(Surv(time, status)~group, data = IAData)
 # 
-plot(controlkm, col=c("blue", "red"))
+#plot(controlkm, col=c("blue", "red"))
 
-legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+#legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+
+ coxmodel <- coxph(Surv(time, status)~group, data = IAData)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
 
 n <- nPatients/2
 m <- nPatients
@@ -652,52 +661,61 @@ model {
   }
   
     lambda2 ~ dbeta(1, 1)T(0,)
-    HR ~ dnorm(0.75, 400)T(0,)
-    bigT ~ dnorm(3, 1/0.000001^2)T(0,)
+    HR ~ dnorm(0.75, 40)T(0,)
+    bigT ~ dnorm(3, 1/bigTsd^2)T(0,)
     lambda1 <- lambda2*HR
     
     }
 "
 
-model = jags.model(textConnection(modelstring), data = list(datTimes = IAData$time, datEvent = IAData$status, n= n, m=m), quiet = T) 
+model = jags.model(textConnection(modelstring), data = list(datTimes = IAData$time, datEvent = IAData$status, bigTsd = bigTsd, n= n, m=m), quiet = T) 
                    
                    
-update(model, n.iter=500)
-output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
+update(model, n.iter=100)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 500)
 
+HROutput <- as.numeric(output[[1]][,1])
 
-summary(output)
-plot(output)
+HRVec[j] <- mean(HROutput<1)
+}
+
+hist(HRVec)
 
 ```
 
-
 ```{r}
 
-HR <- 0.5
-bigT <- 3
-lambdac <- -log(0.5)/12
-lambdat  <- lambdac*HR
-nEvents <- 10000
-nPatients <- 15000
+myFunc <- function(bigTsd){
+  lambdac <- -log(0.5)/12
+nEvents <- 512
+nPatients <- 680
 recTime <- 34
+assvec <- rep(NA, 1000)
+sampledHR <- rep(NA, 1000)
+observedHR <- rep(NA, 1000)
 
-CP <- exp(-(lambdac*bigT))
-  u <- runif(nPatients/2)
+for (i in 1:length(assvec)){
+  
+  HR <- rnorm(1, mean = 0.75, sd = 0.05)
+  sampledHR[i] <- HR
+bigT <- truncnorm::rtruncnorm(n = 1, a = 0,  mean = 3, sd = bigTsd)
+lambdat  <- lambdac*HR
+  
+  CP <- exp(-(lambdac*bigT))
+u <- runif(nPatients/2)
   
   combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
                              rep("Treatment", nPatients/2)))
   
-  # combinedData <- combinedData[order(combinedData$time),]
-  # 
-  # samplevec <- sample(1:nPatients)
-  # 
-  # for (k in 1:nPatients){
-  #   combinedData[samplevec[k],]$time <- combinedData[samplevec[k],]$time + runif(1, min = floor(k/20), max = ceiling(k/20))
-  # }
-  
- 
   combinedData <- combinedData[order(combinedData$time),]
+
+  samplevec <- sample(1:nPatients)
+
+  for (k in 1:nPatients){
+    combinedData[samplevec[k],]$time <- combinedData[samplevec[k],]$time + runif(1, min = floor(k/20), max = ceiling(k/20))
+  }
+  
+ combinedData <- combinedData[order(combinedData$time),]
   
   censTime <- combinedData[nEvents,]$time
   
@@ -705,11 +723,83 @@ CP <- exp(-(lambdac*bigT))
   
   combinedData[combinedData$status==F,]$time <- censTime
   
-  controlkm <- survfit(Surv(time, status)~group, data = combinedData)
+  coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
   
-  plot(controlkm, col=c("blue", "red"))
+  observedHR[i] <- as.numeric(exp(coef(coxmodel)))
+  
+  #Look at a futility stop 50% the way through the events
+  
+  IAData1 <- combinedData
+  
+  IATime1  <- IAData1[nEvents*0.5,]$time
+  
+  IAData1$status <- IAData1$time<=IATime1
+  
+  IAData1[IAData1$status==F,]$time <- IATime1
+  
+  IAData1 <- IAData1[order(IAData1$group),]
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IAData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    assvec[i] <- 1
+  } else {
+    
+  IAData2 <- combinedData
+  
+  IATime2  <- IAData2[nEvents*0.75,]$time
+  
+  IAData2$status <- IAData2$time<=IATime2
+  
+  IAData2[IAData2$status==F,]$time <- IATime2
+  
+  IAData2 <- IAData1[order(IAData2$group),]
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IAData2)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+    assvec[i] <- 2
+  } else {
+    
+    test <- survdiff(Surv(time, status)~group, data = combinedData)
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (test$chisq>qchisq(0.95, 1)&deltad<1){
+    assvec[i] <- 4
+  } else{
+    assvec[i] <- 3
+  }
+    
+    
+  }
+  }
+}
+mydf <- data.frame(StopFirstLook = mean(assvec==1), StopSecondLook = mean(assvec==2),
+                   NotSignifFinal = mean(assvec==3), SignifFinal = mean(assvec==4))
 
-legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty=1)
+return(list(mydf = mydf, sampledHR = sampledHR, observedHR = observedHR))
+}
+
 
 ```
+
+```{r}
+
+output <- myFunc(1)
+
+plot(output$sampledHR, output$observedHR, xlim=c(0.5, 1.2), ylim=c(0.5, 1.2))
+
+# myFunc(0.5)
+# 
+# myFunc(1)
+```
+
+
 
