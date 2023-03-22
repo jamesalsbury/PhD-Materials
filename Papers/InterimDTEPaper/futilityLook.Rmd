@@ -576,9 +576,8 @@ We need to find a way of updating the prior distributions at any interim analysi
 ```{r, eval = F}
 library(rjags)
 
-bigTsd <- 0.001
-
-HRVec <- rep(NA, 100)
+bigTFunc <- function(bigTsd){
+  HRVec <- rep(NA, 100)
 
 for (j in 1:100){
   HR <- rnorm(1, mean = 0.75, sd = 0.05)
@@ -679,8 +678,31 @@ HROutput <- as.numeric(output[[1]][,1])
 HRVec[j] <- mean(HROutput<1)
 }
 
-hist(HRVec)
+return(HRVec)
+}
 
+
+
+```
+
+```{r}
+x0.001 <- bigTFunc(bigTsd = 0.001)
+x0.01 <- bigTFunc(bigTsd = 0.01)
+x0.1 <- bigTFunc(bigTsd = 0.1)
+x1 <- bigTFunc(bigTsd = 1)
+
+```
+
+```{r}
+hist(x0.001, xlim=c(0,1), ylim=c(0,25))
+hist(x0.01, xlim=c(0,1), ylim=c(0,25))
+hist(x0.1, xlim=c(0,1), ylim=c(0,25))
+hist(x1, xlim=c(0,1), ylim=c(0,25))
+
+mean(x0.001)
+mean(x0.01)
+mean(x0.1)
+mean(x1)
 ```
 
 ```{r, eval = F}
