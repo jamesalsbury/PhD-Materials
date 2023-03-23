@@ -1008,3 +1008,148 @@ HR $\sim N(0.75, 0.1^2)$
 ```{r, echo=F}
 knitr::kable(futilityAssFunc(HRMean = 0.75, HRsd = 0.1, lengthDelayMean = 3, lengthDelaysd = 1))
 ```
+
+
+Does the posterior for HR look any different when we accept/reject for futility at the IA?
+
+```{r}
+library(rjags)
+  HRMean <- 1
+  HRsd <- 0.1
+  lengthDelayMean <- 3
+  lengthDelaysd <- 0.1
+nEvents <- 512
+nPatients <- 680
+recTime <- 34
+lambdac <- -log(0.5)/12
+
+nSims <- 50
+assvec <- rep(NA, nSims)
+MeanHR <- rep(NA, nSims)
+
+
+for (i in 1:nSims){
+  
+  
+  HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = HRMean, sd = HRsd)
+  lengthDelay <- truncnorm::rtruncnorm(n = 1, a = -1e-10, mean = lengthDelayMean, sd = lengthDelaysd)
+  lambdat <- lambdac*HR
+  
+  CP <- exp(-(lambdac*lengthDelay))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(lengthDelay*lambdat-log(u)-lengthDelay*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  samplevec <- sample(1:nPatients)
+  
+  for (k in 1:nPatients){
+    combinedData[samplevec[k],]$time <- combinedData[samplevec[k],]$time + runif(1, min = floor(k/20), max = ceiling(k/20))
+  }
+  
+ 
+  combinedData <- combinedData[order(combinedData$time),]
+  
+   #Proposed approach
+  
+  
+  propvec <- rep(NA, nrow(combinedData))
+  
+  lessthan3 <- sum(combinedData$time<3)
+  
+  for (j in 1:nrow(combinedData)){
+    if (combinedData$time[j]<3){
+      propvec[j] <- 0
+    } else {
+      propvec[j] <- 1 - lessthan3/j
+    }
+  }
+   
+  thresholdEvent <- sum(propvec<(2/3))
+  
+  firstIAEvent <- max(thresholdEvent, nEvents*0.5)
+  
+  IACombinedData1 <- combinedData
+  
+  IATime1 <- IACombinedData1[firstIAEvent,]$time
+  
+  IACombinedData1$status <- IACombinedData1$time<=IATime1
+  
+  IACombinedData1[IACombinedData1$status==F,]$time <- IATime1
+  
+  IACombinedData1 <- IACombinedData1[order(IACombinedData1$group),]
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = IACombinedData1)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  if (deltad>1){
+   assvec[i] <- 1
+  } else {
+    assvec[i] <- 2
+  }
+
+  n <- nPatients/2
+m <- nPatients
+
+#JAGS code which calculates posterior distributions
+
+modelstring="
+
+data {
+  for (j in 1:m){
+    zeros[j] <- 0
+  }
+}
+
+model {
+  C <- 10000
+  for (i in 1:n){
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, log(lambda2)-(lambda2*datTimes[i]), -(lambda2*datTimes[i]))
+  }
+  for (i in (n+1):m){                                                                                                             
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(lambda2)-(lambda2*datTimes[i]), log(lambda1)-lambda1*(datTimes[i]-bigT)-(bigT*lambda2)), 
+      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i]), -(lambda2*bigT)-lambda1*(datTimes[i]-bigT)))
+  }
+  
+    lambda2 ~ dbeta(1, 1)T(0,)
+    HR ~ dnorm(0.75, 40)T(0,)
+    bigT ~ dnorm(3, 1/lengthDelaysd^2)T(0,)
+    lambda1 <- lambda2*HR
+    
+    }
+"
+
+model = jags.model(textConnection(modelstring), data = list(datTimes = IACombinedData1$time, datEvent = IACombinedData1$status, lengthDelaysd = lengthDelaysd, n= n, m=m), quiet = T) 
+                   
+                   
+update(model, n.iter=100)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 500)
+
+#plot(output)
+
+HRMean[i] <- mean(as.numeric(output[[1]][,1]))
+
+}
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
