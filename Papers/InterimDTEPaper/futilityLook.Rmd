@@ -1142,8 +1142,177 @@ HRMean[i] <- mean(as.numeric(output[[1]][,1]))
 ```
 
 
+Let us do Bayesian updating at the interim analysis - for the same case study
+
+What is the assurance before the trial?
+
+```{r}
+HRMean <- 0.75
+HRsd <- 0.1
+lengthDelayMean <- 3
+lengthDelaysd <- 1
+nEvents <- 512
+nPatients <- 680
+recTime <- 34
+lambdac <- -log(0.5)/12
 
 
+assvec <- rep(NA, 1000)
+
+for (i in 1:1000){
+  
+  lengthDelay <- truncnorm::rtruncnorm(n = 1, a = 0, mean = lengthDelayMean, sd = lengthDelaysd)
+  HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = HRMean, sd = HRsd)
+  lambdat <- lambdac*HR
+
+  
+CP <- exp(-(lambdac*lengthDelay))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(lengthDelay*lambdat-log(u)-lengthDelay*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  samplevec <- sample(1:nPatients)
+  
+  for (k in 1:nPatients){
+    combinedData[samplevec[k],]$time <- combinedData[samplevec[k],]$time + runif(1, min = floor(k/20), max = ceiling(k/20))
+  }
+  
+ 
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+  
+  test <- survdiff(Surv(time, status)~group, data = combinedData)
+  
+  coxmodel <- coxph(Surv(time, status)~group, data = combinedData)
+  
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  assvec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+}
+
+mean(assvec)
+```
+
+
+We need to simulate some data
+
+```{r}
+HRMean <- 0.75
+HRsd <- 0.1
+lengthDelayMean <- 3
+lengthDelaysd <- 1
+nEvents <- 512
+nPatients <- 680
+recTime <- 34
+lambdac <- -log(0.5)/12
+
+lengthDelay <- truncnorm::rtruncnorm(n = 1, a = 0, mean = lengthDelayMean, sd = lengthDelaysd)
+  HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = HRMean, sd = HRsd)
+  lambdat <- lambdac*HR
+  
+  
+  CP <- exp(-(lambdac*lengthDelay))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(lengthDelay*lambdat-log(u)-lengthDelay*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  
+  enrollment_times <- rpois(nPatients, 10)
+  
+  
+  
+  
+  
+  samplevec <- sample(1:nPatients)
+  
+  for (k in 1:nPatients){
+    combinedData[samplevec[k],]$time <- combinedData[samplevec[k],]$time + runif(1, min = floor(k/20), max = ceiling(k/20))
+  }
+  
+ 
+  combinedData <- combinedData[order(combinedData$time),]
+  
+  censTime <- combinedData[nEvents,]$time
+  
+  combinedData$status <- combinedData$time<=censTime
+  
+  combinedData[combinedData$status==F,]$time <- censTime
+  
+
+
+```
+
+
+```{r}
+
+
+
+# HRMean <- 0.75
+# HRsd <- 0.1
+# lengthDelayMean <- 3
+# lengthDelaysd <- 1
+nEvents <- 512
+nPatients <- 680
+# recTime <- 34
+lambdac <- -log(0.5)/12
+
+# lengthDelay <- truncnorm::rtruncnorm(n = 1, a = 0, mean = lengthDelayMean, sd = lengthDelaysd)
+#   HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = HRMean, sd = HRsd)
+#   lambdat <- lambdac*HR
+
+
+lengthDelay <- 0
+HR <- 0.75
+lambdat <- lambdac*HR
+
+
+
+CP <- exp(-(lambdac*lengthDelay))
+u <- runif(nPatients/2)
+  
+survivalTimes <- c(rexp(nPatients/2), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(lengthDelay*lambdat-log(u)-lengthDelay*lambdac)))
+  
+
+group = c(rep("Control", nPatients/2), rep("Treatment", nPatients/2))
+
+enrollment_times <- rep(NA,  nPatients)
+
+for (k in 1:nPatients){
+    enrollment_times[k] <- runif(1, min = floor(k/20), max = ceiling(k/20))
+}
+
+enrollment_times <- sample(enrollment_times)
+
+
+pseudo_surv <- survivalTimes + enrollment_times
+
+ censTime <- sort(pseudo_surv)[nEvents]
+ 
+ enrolled <- ifelse(enrollment_times<censTime, 1, 0)
+ 
+ newSurvTime <- ifelse(pseudo_surv>censTime, censTime - enrollment_times, survivalTimes)
+ 
+ censor <- ifelse(pseudo_surv>censTime, 0, 1)
+ 
+ finalDF <- data.frame(newSurvTime, censor, group, enrolled)
+ 
+ finalDF <- finalDF[finalDF[,4]==1,]
+ 
+ sum(finalDF$censor==1)
+
+```
 
 
 
