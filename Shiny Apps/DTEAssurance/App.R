@@ -930,7 +930,7 @@ server = function(input, output, session) {
         
         dataCombined <- SimDTEDataSet(n1, n2, gammat, gammac, lambdat, lambdac, bigT, input$rectime, input$chosenLength)
         
-        coxmodel <- coxph(Surv(time, status)~group, data = dataCombined)
+        coxmodel <- coxph(Surv(survival_time, status)~group, data = dataCombined)
         
         AHRvec[i] <- exp(coef(coxmodel))
         
@@ -943,7 +943,7 @@ server = function(input, output, session) {
         UBAHRvec[i] <- CI[2]
         
         #Performs a log rank test on the data
-        test <- survdiff(Surv(time, status)~group, data = dataCombined)
+        test <- survdiff(Surv(survival_time, status)~group, data = dataCombined)
         #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
         assvec[i] <- test$chisq > qchisq(0.95, 1)
         

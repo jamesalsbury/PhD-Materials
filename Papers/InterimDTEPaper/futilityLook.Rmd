@@ -1333,11 +1333,7 @@ censvec <- rep(NA, 1000)
   combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), rexp(nPatients/2, rate = lambdat)), group = c(rep("Control", nPatients/2),
                              rep("Treatment", nPatients/2)))
   
-  for (k in 1:nPatients){
-    recTimeVec[k] <- runif(1, min = floor(k/20), max = ceiling(k/20))
-  }
-  
-  combinedData$recTime <- sample(recTimeVec)
+  combinedData$recTime <- runif(nPatients, min = 0, max = 34)
   
   combinedData$psuedoTime <- combinedData$time + combinedData$recTime
   
@@ -1385,12 +1381,7 @@ censvec <- rep(NA, 1000)
                              rep("Treatment", nPatients/2)))
   
 
-  
-  for (k in 1:nPatients){
-    recTimeVec[k] <- runif(1, min = floor(k/20), max = ceiling(k/20))
-  }
-  
-  combinedData$recTime <- sample(recTimeVec)
+  combinedData$recTime <- runif(nPatients, min = 0, max = 34)
   
   combinedData$psuedoTime <- combinedData$time + combinedData$recTime
   
@@ -1415,6 +1406,62 @@ censvec[i] <- censTime
 mean(powervec)
 median(censvec)
 ```
+
+We put some priors on the T and post-delay HR
+
+```{r}
+#DTE
+nEvents <- 512
+nPatients <- 680
+recTimeVec <- rep(NA, nPatients)
+lambdac <- -log(0.5)/12
+recTime <- 34
+
+
+powervec <- rep(NA, 10000)
+censvec <- rep(NA, 10000)
+
+ for (i in 1:10000){
+  
+   
+  bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
+  HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
+  lambdat <- lambdac*HR
+  
+  CP <- exp(-(lambdac*bigT))
+  u <- runif(nPatients/2)
+  
+  combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+  
+
+  combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
+  
+  combinedData$psuedoTime <- combinedData$time + combinedData$recTime
+  
+  censTime <- sort(combinedData$psuedoTime)[nEvents]
+  
+  combinedData$status <- combinedData$psuedoTime < censTime
+  
+  combinedData$status <- combinedData$status*1
+  
+  combinedData$enrolled <- combinedData$recTime < censTime
+  
+  combinedData <-  combinedData[combinedData$enrolled==T,]
+  
+  combinedData$survival_time <- ifelse(combinedData$psuedoTime>censTime, censTime  - combinedData$recTime, combinedData$time)
+  
+ test <- survdiff(Surv(survival_time, status)~group, data = combinedData)
+  
+powervec[i] <- test$chisq > qchisq(0.95, 1)
+censvec[i] <- censTime
+}
+ 
+mean(powervec)
+median(censvec)
+```
+
+
 
 
 
