@@ -1410,7 +1410,7 @@ median(censvec)
 We put some priors on the T and post-delay HR
 
 ```{r}
-#DTE
+#DTE assurance
 nEvents <- 512
 nPatients <- 680
 recTimeVec <- rep(NA, nPatients)
@@ -1461,6 +1461,91 @@ mean(powervec)
 median(censvec)
 ```
 
+So we have that the prior assurance is approximately 65%. 
+Can we update this at any interim point?
+We choose 50% IF - so when 256 events have been observed
+
+```{r}
+library(rjags)
+nEvents <- 512
+nPatients <- 680
+recTimeVec <- rep(NA, nPatients)
+lambdac <- -log(0.5)/12
+recTime <- 34
+
+bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
+HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
+lambdat <- lambdac*HR
+
+CP <- exp(-(lambdac*bigT))
+u <- runif(nPatients/2)
+
+combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+
+combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
+  
+  combinedData$psuedoTime <- combinedData$time + combinedData$recTime
+  
+  censTime <- sort(combinedData$psuedoTime)[nEvents*0.5]
+  
+  combinedData$status <- combinedData$psuedoTime < censTime
+  
+  combinedData$status <- combinedData$status*1
+  
+  combinedData$enrolled <- combinedData$recTime < censTime
+  
+  combinedData <-  combinedData[combinedData$enrolled==T,]
+  
+  combinedData$survival_time <- ifelse(combinedData$psuedoTime>censTime, censTime  - combinedData$recTime, combinedData$time)
+  
+  n <- sum(combinedData$group=="Control")
+  m <- nrow(combinedData)
+  
+  combinedData <- combinedData[order(combinedData$group),]
+
+  #We need to update the priors using this interim data
+  modelstring="
+
+data {
+  for (j in 1:m){
+    zeros[j] <- 0
+  }
+}
+
+model {
+  C <- 10000
+  for (i in 1:n){
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, log(lambda2)-(lambda2*datTimes[i]), -(lambda2*datTimes[i]))
+  }
+  for (i in (n+1):m){                                                                                                             
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(lambda2)-(lambda2*datTimes[i]), log(lambda1)-lambda1*(datTimes[i]-bigT)-(bigT*lambda2)), 
+      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i]), -(lambda2*bigT)-lambda1*(datTimes[i]-bigT)))
+  }
+  
+    lambda2 ~ dbeta(1, 1)T(0,)
+    HR ~ dnorm(0.75, 1/HRsd)T(0,)
+    bigT ~ dnorm(3, 1/bigTsd^2)T(0,)
+    lambda1 <- lambda2*HR
+    
+    }
+"
+
+model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$survival_time, datEvent = combinedData$status, bigTsd = 1, HRsd = 0.1, n= n, m=m), quiet = T) 
+                   
+                   
+update(model, n.iter=500)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
+  
+plot(output)
+
+
+
+```
 
 
 
