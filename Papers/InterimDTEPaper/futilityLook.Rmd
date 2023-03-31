@@ -1387,11 +1387,11 @@ censvec <- rep(NA, 1000)
   
   censTime <- sort(combinedData$psuedoTime)[nEvents]
   
-  combinedData$status <- combinedData$psuedoTime < censTime
+  combinedData$status <- combinedData$psuedoTime <= censTime
   
   combinedData$status <- combinedData$status*1
   
-  combinedData$enrolled <- combinedData$recTime < censTime
+  combinedData$enrolled <- combinedData$recTime <= censTime
   
   combinedData <-  combinedData[combinedData$enrolled==T,]
   
@@ -1441,11 +1441,11 @@ censvec <- rep(NA, 10000)
   
   censTime <- sort(combinedData$psuedoTime)[nEvents]
   
-  combinedData$status <- combinedData$psuedoTime < censTime
+  combinedData$status <- combinedData$psuedoTime <= censTime
   
   combinedData$status <- combinedData$status*1
   
-  combinedData$enrolled <- combinedData$recTime < censTime
+  combinedData$enrolled <- combinedData$recTime <= censTime
   
   combinedData <-  combinedData[combinedData$enrolled==T,]
   
@@ -1467,9 +1467,9 @@ We choose 50% IF - so when 256 events have been observed
 
 ```{r}
 library(rjags)
+library(survival)
 nEvents <- 512
 nPatients <- 680
-recTimeVec <- rep(NA, nPatients)
 lambdac <- -log(0.5)/12
 recTime <- 34
 
@@ -1489,11 +1489,11 @@ combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
   
   censTime <- sort(combinedData$psuedoTime)[nEvents*0.5]
   
-  combinedData$status <- combinedData$psuedoTime < censTime
+  combinedData$status <- combinedData$psuedoTime <= censTime
   
   combinedData$status <- combinedData$status*1
   
-  combinedData$enrolled <- combinedData$recTime < censTime
+  combinedData$enrolled <- combinedData$recTime <= censTime
   
   combinedData <-  combinedData[combinedData$enrolled==T,]
   
@@ -1503,6 +1503,8 @@ combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
   m <- nrow(combinedData)
   
   combinedData <- combinedData[order(combinedData$group),]
+  
+ 
 
   #We need to update the priors using this interim data
   modelstring="
@@ -1538,10 +1540,36 @@ model {
 model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$survival_time, datEvent = combinedData$status, bigTsd = 1, HRsd = 0.1, n= n, m=m), quiet = T) 
                    
                    
-update(model, n.iter=500)
-output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
+update(model, n.iter=100)
+output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 500)
   
 plot(output)
+
+ kmfit <- survfit(Surv(survival_time, status)~group, data = combinedData) 
+  
+  plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
+  
+  noCensor <- combinedData[combinedData$status==1,]
+  
+ censorkm <- survfit(Surv(survival_time, status)~group, data = noCensor) 
+  
+  plot(censorkm, col = c("blue", "red"), xlim=c(0,50)) 
+
+
+# HRoutput <- as.numeric(unlist(output[,1]))
+# bigToutput <- as.numeric(unlist(output[,2]))
+# lambda2output <- as.numeric(unlist(output[,3]))
+# 
+# for (i in 1:2){
+#   trialTime <- seq(0, 50, by = 0.01)
+# controlSurv <- exp(-lambda2output[i]*trialTime)
+# lines(trialTime, controlSurv, col = "blue")
+# treatmentSurv <- ifelse(trialTime < bigToutput[i], exp(-lambda2output[i]*trialTime),  exp(-lambda2output[i]*bigToutput[i]-lambda2output[i]*HRoutput[i]*(trialTime-bigToutput[i])))
+# #treatmentSurv <- exp(-lambda2output[i]*bigToutput[i]-lambda2output[i]*HRoutput[i]*(trialTime-bigToutput[i]))
+# lines(trialTime, treatmentSurv, col = "red")
+# 
+# }
+
 
 
 
