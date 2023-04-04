@@ -1468,6 +1468,7 @@ We choose 50% IF - so when 256 events have been observed
 ```{r}
 library(rjags)
 library(survival)
+library(tidyverse)
 nEvents <- 512
 nPatients <- 680
 lambdac <- -log(0.5)/12
@@ -1549,27 +1550,128 @@ plot(output)
   
   plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
   
-  noCensor <- combinedData[combinedData$status==1,]
+  cPatientsLeft <- (nPatients/2) - sum(combinedData$group=="Control") 
   
- censorkm <- survfit(Surv(survival_time, status)~group, data = noCensor) 
+  tPatientsLeft <- (nPatients/2) - sum(combinedData$group=="Treatment") 
   
-  plot(censorkm, col = c("blue", "red"), xlim=c(0,50)) 
+  BPPVec <- rep(NA, 1000)
+  
+  for (i in 1:1000){
+    
+  
+  unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, censTime, recTime)
+  
+  HRoutput <- as.numeric(unlist(output[,1]))
+  bigToutput <- as.numeric(unlist(output[,2]))
+  lambda2output <- as.numeric(unlist(output[,3]))
+  
+  sampledHR <- sample(HRoutput, 1)
+  sampledbigT <- sample(bigToutput, 1)
+  sampledlambda2 <- sample(lambda2output, 1)
+  sampledlambda1 <- sampledlambda2*sampledHR
+  
+  CP <- exp(-(sampledlambda2*sampledbigT))
+  u <- runif(tPatientsLeft)
+
+unenrolledData <- data.frame(time = c(rexp(cPatientsLeft, rate = sampledlambda2), ifelse(u>CP, (-log(u))/sampledlambda2, (1/sampledlambda1)*(sampledbigT*sampledlambda1-log(u)-sampledbigT*sampledlambda2))), group = c(rep("Control", cPatientsLeft),
+                             rep("Treatment", tPatientsLeft)), recTime = unenrolledRecTimes)
+
+unenrolledData$psuedoTime <- unenrolledData$time + unenrolledData$recTime
+
+  
+censoredData <- combinedData[combinedData$status==0,]
+
+cCensored <- sum(censoredData$group=="Control")
+tCensored <- sum(censoredData$group=="Treatment")
+
+cCensoredData <- censoredData %>%
+  filter(group=="Control")
+
+cIASurv <- rexp(cCensored, rate = sampledlambda2)
+
+censoredObs <- data.frame(time = cCensoredData$time+rexp(cCensored, rate = sampledlambda2), group = rep("Control", cCensored), recTime = cCensoredData$recTime)
+
+censoredObs$psuedoTime <- censoredObs$time + censoredObs$recTime
+
+tBeforeDelay <- censoredData %>%
+  filter(group=="Treatment") %>%
+  filter(survival_time < sampledbigT)
+
+tAfterDelay <- censoredData %>%
+  filter(group=="Treatment") %>%
+  filter(survival_time > sampledbigT)
+
+tBeforeDelay$IASurv <- tBeforeDelay$survival_time + rexp(nrow(tBeforeDelay), rate = sampledlambda2)
+
+tBeforeDelay1 <- tBeforeDelay %>%
+  filter(IASurv < sampledbigT)
+
+tBeforeDelay2 <- tBeforeDelay %>%
+  filter(IASurv > sampledbigT)
+
+tBeforeDelay2$IASurv2 <- sampledbigT + rexp(nrow(tBeforeDelay2), rate = sampledlambda1)
+
+tAfterDelay$IASurv <- tAfterDelay$survival_time + rexp(nrow(tAfterDelay), rate = sampledlambda1)
+
+tBeforeDelay1$IApsuedoTime <- tBeforeDelay1$IASurv + tBeforeDelay1$recTime
+
+tBeforeDelay2$IApsuedoTime <- tBeforeDelay2$IASurv2 + tBeforeDelay2$recTime
+
+tAfterDelay$IApsuedoTime <- tAfterDelay$IASurv + tAfterDelay$recTime
+
+tBeforeDelay1 <- tBeforeDelay1[,c(2:3, 8:9)]
+
+tBeforeDelay2 <- tBeforeDelay2[,c(2:3, 9:10)]
+
+tAfterDelay <- tAfterDelay[,c(2:3, 8:9)]
+
+colnames(tBeforeDelay1) <- c("group", "recTime", "time", "psuedoTime")
+
+colnames(tBeforeDelay2) <- c("group", "recTime", "time", "psuedoTime")
+
+colnames(tAfterDelay) <- c("group", "recTime", "time", "psuedoTime")
 
 
-# HRoutput <- as.numeric(unlist(output[,1]))
-# bigToutput <- as.numeric(unlist(output[,2]))
-# lambda2output <- as.numeric(unlist(output[,3]))
-# 
-# for (i in 1:2){
-#   trialTime <- seq(0, 50, by = 0.01)
-# controlSurv <- exp(-lambda2output[i]*trialTime)
-# lines(trialTime, controlSurv, col = "blue")
-# treatmentSurv <- ifelse(trialTime < bigToutput[i], exp(-lambda2output[i]*trialTime),  exp(-lambda2output[i]*bigToutput[i]-lambda2output[i]*HRoutput[i]*(trialTime-bigToutput[i])))
-# #treatmentSurv <- exp(-lambda2output[i]*bigToutput[i]-lambda2output[i]*HRoutput[i]*(trialTime-bigToutput[i]))
-# lines(trialTime, treatmentSurv, col = "red")
-# 
-# }
+finalDataset <- combinedData %>%
+  filter(status==1)
 
+finalDataset <- finalDataset[,1:4]
+
+finalDataset <- rbind(finalDataset, tBeforeDelay1)
+
+finalDataset <- rbind(finalDataset, tBeforeDelay2)
+
+finalDataset <- rbind(finalDataset, tAfterDelay)
+
+finalDataset <- rbind(finalDataset, unenrolledData)
+
+finalDataset <- rbind(finalDataset, censoredObs)
+
+censTime1 <- sort(finalDataset$psuedoTime)[nEvents]
+  
+  finalDataset$status <- finalDataset$psuedoTime <= censTime1
+  
+  finalDataset$status <- finalDataset$status*1
+  
+  finalDataset$enrolled <- finalDataset$recTime <= censTime1
+  
+  finalDataset <-  finalDataset[finalDataset$enrolled==T,]
+  
+  finalDataset$survival_time <- ifelse(finalDataset$psuedoTime>censTime1, censTime1  - finalDataset$recTime, finalDataset$time)
+  
+   test <- survdiff(Surv(survival_time, status)~group, data = finalDataset)
+   
+    # kmfit <- survfit(Surv(survival_time, status)~group, data = finalDataset) 
+    # 
+    #  plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
+    
+
+
+   
+   BPPVec[i] <- test$chisq > qchisq(0.95, 1)
+   
+  }
+   
 
 
 
