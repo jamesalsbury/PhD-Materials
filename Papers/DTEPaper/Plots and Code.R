@@ -50,7 +50,7 @@ DTEDataSetsFunc <- function(author){
   
   kmfit <- survfit(Surv(time, status)~group, data = combinedData)
   #plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = ylabel, yaxt = "n")
-  #axis(2, at=seq(0, 1, by=0.1), labels=seq(0, 100, by=10))
+ #axis(2, at=seq(0, 1, by=0.2), labels=seq(0, 100, by=20))
   
   
   #Finding the Weibull parameters and plotting the line
@@ -67,7 +67,7 @@ DTEDataSetsFunc <- function(author){
   kmfit <- survfit(Surv(time, status)~1, data = combinedData[combinedData$group=="Treatment",])
   treatmenttime <- seq(0, THat, by=0.01)
   treatmentsurv <- controlsurv <- exp(-(lambdac*treatmenttime)^gammac)
-  #lines(treatmenttime, treatmentsurv, col="green")
+ # lines(treatmenttime, treatmentsurv, col="green")
   
   treatmenttime1 <- seq(THat, trialLength, by=0.01)
   
@@ -108,9 +108,9 @@ DTEDataSetsFunc <- function(author){
   s2lambdat <- optimoutput$par[1]
   s2gammat <- optimoutput$par[2]
   treatmentsurv1 <- exp(-(lambdac*THat)^gammac - s2lambdat^s2gammat*(treatmenttime1^s2gammat-THat^s2gammat))
-  #lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
+ # lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
   
-  #legend("topright", legend = c("Delay", "Control", expression(paste("Treatment (estimate ", hat(lambda)[t], ")")), expression(paste("Treatment (estimate ", tilde(lambda)[t], ",", tilde(gamma)[t], ")"))), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
+ # legend("topright", legend = c("Delay", "Control", "Method 1", "Method 2"), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
   
   #Now look at calculating power under the two different scenarios
   #Scenario 1
@@ -147,13 +147,13 @@ DTEDataSetsFunc <- function(author){
   powers1smooth <- loess(powervecs1~nvec)
   powers2smooth <- loess(powervecs2~nvec)
 
-  plot(nvec*2, predict(powers1smooth), type="l", col="blue", ylim=c(0, 1), xlab = "Total sample size", ylab = "Power")
-  lines(nvec*2, predict(powers2smooth), col="red", lty=2)
+  plot(nvec*2, predict(powers1smooth), type="l", col="red", ylim=c(0, 1), xlab = "Total sample size", ylab = "Power")
+  lines(nvec*2, predict(powers2smooth), col="blue", lty=2)
 
-  legend("bottomright", legend = c("Scenario 1", "Scenario 2"), col = c("blue", "red"), lty=1:2)
+  legend("bottomright", legend = c("Method 1", "Method 2"), col = c("red", "blue"), lty=1:2)
 }
 
-png("DTEPower.png", units="in", width=15, height=5, res=700)
+png("KMPower.png", units="in", width=15, height=5, res=700)
 par(mfrow=c(1,3))
 DTEDataSetsFunc("Brahmer")
 DTEDataSetsFunc("Yen")
