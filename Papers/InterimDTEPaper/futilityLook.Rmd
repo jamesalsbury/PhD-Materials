@@ -1475,7 +1475,8 @@ lambdac <- -log(0.5)/12
 recTime <- 34
 
 bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
-HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
+#HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
+HR <- 0.95
 lambdat <- lambdac*HR
 
 CP <- exp(-(lambdac*bigT))
@@ -1505,6 +1506,10 @@ combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
   
   combinedData <- combinedData[order(combinedData$group),]
   
+  kmfit <- survfit(Surv(survival_time, status)~group, data = combinedData) 
+  
+  plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
+  
  
 
   #We need to update the priors using this interim data
@@ -1530,7 +1535,7 @@ model {
       ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i]), -(lambda2*bigT)-lambda1*(datTimes[i]-bigT)))
   }
   
-    lambda2 ~ dnorm(-log(0.5)/12, 1000000)T(0,)
+    lambda2 ~ dbeta(1,1)
     HR ~ dnorm(0.75, 1/HRsd)T(0,)
     bigT ~ dnorm(3, 1/bigTsd^2)T(0,)
     lambda1 <- lambda2*HR
@@ -1546,30 +1551,30 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.it
   
 plot(output)
 
- kmfit <- survfit(Surv(survival_time, status)~group, data = combinedData) 
-  
-  plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
-  
+  #The number of unenrolled patients in each group
   cPatientsLeft <- (nPatients/2) - sum(combinedData$group=="Control") 
-  
   tPatientsLeft <- (nPatients/2) - sum(combinedData$group=="Treatment") 
   
-  BPPVec <- rep(NA, 10)
+  BPPVec <- rep(NA, 500)
   
-  for (i in 1:10){
+  for (i in 1:500){
     
-  
+  #Sampling the recruitment times for the unenrolled patients
   unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, censTime, recTime)
   
+  #Extract realisations from the MCMC
   HRoutput <- as.numeric(unlist(output[,1]))
   bigToutput <- as.numeric(unlist(output[,2]))
   lambda2output <- as.numeric(unlist(output[,3]))
   
+  #Sample values from the MCMC output
   sampledHR <- sample(HRoutput, 1)
   sampledbigT <- sample(bigToutput, 1)
   sampledlambda2 <- sample(lambda2output, 1)
   sampledlambda1 <- sampledlambda2*sampledHR
   
+  
+  #For the unenrolled data, we can sample the remaining data according to the updated (sampled) parameters
   CP <- exp(-(sampledlambda2*sampledbigT))
   u <- runif(tPatientsLeft)
 
@@ -1578,102 +1583,214 @@ unenrolledData <- data.frame(time = c(rexp(cPatientsLeft, rate = sampledlambda2)
 
 unenrolledData$psuedoTime <- unenrolledData$time + unenrolledData$recTime
 
-  
+
+#Extracting the observations that were censored at the IA  
 censoredData <- combinedData[combinedData$status==0,]
 
+#Number of censored observations in each group
 cCensored <- sum(censoredData$group=="Control")
 tCensored <- sum(censoredData$group=="Treatment")
 
+#Extracting the censored observations in the control group
 cCensoredData <- censoredData %>%
   filter(group=="Control")
 
-cIASurv <- rexp(cCensored, rate = sampledlambda2)
+#Adding a exp(sampledlambda2) value to the censored value
+cCensoredData$finalsurvTime <- cCensoredData$survival_time + rexp(cCensored, rate = sampledlambda2)
 
-censoredObs <- data.frame(time = cCensoredData$time+rexp(cCensored, rate = sampledlambda2), group = rep("Control", cCensored), recTime = cCensoredData$recTime)
+#Calculating the psuedo time
+cCensoredData$finalPsuedoTime <- cCensoredData$recTime + cCensoredData$finalsurvTime
 
-censoredObs$psuedoTime <- censoredObs$time + censoredObs$recTime
-
+#Extacting the observations in the treatment group which may still be influenced by the delay (their observation time is smaller than the sampled delay time)
 tBeforeDelay <- censoredData %>%
   filter(group=="Treatment") %>%
   filter(survival_time < sampledbigT)
 
+#Extracting the observations in the treatment group which will not be influenced by the delay (their observation time is bigger than the sampled delay time)
 tAfterDelay <- censoredData %>%
   filter(group=="Treatment") %>%
   filter(survival_time > sampledbigT)
 
+#As these observations are still subject to a delay, we add on a Exp(lambda2) (lambdac) time
 tBeforeDelay$IASurv <- tBeforeDelay$survival_time + rexp(nrow(tBeforeDelay), rate = sampledlambda2)
 
+#Extracting the observations in which the survival time is smaller than the sampled delay time
 tBeforeDelay1 <- tBeforeDelay %>%
   filter(IASurv < sampledbigT)
 
+#Extracting the observations in which the survival time is bigger than the sampled delay time
 tBeforeDelay2 <- tBeforeDelay %>%
   filter(IASurv > sampledbigT)
 
+#For the observations in which the survival time is bigger, we sample a Exp(lambda1) and add it to the sampled delay time
 tBeforeDelay2$IASurv2 <- sampledbigT + rexp(nrow(tBeforeDelay2), rate = sampledlambda1)
 
+#For the observations not influenced by the delay, we sample a Exp(lambda1) time and add it to the current survival time
 tAfterDelay$IASurv <- tAfterDelay$survival_time + rexp(nrow(tAfterDelay), rate = sampledlambda1)
 
+#Calculate the pseudo time for all the data frames
 tBeforeDelay1$IApsuedoTime <- tBeforeDelay1$IASurv + tBeforeDelay1$recTime
-
 tBeforeDelay2$IApsuedoTime <- tBeforeDelay2$IASurv2 + tBeforeDelay2$recTime
-
 tAfterDelay$IApsuedoTime <- tAfterDelay$IASurv + tAfterDelay$recTime
 
+#Only keeping the columns of interest
+cCensoredData <- cCensoredData[,c(2:3, 8:9)]
 tBeforeDelay1 <- tBeforeDelay1[,c(2:3, 8:9)]
-
 tBeforeDelay2 <- tBeforeDelay2[,c(2:3, 9:10)]
-
 tAfterDelay <- tAfterDelay[,c(2:3, 8:9)]
 
+#Keeping the column names consistent
+colnames(cCensoredData) <- c("group", "recTime", "time", "psuedoTime")
 colnames(tBeforeDelay1) <- c("group", "recTime", "time", "psuedoTime")
-
 colnames(tBeforeDelay2) <- c("group", "recTime", "time", "psuedoTime")
-
 colnames(tAfterDelay) <- c("group", "recTime", "time", "psuedoTime")
 
-
+#Only keeping observations which are dead
 finalDataset <- combinedData %>%
   filter(status==1)
 
 finalDataset <- finalDataset[,1:4]
 
+#Combining all the above data sets 
 finalDataset <- rbind(finalDataset, tBeforeDelay1)
-
 finalDataset <- rbind(finalDataset, tBeforeDelay2)
-
 finalDataset <- rbind(finalDataset, tAfterDelay)
-
 finalDataset <- rbind(finalDataset, unenrolledData)
+finalDataset <- rbind(finalDataset, cCensoredData)
 
-finalDataset <- rbind(finalDataset, censoredObs)
-
+#Making sure the final data set is correct
 censTime1 <- sort(finalDataset$psuedoTime)[nEvents]
-  
-  finalDataset$status <- finalDataset$psuedoTime <= censTime1
-  
-  finalDataset$status <- finalDataset$status*1
-  
-  finalDataset$enrolled <- finalDataset$recTime <= censTime1
-  
-  finalDataset <-  finalDataset[finalDataset$enrolled==T,]
-  
-  finalDataset$survival_time <- ifelse(finalDataset$psuedoTime>censTime1, censTime1  - finalDataset$recTime, finalDataset$time)
-  
-   test <- survdiff(Surv(survival_time, status)~group, data = finalDataset)
+finalDataset$status <- finalDataset$psuedoTime <= censTime1
+finalDataset$status <- finalDataset$status*1
+finalDataset$enrolled <- finalDataset$recTime <= censTime1
+finalDataset <-  finalDataset[finalDataset$enrolled==T,]
+finalDataset$survival_time <- ifelse(finalDataset$psuedoTime>censTime1, censTime1  - finalDataset$recTime, finalDataset$time)
+
+#Testing for significance
+test <- survdiff(Surv(survival_time, status)~group, data = finalDataset)
    
-    kmfit <- survfit(Surv(survival_time, status)~group, data = finalDataset)
+#kmfit <- survfit(Surv(survival_time, status)~group, data = finalDataset)
+#plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
 
-     plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
-
-
+#Making sure the significance is in the correct direction
+coxmodel <- coxph(Surv(time, status)~group, data = finalDataset)
+deltad <- as.numeric(exp(coef(coxmodel)))
 
    
-   BPPVec[i] <- test$chisq > qchisq(0.95, 1)
+ BPPVec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
    
   }
    
 
 mean(BPPVec)
+
+```
+
+
+```{r}
+
+nEvents <- 6600
+nPatients <- 6800
+lambdac <- -log(0.5)/12
+recTime <- 34
+
+
+
+combinedData <- data.frame(time = c(rexp(nPatients, rate = lambdac)))
+
+combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
+  
+  combinedData$psuedoTime <- combinedData$time + combinedData$recTime
+  
+  censVec <- seq(0.2, 1, by=0.2)
+  
+  #for (i in 1:5){
+    
+  IAData <- combinedData
+    
+  censTime <- sort(IAData$psuedoTime)[nEvents*0.2]
+  
+  IAData$status <- IAData$psuedoTime <= censTime
+  
+  IAData$status <- IAData$status*1
+  
+  IAData$enrolled <- IAData$recTime <= censTime
+  
+  IAData <-  IAData[IAData$enrolled==T,]
+  
+  IAData$survival_time <- ifelse(IAData$psuedoTime>censTime, censTime  - IAData$recTime, IAData$time)
+  
+  controlkm <- survfit(Surv(survival_time, status)~1, data = IAData)
+  
+  plot(controlkm, conf.int = F, col = "blue", xlim=c(0,100))
+  
+  controltime <- seq(0, 100, by=0.01)
+  
+  controlsurv <- exp(-lambdac*controltime)
+  
+  lines(controltime, controlsurv)
+  
+  #Try and recover the "true line"
+  
+  #Patients who have not yet been enrolled in the trial
+  
+  #How many patients are there 
+  
+  nNotYetEnrolled <- nPatients - nrow(IAData)
+  
+  notYetEnrolled <- data.frame(time = rexp(nNotYetEnrolled, rate = lambdac), recTime = runif(nNotYetEnrolled, censTime, recTime))
+  
+  notYetEnrolled$psuedoTime <- notYetEnrolled$time + notYetEnrolled$recTime
+  
+ finalData <- IAData %>%
+    filter(status==1)
+  
+  finalData <- finalData[,1:3]
+  
+  finalData <- rbind(finalData, notYetEnrolled)
+  
+  censoredData <- IAData %>%
+    filter(status==0)
+  
+  censoredData$finalsurvTime <- censoredData$survival_time + rexp(nrow(censoredData), rate = lambdac)
+  
+  censoredData$finalPsuedoTime <- censoredData$recTime + censoredData$finalsurvTime
+  
+  
+  censoredData <- censoredData[,c(2, 7:8)]
+ 
+  
+  colnames(censoredData) <- c("recTime", "time", "psuedoTime") 
+  
+  finalData <- rbind(finalData, censoredData)
+  
+  censTime <- sort(finalData$psuedoTime)[nEvents]
+  
+  finalData$status <- finalData$psuedoTime <= censTime
+  
+  finalData$status <- finalData$status*1
+  
+  finalData$enrolled <- finalData$recTime <= censTime
+  
+  finalData <-  finalData[finalData$enrolled==T,]
+  
+  finalData$survival_time <- ifelse(finalData$psuedoTime>censTime, censTime  - finalData$recTime, finalData$time)
+  
+  controlkm <- survfit(Surv(survival_time, status)~1, data = finalData)
+  
+  plot(controlkm, conf.int = F, col = "blue", xlim=c(0,100))
+  
+  controltime <- seq(0, 100, by=0.01)
+  
+  controlsurv <- exp(-lambdac*controltime)
+  
+  lines(controltime, controlsurv)
+  
+  
+    
+ # }
+  
+  
 
 ```
 
