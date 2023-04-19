@@ -1473,42 +1473,149 @@ nEvents <- 512
 nPatients <- 680
 lambdac <- -log(0.5)/12
 recTime <- 34
+WieandOutcome <- ""
+OBFOutcome <- ""
+PropOutcome <- ""
 
-bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
+#bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
 #HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
-HR <- 0.95
+bigT <- 3
+HR <- 1
 lambdat <- lambdac*HR
 
 CP <- exp(-(lambdac*bigT))
 u <- runif(nPatients/2)
 
-combinedData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
+overallFinalData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
                              rep("Treatment", nPatients/2)))
 
-combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
+  overallFinalData$recTime <- runif(nPatients, min = 0, max = recTime)
   
-  combinedData$psuedoTime <- combinedData$time + combinedData$recTime
+  overallFinalData$psuedoTime <- overallFinalData$time + overallFinalData$recTime
   
-  censTime <- sort(combinedData$psuedoTime)[nEvents*0.5]
+  #We create a function which allows us to choose at what point we censor the data
   
-  combinedData$status <- combinedData$psuedoTime <= censTime
+  censorFunc <- function(censorEvents){
+    
+    censorData <- overallFinalData
+    
+    censTime <- sort(censorData$psuedoTime)[censorEvents]
+    
+    censorData$status <- censorData$psuedoTime <= censTime
+    
+    censorData$status <- censorData$status*1
+    
+    censorData$enrolled <- censorData$recTime <= censTime
+    
+    censorData <-  censorData[censorData$enrolled==T,]
+    
+    censorData$survival_time <- ifelse(censorData$psuedoTime>censTime, censTime  - censorData$recTime, censorData$time)
+    
+    coxmodel <- coxph(Surv(survival_time, status)~group, data = censorData)
+    
+    deltad <- as.numeric(exp(coef(coxmodel)))
+    
+    test <- survdiff(Surv(survival_time, status)~group, data = censorData)
+    
+    return(list(censorData = censorData, censTime = censTime, deltad = deltad, test = test))
+    
+  }
   
-  combinedData$status <- combinedData$status*1
+  #Calculating how many events we need to observe for the proposed futility rule
   
-  combinedData$enrolled <- combinedData$recTime <= censTime
+  propvec <- rep(NA, nEvents/2)
   
-  combinedData <-  combinedData[combinedData$enrolled==T,]
+  for (i in (nEvents*0.5):nEvents){
+    
+    IAData <- overallFinalData
+    censTime1 <- sort(IAData$psuedoTime)[i]
+    IAData$status <- IAData$psuedoTime <= censTime1
+    IAData$status <- IAData$status*1
+    IAData$enrolled <- IAData$recTime <= censTime1
+    IAData <-  IAData[IAData$enrolled==T,]
+    IAData$survival_time <- ifelse(IAData$psuedoTime>censTime1, censTime1  - IAData$recTime, IAData$time)
   
-  combinedData$survival_time <- ifelse(combinedData$psuedoTime>censTime, censTime  - combinedData$recTime, combinedData$time)
+    IAData <- IAData %>%
+      filter(status==1)  
+
+    propvec[i-(nEvents/2)] <- mean(IAData$survival_time>3)
+  }
+    
+  nEventsIA1 <- max(sum(propvec<(2/3))+nEvents/2, nEvents*0.5)
   
-  n <- sum(combinedData$group=="Control")
-  m <- nrow(combinedData)
+  nEventsIA2 <- max(sum(propvec<(2/3))+nEvents/2, nEvents*0.75)
+
   
-  combinedData <- combinedData[order(combinedData$group),]
+  #We perform the Wieand rule
   
-  kmfit <- survfit(Surv(survival_time, status)~group, data = combinedData) 
   
-  plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
+  if (censorFunc(nEvents*0.5)$deltad>1){
+    WieandOutcome <- "Stop for futility at IA1"
+  } else {
+  
+     if (censorFunc(nEvents*0.75)$deltad>1){
+      WieandOutcome <- "Stop for futility at IA2"
+    } else {
+      
+      if (censorFunc(nEvents)$test$chisq > qchisq(0.95, 1) & censorFunc(nEvents)$deltad<1){
+        WieandOutcome <- "Successful trial (at the end)"
+      } else {
+         WieandOutcome <- "Not a successful trial (at the end)"
+      }
+    }
+  }
+  
+  
+  #We perform the OBF rule
+  
+   
+  if (censorFunc(nEvents*(1/3))$deltad>0.998){
+    OBFOutcome <- "Stop for futility at IA1"
+  } else {
+  
+     if (censorFunc(nEvents*(2/3))$deltad>0.913){
+      OBFOutcome <- "Stop for futility at IA2"
+    } else {
+      
+      if (censorFunc(nEvents)$test$chisq > qchisq(0.95, 1) & censorFunc(nEvents)$deltad<1){
+        OBFOutcome <- "Successful trial (at the end)"
+      } else {
+         OBFOutcome <- "Not a successful trial (at the end)"
+      }
+    }
+  }
+  
+  #We perform the proposed rule
+  
+   if (censorFunc(nEventsIA1)$deltad>1){
+    PropOutcome <- "Stop for futility at IA1"
+  } else {
+  
+     if (censorFunc(nEventsIA2)$deltad>1){
+      PropOutcome <- "Stop for futility at IA2"
+    } else {
+      
+      if (censorFunc(nEvents)$test$chisq > qchisq(0.95, 1) & censorFunc(nEvents)$deltad<1){
+        PropOutcome <- "Successful trial (at the end)"
+      } else {
+         PropOutcome <- "Not a successful trial (at the end)"
+      }
+    }
+  }
+  
+
+  #A function which calculates BPP given the interim data and the time of censoring
+  
+  BPPFunc <- function(IAData, censTime){
+  
+  n <- sum(IAData$group=="Control")
+  m <- nrow(IAData)
+  
+  IAData <- IAData[order(IAData$group),]
+  
+  IAkmfit <- survfit(Surv(survival_time, status)~group, data = IAData) 
+  
+  plot(IAkmfit, col = c("blue", "red"), xlim=c(0,50))
   
  
 
@@ -1543,7 +1650,7 @@ model {
     }
 "
 
-model = jags.model(textConnection(modelstring), data = list(datTimes = combinedData$survival_time, datEvent = combinedData$status, bigTsd = 1, HRsd = 0.1, n= n, m=m), quiet = T) 
+model = jags.model(textConnection(modelstring), data = list(datTimes = IAData$survival_time, datEvent = IAData$status, bigTsd = 1, HRsd = 0.1, n= n, m=m), quiet = T) 
                    
                    
 update(model, n.iter=100)
@@ -1552,8 +1659,8 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.it
 plot(output)
 
   #The number of unenrolled patients in each group
-  cPatientsLeft <- (nPatients/2) - sum(combinedData$group=="Control") 
-  tPatientsLeft <- (nPatients/2) - sum(combinedData$group=="Treatment") 
+  cPatientsLeft <- (nPatients/2) - sum(IAData$group=="Control") 
+  tPatientsLeft <- (nPatients/2) - sum(IAData$group=="Treatment") 
   
   BPPVec <- rep(NA, 500)
   
@@ -1585,7 +1692,7 @@ unenrolledData$psuedoTime <- unenrolledData$time + unenrolledData$recTime
 
 
 #Extracting the observations that were censored at the IA  
-censoredData <- combinedData[combinedData$status==0,]
+censoredData <- IAData[IAData$status==0,]
 
 #Number of censored observations in each group
 cCensored <- sum(censoredData$group=="Control")
@@ -1646,7 +1753,7 @@ colnames(tBeforeDelay2) <- c("group", "recTime", "time", "psuedoTime")
 colnames(tAfterDelay) <- c("group", "recTime", "time", "psuedoTime")
 
 #Only keeping observations which are dead
-finalDataset <- combinedData %>%
+finalDataset <- IAData %>%
   filter(status==1)
 
 finalDataset <- finalDataset[,1:4]
@@ -1673,7 +1780,7 @@ test <- survdiff(Surv(survival_time, status)~group, data = finalDataset)
 #plot(kmfit, col = c("blue", "red"), xlim=c(0,50))
 
 #Making sure the significance is in the correct direction
-coxmodel <- coxph(Surv(time, status)~group, data = finalDataset)
+coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDataset)
 deltad <- as.numeric(exp(coef(coxmodel)))
 
    
@@ -1682,9 +1789,83 @@ deltad <- as.numeric(exp(coef(coxmodel)))
   }
    
 
-mean(BPPVec)
+return(BPP = mean(BPPVec))
+  }
+  
+  
+
+#wieand rule BPP
+
+WBPP1 <- BPPFunc(censorFunc(nEvents*0.5)$censorData, censorFunc(nEvents*0.5)$censTime)
+WBPP2 <- BPPFunc(censorFunc(nEvents*0.75)$censorData, censorFunc(nEvents*0.75)$censTime)
+
+#OBF rule BPP
+
+OBFBPP1 <- BPPFunc(censorFunc(nEvents*(1/3))$censorData, censorFunc(nEvents*(1/3))$censTime)
+OBFBPP2 <- BPPFunc(censorFunc(nEvents*(2/3))$censorData, censorFunc(nEvents*(2/3))$censTime)
+
+#Proposed rule BPP
+
+PropBPP1 <- BPPFunc(censorFunc(nEventsIA1)$censorData, censorFunc(nEventsIA1)$censTime)
+PropBPP2 <- BPPFunc(censorFunc(nEventsIA2)$censorData, censorFunc(nEventsIA2)$censTime)
+
+myData <- censorFunc(nEvents*0.75)$censorData
+
+myData1 <- censorFunc(nEventsIA2)$censorData
+
+
+yes <- myData == myData1
+```
+
+```{r}
+nEvents <- 512
+nPatients <- 680
+lambdac <- -log(0.5)/12
+recTime <- 12
+
+
+bigT <- 3
+HR <- 1
+lambdat <- lambdac*HR
+
+CP <- exp(-(lambdac*bigT))
+u <- runif(nPatients/2)
+
+overallFinalData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifelse(u>CP, (-log(u))/lambdac, (1/lambdat)*(bigT*lambdat-log(u)-bigT*lambdac))), group = c(rep("Control", nPatients/2),
+                             rep("Treatment", nPatients/2)))
+
+  overallFinalData$recTime <- runif(nPatients, min = 0, max = recTime)
+  
+  overallFinalData$psuedoTime <- overallFinalData$time + overallFinalData$recTime
+  
+  propvec <- rep(NA, nEvents/2)
+  for (i in (nEvents*0.5):nEvents){
+    
+    IAData <- overallFinalData
+      
+  censTime1 <- sort(IAData$psuedoTime)[i]
+IAData$status <- IAData$psuedoTime <= censTime1
+IAData$status <- IAData$status*1
+IAData$enrolled <- IAData$recTime <= censTime1
+IAData <-  IAData[IAData$enrolled==T,]
+IAData$survival_time <- ifelse(IAData$psuedoTime>censTime1, censTime1  - IAData$recTime, IAData$time)
+  
+IAData <- IAData %>%
+  filter(status==1)  
+
+propvec[i-(nEvents/2)] <- mean(IAData$survival_time>3)
+  }
+    
+  nEventsIA1 <- max(sum(propvec<(2/3))+nEvents/2, nEvents*0.5)
+  
+  nEventsIA2 <- max(sum(propvec<(2/3))+nEvents/2, nEvents*0.75)
+  
+  nEventsIA1
+  nEventsIA2
+  
 
 ```
+
 
 
 ```{r}
