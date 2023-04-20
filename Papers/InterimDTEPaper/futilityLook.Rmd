@@ -1469,6 +1469,10 @@ We choose 50% IF - so when 256 events have been observed
 library(rjags)
 library(survival)
 library(tidyverse)
+
+for (k in 1:10){
+  
+
 nEvents <- 512
 nPatients <- 680
 lambdac <- -log(0.5)/12
@@ -1656,7 +1660,7 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = IAData$su
 update(model, n.iter=100)
 output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 500)
   
-plot(output)
+#plot(output)
 
   #The number of unenrolled patients in each group
   cPatientsLeft <- (nPatients/2) - sum(IAData$group=="Control") 
@@ -1809,12 +1813,18 @@ OBFBPP2 <- BPPFunc(censorFunc(nEvents*(2/3))$censorData, censorFunc(nEvents*(2/3
 PropBPP1 <- BPPFunc(censorFunc(nEventsIA1)$censorData, censorFunc(nEventsIA1)$censTime)
 PropBPP2 <- BPPFunc(censorFunc(nEventsIA2)$censorData, censorFunc(nEventsIA2)$censTime)
 
-myData <- censorFunc(nEvents*0.75)$censorData
+if (k==1){
+  outcomeDF <- data.frame(WieandOutcome = WieandOutcome, OBFOutcome = OBFOutcome, PropOutcome = PropOutcome, WBPP1 = WBPP1, WBPP2 = WBPP2,
+           OBFBPP1 = OBFBPP1, OBFBPP2 = OBFBPP2, PropBPP1 = PropBPP1, PropBPP2 = PropBPP2)
+} else {
+  currentDF <- data.frame(WieandOutcome = WieandOutcome, OBFOutcome = OBFOutcome, PropOutcome = PropOutcome, WBPP1 = WBPP1, WBPP2 = WBPP2,
+           OBFBPP1 = OBFBPP1, OBFBPP2 = OBFBPP2, PropBPP1 = PropBPP1, PropBPP2 = PropBPP2)
+  outcomeDF <- rbind(outcomeDF, currentDF)
+}
 
-myData1 <- censorFunc(nEventsIA2)$censorData
+}
 
 
-yes <- myData == myData1
 ```
 
 ```{r}
@@ -1903,7 +1913,7 @@ combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
   
   controlkm <- survfit(Surv(survival_time, status)~1, data = IAData)
   
-  plot(controlkm, conf.int = F, col = "blue", xlim=c(0,100))
+  #plot(controlkm, conf.int = F, col = "blue", xlim=c(0,100))
   
   controltime <- seq(0, 100, by=0.01)
   
