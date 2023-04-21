@@ -496,4 +496,43 @@ sum(is.na(predict(ass$smoothedout, 1:500)<0.7))+sum(na.omit(predict(ass$smoothed
 sum(is.na(predict(power$smoothedout, 1:500)<0.7))+sum(na.omit(predict(power$smoothedout, 1:500)<0.7))*2
 sum(is.na(predict(powerND$smoothedout, 1:500)<0.7))+sum(na.omit(predict(powerND$smoothedout, 1:500)<0.7))*2
 
+# Calculating the MAP prior for the example ----------------------------------------------------------------
+library(survival)
+
+Herbst <- read.csv(file = "Papers/DTEPaper/data/Herbst/Doce2.csv")
+kmfit1 <- survfit(Surv(Survival.time, Status)~1, data = Herbst)
+plot(kmfit1, col = "blue", conf.int = F)
+
+Garon <- read.csv(file = "Papers/DTEPaper/data/Garon/Doce1.csv")
+kmfit2 <- survfit(Surv(Survival.time, Status)~1, data = Garon)
+lines(kmfit2, col = "red", conf.int = F)
+
+Kim <- read.csv(file = "Papers/DTEPaper/data/Kim/Doce3.csv")
+kmfit3 <- survfit(Surv(Survival.time, Status)~1, data = Kim)
+lines(kmfit3, col = "yellow", conf.int = F)
+
+combinedDoce <- rbind(Herbst, Garon, Kim)
+
+kmfit4 <- survfit(Surv(Survival.time, Status)~1, data = combinedDoce)
+lines(kmfit4, col = "black", conf.int = F)
+
+#Need to do MCMC here (coming from a Weibull distribution)
+#Can we just change the MCMC for the futilityLook script?
+#Obviously we do not need the treatment (and hence the delay) stuff
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
