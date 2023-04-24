@@ -1484,7 +1484,7 @@ PropOutcome <- ""
 #bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
 #HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
 bigT <- 3
-HR <- 0.8
+HR <- 0.55
 lambdat <- lambdac*HR
 
 CP <- exp(-(lambdac*bigT))
