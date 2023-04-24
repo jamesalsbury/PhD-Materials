@@ -361,143 +361,7 @@ lines(t, HFT, col="red")
 legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty=1)
 
 
-# Power/assurance figure for the example ----------------------------------------------------------------
-
-png("PowerAss.png", units="in", width=8, height=5, res=700)
-
-
-simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, eventRate){
-  #Simulates the treatment data
-  CP <- exp(-(lambdac*bigT)^gammac)
-  u <- runif(n2)
-  
-  treatmenttime <- ifelse(u>CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*bigT)^gammat-log(u)-(lambdac*bigT)^gammac))^(1/gammat))
-  
-  dataCombined <- data.frame(time = c(rweibull(n1, gammac, 1/lambdac), treatmenttime),
-                             group = c(rep("Control", n1), rep("Treatment", n2)))
-  
-  
-  #Adds a random uniformly distributed value, based on the recruitment time
-  dataCombined$time <- dataCombined$time + runif(n1+n2, min = 0, max = recTime)
-  
-  #Order the data set by event times
-  dataCombined <- dataCombined[order(dataCombined$time),]
-  
-  #Calculate the number of events required (comes from eventRate)
-  numEventsRequired <- floor((n1+n2)*eventRate)
-  
-  #Work at at what time point this number of events have occured
-  censTime <- dataCombined$time[numEventsRequired] 
-  
-  #If the time is less than the total trial length time then the event has happened
-  dataCombined$event <- dataCombined$time < censTime
-  
-  #Making it a binary value (rather than T/F), for ease to read
-  dataCombined$event <- dataCombined$event*1
-  
-  #Need to set the event time to be the censoring time
-  if (sum(dataCombined$event)==(n1+n2)){
-    
-  } else{
-    dataCombined[dataCombined$time>censTime,]$time <- censTime
-  }
-  
-  return(dataCombined)
-}
-
-powerassFunc <- function(type, n){
-  t0 <- 10
-  t0prime <- 30
-  recTime <- 6
-  massT0 <- 0.05
-  massHR1 <- 0.1
-  N <- 500
-  #Setting up the assurance vector
-  vec <- rep(NA, N)
-  for (i in 1:N){
-    #sampling the delay time
-    if (type=="assurance"){
-      #Sampling the control parameters
-      S1t0 <- truncnorm::rtruncnorm(1, mean = 0.45, sd = 0.01, a = 0)
-      S1t0prime <- truncnorm::rtruncnorm(1, mean = 0.15, sd = 0.01, a = 0)
-      gammac <- (log(log(S1t0prime)/log(S1t0)))/(log(t0prime/t0))
-      lambdac <- -log(S1t0)/(t0^gammac)
-      #Making the simplification
-      gammat <- gammac
-      #Sampling the elicited parameters (T and HR)
-      u <- runif(1)
-      if (u < massT0){
-        bigT <- 0
-      } else {
-        bigT <- truncnorm::rtruncnorm(1, mean = 4, sd = 1.48, a = 0)
-      }
-      #sampling the post-delay HR
-      u <- runif(1)
-      if (u < massHR1){
-        HR <- 1
-      } else {
-        HR <- rbeta(1, 10.8, 6.87)
-      }
-    } else if (type=="power"){
-      S1t0 <- 0.45
-      S1t0prime <- 0.15
-      gammac <- (log(log(S1t0prime)/log(S1t0)))/(log(t0prime/t0))
-      lambdac <- -log(S1t0)/(t0^gammac)
-      bigT <- 4
-      HR <- 0.6112054
-      #Making the simplification
-      gammat <- gammac
-    } else if (type=="powerND"){
-      S1t0 <- 0.45
-      S1t0prime <- 0.15
-      gammac <- (log(log(S1t0prime)/log(S1t0)))/(log(t0prime/t0))
-      lambdac <- -log(S1t0)/(t0^gammac)
-      bigT <- 0
-      HR <- 0.6112054
-      #Making the simplification
-      gammat <- gammac
-    }
-    
-    lambdat <- exp((log(HR)/gammac)+log(lambdac))
-    
-    #Simulating the control and treatment data
-    combinedData <- simulateDTEWeibullData(n, n, gammat, gammac, lambdat, lambdac, bigT, recTime, 0.8)
-    
-    #Performing a log-rank test on the combined data set
-    test <- survdiff(Surv(time, event)~group, data = combinedData)
-    vec[i] <- test$chisq > qchisq(0.95, 1)
-  }
-  return(mean(vec))
-}
-
-
-calcAssPowerFunc <- function(type){
-  nvec <- seq(20, 500, by=10)
-  output <- sapply(X = nvec, FUN = powerassFunc, type = type)
-  smoothedout <- loess(output~nvec)
-  return(list(smoothedout = smoothedout, nvec = nvec))
-  
-}
-
-ass <- calcAssPowerFunc("assurance")
-power <- calcAssPowerFunc("power")
-powerND <- calcAssPowerFunc("powerND")
-
-plot(power$nvec*2, predict(power$smoothedout), ylim=c(0,1), type="l", xlab = "Total sample size", ylab = "Power/assurance")
-lines(ass$nvec*2, predict(ass$smoothedout), col="red", lty=2)
-lines(powerND$nvec*2, predict(powerND$smoothedout), col="blue", lty=3)
-
-legend("bottomright", legend = c("Power", "Assurance", "Power assuming no delay"), col=c("black", "red", "blue"), lty=1:3)
-
-dev.off()
-
-
-sum(is.na(predict(ass$smoothedout, 1:500)<0.7))+sum(na.omit(predict(ass$smoothedout, 1:500)<0.7))*2
-sum(is.na(predict(power$smoothedout, 1:500)<0.7))+sum(na.omit(predict(power$smoothedout, 1:500)<0.7))*2
-sum(is.na(predict(powerND$smoothedout, 1:500)<0.7))+sum(na.omit(predict(powerND$smoothedout, 1:500)<0.7))*2
-
-# Calculating the MAP prior for the example ----------------------------------------------------------------
-library(survival)
+# Calculating the control distribution (through MCMC) for the example ----------------------------------------------------------------
 
 Herbst <- read.csv(file = "Papers/DTEPaper/data/Herbst/Doce2.csv")
 kmfit1 <- survfit(Surv(Survival.time, Status)~1, data = Herbst)
@@ -516,19 +380,174 @@ combinedDoce <- rbind(Herbst, Garon, Kim)
 kmfit4 <- survfit(Surv(Survival.time, Status)~1, data = combinedDoce)
 lines(kmfit4, col = "black", conf.int = F)
 
-#Need to do MCMC here (coming from a Weibull distribution)
-#Can we just change the MCMC for the futilityLook script?
-#Obviously we do not need the treatment (and hence the delay) stuff
+#Performing MCMC on this data set
+
+modelstring="
+
+data {
+  for (j in 1:n){
+    zeros[j] <- 0
+  }
+}
+
+model {
+  C <- 10000
+  for (i in 1:n){
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, log(gamma2)+gamma2*log(lambda2*datTimes[i])-(lambda2*datTimes[i])^gamma2-log(datTimes[i]), -(lambda2*datTimes[i])^gamma2)
+  }
+  
+    lambda2 ~ dnorm(1,1/10000)T(0,)
+    gamma2 ~ dnorm(1,1/10000)T(0,)
+    
+    }
+"
+
+model = jags.model(textConnection(modelstring), data = list(datTimes = combinedDoce$Survival.time, datEvent = combinedDoce$Status, n= nrow(combinedDoce)), quiet = T) 
+
+update(model, n.iter=1000)
+output=coda.samples(model=model, variable.names=c("lambda2", "gamma2"), n.iter = 10000)
+
+plot(output)
+
+lambda2sample <- as.numeric(unlist(output[,2]))
+gamma2sample <- as.numeric(unlist(output[,1]))
 
 
+weibfit <- survreg(Surv(Survival.time, Status)~1, data = combinedDoce, dist = "weibull")
+fixedgammac <- as.numeric(exp(-weibfit$icoef[2]))
+fixedlambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
 
 
+# Power/assurance figure for the example ----------------------------------------------------------------
+
+png("PowerAss.png", units="in", width=8, height=5, res=700)
 
 
+simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, eventRate){
+  #Simulates the treatment data
+  CP <- exp(-(lambdac*bigT)^gammac)
+  u <- runif(n2)
+  
+  treatmenttime <- ifelse(u>CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*bigT)^gammat-log(u)-(lambdac*bigT)^gammac))^(1/gammat))
+  
+  dataCombined <- data.frame(time = c(rweibull(n1, gammac, 1/lambdac), treatmenttime),
+                             group = c(rep("Control", n1), rep("Treatment", n2)))
+  
+  
+  #Samples a recruitment time for each patient, from a Uniform distribution
+  dataCombined$recTime <- runif(n1+n2, min = 0, max = recTime)
+  
+  #Calculates a pseudo event time
+  dataCombined$pseudo_time <- dataCombined$time + dataCombined$recTime
+  
+  #Calculate the number of events required (comes from eventRate)
+  numEventsRequired <- floor((n1+n2)*eventRate)
+  
+  #Work at at what time point this number of events have occurred
+  censTime <- sort(dataCombined$pseudo_time)[numEventsRequired]
+  
+  #Censor the observations which will not have occurred by censTime
+  dataCombined$status <- dataCombined$pseudo_time <= censTime
+  dataCombined$status <- dataCombined$status*1
+  
+  #Ensure only the patients enrolled by the censoring time are included in the data set
+  dataCombined$enrolled <- dataCombined$recTime <= censTime
+  dataCombined <-  dataCombined[dataCombined$enrolled==T,]
+  
+  #For the patients that are censored, their survival time is the length of time they have been enrolled in the trial for
+  dataCombined$survival_time <- ifelse(dataCombined$pseudo_time>censTime, censTime  - dataCombined$recTime, dataCombined$time)
+  
+  return(dataCombined)
+}
+
+powerassFunc <- function(type, n){
+  recTime <- 6
+  massT0 <- 0.05
+  massHR1 <- 0.1
+  N <- 500
+  #Setting up the assurance vector
+  vec <- rep(NA, N)
+  for (i in 1:N){
+    if (type=="assurance"){
+      #Sampling the control parameters
+      gammac <- sample(gamma2sample, 1)
+      lambdac <- sample(lambda2sample, 1)
+      #Making the simplification
+      gammat <- gammac
+      #Sampling the elicited parameters (T and HR)
+      u <- runif(1)
+      if (u < massT0){
+        bigT <- 0
+      } else {
+        bigT <- rgamma(1, 7.29, 1.76)
+      }
+      #sampling the post-delay HR
+      u <- runif(1)
+      if (u < massHR1){
+        HR <- 1
+      } else {
+        HR <- rgamma(1, 29.6, 47.8)
+      }
+    } else if (type=="power"){
+      gammac <- fixedgammac
+      lambdac <- fixedlambdac
+      bigT <- 4
+      HR <- 0.6
+      #Making the simplification
+      gammat <- gammac
+    } else if (type=="powerND"){
+      gammac <- fixedgammac
+      lambdac <- fixedlambdac
+      bigT <- 0
+      HR <- 0.6
+      #Making the simplification
+      gammat <- gammac
+    }
+    
+    lambdat <- lambdac*HR^(1/gammac)
+    
+    #Simulating the control and treatment data
+    combinedData <- simulateDTEWeibullData(n, n, gammat, gammac, lambdat, lambdac, bigT, recTime, 0.8)
+    
+    #Performing a log-rank test on the combined data set
+    test <- survdiff(Surv(survival_time, status)~group, data = combinedData)
+    
+    #Making sure that the HR is less than 1
+    coxmodel <- coxph(Surv(survival_time, status)~group, data = combinedData)
+    deltad <- as.numeric(exp(coef(coxmodel)))
+    
+    #Include HR < 1 here
+    vec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+  }
+  return(mean(vec))
+}
 
 
+calcAssPowerFunc <- function(type){
+  nvec <- seq(20, 500, by=10)
+  output <- sapply(X = nvec, FUN = powerassFunc, type = type)
+  smoothedout <- loess(output~nvec)
+  return(list(smoothedout = smoothedout, nvec = nvec))
+  
+}
 
+ass <- calcAssPowerFunc("assurance")
+power <- calcAssPowerFunc("power")
+powerND <- calcAssPowerFunc("powerND")
 
+plot(power$nvec*2, predict(power$smoothedout), ylim=c(0,1), type="l", xlab = "Total sample size", ylab = "Power/assurance", lty = 2)
+lines(ass$nvec*2, predict(ass$smoothedout), col="red", lty=1)
+lines(powerND$nvec*2, predict(powerND$smoothedout), col="blue", lty=3)
+
+legend("bottomright", legend = c("Assurance", "Power", "Power assuming no delay"), col=c("red", "black", "blue"), lty=1:3)
+
+dev.off()
+
+# sum(is.na(predict(ass$smoothedout, 1:500)<0.7))+sum(na.omit(predict(ass$smoothedout, 1:500)<0.7))*2
+# sum(is.na(predict(power$smoothedout, 1:500)<0.7))+sum(na.omit(predict(power$smoothedout, 1:500)<0.7))*2
+# sum(is.na(predict(powerND$smoothedout, 1:500)<0.7))+sum(na.omit(predict(powerND$smoothedout, 1:500)<0.7))*2
 
 
 
