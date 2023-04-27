@@ -1418,10 +1418,10 @@ lambdac <- -log(0.5)/12
 recTime <- 34
 
 
-powervec <- rep(NA, 1000)
-censvec <- rep(NA, 1000)
+powervec <- rep(NA, 10000)
+censvec <- rep(NA, 10000)
 
- for (i in 1:1000){
+ for (i in 1:10000){
   
    
   bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
@@ -1986,7 +1986,62 @@ combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
 
 ```
 
+```{r}
+library(ggplot2)
+library(tidyverse)
 
+HRVec <- seq(0.5, 1, by=0.05)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i]), readRDS(paste0("Data/HR", HRVec[i], ".rds")))
+ 
+}
+
+# HR0.85 %>%
+#   filter(PropOutcome == "Stop for futility at IA1") %>%
+#   arrange(PropBPP1) %>%
+#   pull(PropBPP1)
+# 
+# 
+# HR0.85 %>%
+#   filter(PropOutcome == "Stop for futility at IA2") %>%
+#   arrange(PropBPP2) %>%
+#   pull(PropBPP2)
+# 
+# HR0.85 %>%
+#   filter(PropOutcome != "Stop for futility at IA1") %>%
+#   arrange(PropBPP1) %>%
+#   pull(PropBPP1) %>%
+#   hist()
+# 
+# HR0.85 %>%
+#  filter(PropOutcome != "Stop for futility at IA1") %>%
+#   filter(PropOutcome != "Stop for futility at IA2") %>%
+#   arrange(PropBPP2) %>%
+#   pull(PropBPP2) %>%
+#   hist()
+
+
+# for (i in 1:length(HRVec)){
+#  p1 <- ggplot(get(paste0("HR", HRVec[i])), aes(x = PropOutcome, y = PropBPP1)) + geom_boxplot(fill = 'green') + ylim(0,1)
+#  print(p1)
+# }
+
+for (i in 1:length(HRVec)){
+ p1 <- ggplot(get(paste0("HR", HRVec[i])), aes(x = WieandOutcome, y = WBPP1)) + geom_boxplot(fill = 'green') + ylim(0,1)
+ print(p1)
+}
+
+
+
+
+
+
+
+# ggplot(HR0.85, aes(x = OBFOutcome, y = OBFBPP1)) + geom_boxplot(fill = 'green')
+# ggplot(HR0.95, aes(x = PropOutcome, y = PropBPP2)) + geom_boxplot(fill = 'green')
+
+```
 
 
 

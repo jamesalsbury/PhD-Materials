@@ -2,6 +2,7 @@
 
 library(truncnorm)
 library(survival)
+library(rjags)
 
 # An example of DTE in a KM plot ----------------------------------------------------------------
 
@@ -49,7 +50,7 @@ DTEDataSetsFunc <- function(author){
                              group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
   
   kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-  #plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = ylabel, yaxt = "n")
+ # plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = ylabel, yaxt = "n")
  #axis(2, at=seq(0, 1, by=0.2), labels=seq(0, 100, by=20))
   
   
@@ -59,7 +60,7 @@ DTEDataSetsFunc <- function(author){
   lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
   controltime <- seq(0, trialLength, by=0.01)
   controlsurv <- exp(-(lambdac*controltime)^gammac)
-  #lines(controltime, controlsurv, col="blue")
+ # lines(controltime, controlsurv, col="blue")
   
   #Now we look at the treatment curve
   #Need to find a least squares estimate for this Weibull parameterisation
@@ -67,7 +68,7 @@ DTEDataSetsFunc <- function(author){
   kmfit <- survfit(Surv(time, status)~1, data = combinedData[combinedData$group=="Treatment",])
   treatmenttime <- seq(0, THat, by=0.01)
   treatmentsurv <- controlsurv <- exp(-(lambdac*treatmenttime)^gammac)
- # lines(treatmenttime, treatmentsurv, col="green")
+ #lines(treatmenttime, treatmentsurv, col="green")
   
   treatmenttime1 <- seq(THat, trialLength, by=0.01)
   
@@ -108,12 +109,11 @@ DTEDataSetsFunc <- function(author){
   s2lambdat <- optimoutput$par[1]
   s2gammat <- optimoutput$par[2]
   treatmentsurv1 <- exp(-(lambdac*THat)^gammac - s2lambdat^s2gammat*(treatmenttime1^s2gammat-THat^s2gammat))
- # lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
+ #lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
   
- # legend("topright", legend = c("Delay", "Control", "Method 1", "Method 2"), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
+ #legend("topright", legend = c("Delay", "Control", "Method A", "Method B"), col=c("green", "blue", "red", "red"), lty=c(1, 1, 1,2))
   
   #Now look at calculating power under the two different scenarios
-  #Scenario 1
 
   powerfunc <- function(n, lambdat, gammat){
     powervec <- rep(NA, 1000)
@@ -132,6 +132,8 @@ DTEDataSetsFunc <- function(author){
                                       status = rep(1, 2*n), group = c(rep("Control", n), rep("Treatment", n)))
 
       test <- survdiff(Surv(time, status)~group, data = combinedDataPower)
+      
+      
       #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
       powervec[i] <- test$chisq > qchisq(0.95, 1)
     }
@@ -140,17 +142,17 @@ DTEDataSetsFunc <- function(author){
   }
 
 
-  nvec <- round(seq(10, 500, length = 30))
-  powervecs1 <- mapply(powerfunc, nvec, s1lambdat, s1gammat)
-  powervecs2 <- mapply(powerfunc, nvec, s2lambdat, s2gammat)
+ nvec <- round(seq(10, 500, length = 30))
+ powervecs1 <- mapply(powerfunc, nvec, s1lambdat, s1gammat)
+ powervecs2 <- mapply(powerfunc, nvec, s2lambdat, s2gammat)
 
-  powers1smooth <- loess(powervecs1~nvec)
+ powers1smooth <- loess(powervecs1~nvec)
   powers2smooth <- loess(powervecs2~nvec)
 
   plot(nvec*2, predict(powers1smooth), type="l", col="red", ylim=c(0, 1), xlab = "Total sample size", ylab = "Power")
   lines(nvec*2, predict(powers2smooth), col="blue", lty=2)
 
-  legend("bottomright", legend = c("Method 1", "Method 2"), col = c("red", "blue"), lty=1:2)
+ legend("bottomright", legend = c("Method A", "Method B"), col = c("red", "blue"), lty=1:2)
 }
 
 png("KMPower.png", units="in", width=15, height=5, res=700)
@@ -342,23 +344,6 @@ lines(trialtime, lowerbound, lty=2)
 lines(trialtime, upperbound, lty=2)
 legend("topright", legend = c("Control", "Treatment", "Treatment CI"), lty = c(1, 1, 2), col = c("blue", "red", "black"))
 dev.off()
-# Looking at the hazard function ----------------------------------------------------------------
-
-gammac <- 0.8
-lambdac <- 0.08
-t <- seq(0, 100, by=0.01)
-HFC <- gammac*lambdac^gammac*t^(gammac-1)
-plot(t, HFC, type="l", ylim=c(0, 0.5), col="blue", ylab = "Hazard function", xlab = "Time")
-
-gammat <-0.8
-lambdat <- 0.04
-HFT <- gammat*lambdat^gammat*t^(gammat-1)
-lines(t, HFT, col="red")
-
-# HR <- HFT/HFC
-# lines(t, HR)
-
-legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty=1)
 
 
 # Calculating the control distribution (through MCMC) for the example ----------------------------------------------------------------
@@ -459,16 +444,44 @@ simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, big
   #For the patients that are censored, their survival time is the length of time they have been enrolled in the trial for
   dataCombined$survival_time <- ifelse(dataCombined$pseudo_time>censTime, censTime  - dataCombined$recTime, dataCombined$time)
   
-  return(dataCombined)
+  return(list(dataCombined = dataCombined, censTime = censTime))
 }
+
+massT0 <- 0.05
+massHR1 <- 0.1
+#Doing the simMatrix (if performing the more flexible assurance)
+  LMax <- 100
+  trialtime <- seq(0, LMax, by=0.01) 
+  SimMatrix <- matrix(NA, ncol = length(trialtime), nrow = 500)
+  for (j in 1:500){
+    gammac <- sample(gamma2sample, 1)
+    lambdac <- sample(lambda2sample, 1)
+    u <- runif(1)
+    if (u < massT0){
+      bigT <- 0
+    } else {
+      bigT <- rgamma(1, 7.29, 1.76)
+    }
+    #sampling the post-delay HR
+    u <- runif(1)
+    if (u < massHR1){
+      HR <- 1
+    } else {
+      HR <- rgamma(1, 29.6, 47.8)
+    }
+    lambdat <- lambdac*HR^(1/gammac)
+    gammat <- gammac
+    
+    SimMatrix[j,] <- ifelse(trialtime<=bigT, exp(-(lambdac*trialtime)^gammac), exp(-(lambdac*bigT)^gammac-lambdat^gammat*(trialtime^gammat-bigT^gammat)))
+  }
 
 powerassFunc <- function(type, n){
   recTime <- 6
-  massT0 <- 0.05
-  massHR1 <- 0.1
   N <- 500
+  
   #Setting up the assurance vector
   vec <- rep(NA, N)
+  censvec <- rep(NA, N)
   for (i in 1:N){
     if (type=="assurance"){
       #Sampling the control parameters
@@ -490,6 +503,8 @@ powerassFunc <- function(type, n){
       } else {
         HR <- rgamma(1, 29.6, 47.8)
       }
+      lambdat <- lambdac*HR^(1/gammac)
+      
     } else if (type=="power"){
       gammac <- fixedgammac
       lambdac <- fixedlambdac
@@ -497,6 +512,7 @@ powerassFunc <- function(type, n){
       HR <- 0.6
       #Making the simplification
       gammat <- gammac
+      lambdat <- lambdac*HR^(1/gammac)
     } else if (type=="powerND"){
       gammac <- fixedgammac
       lambdac <- fixedlambdac
@@ -504,12 +520,51 @@ powerassFunc <- function(type, n){
       HR <- 0.6
       #Making the simplification
       gammat <- gammac
+      lambdat <- lambdac*HR^(1/gammac)
+    } else if (type=="flexAss"){
+      
+      gammac <- sample(gamma2sample, 1)
+      lambdac <- sample(lambda2sample, 1)
+      trialend <- exp((1/gammac)*log(-log(0.01)) -log(lambdac))
+      
+      time1 <- trialtime[which.min(abs(trialtime-0.35*trialend))]
+      time2 <- trialtime[which.min(abs(trialtime-0.55*trialend))]
+      
+    
+      
+      s1 <- sample(SimMatrix[,which.min(abs(trialtime-0.35*trialend))], 1)
+      s2 <- 1
+      while (s2>s1){ 
+        s2 <- sample(SimMatrix[,which.min(abs(trialtime-0.55*trialend))], 1)
+      }
+      u <- runif(1)
+      if (u < massT0){
+        bigT <- 0
+      } else {
+        bigT <- rgamma(1, 7.29, 1.76)
+      }
+      
+      estWeib <- function(par){
+        t1 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(time1^par[2]-bigT^par[2])) - s1
+        t2 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(time2^par[2]-bigT^par[2])) - s2
+        terror <- t1^2+t2^2
+        return(terror)
+      }
+      
+      output <- optim(par = c(0, 1), fn = estWeib)
+      lambdat <- output$par[1]
+      gammat <- output$par[2]
+    
     }
     
-    lambdat <- lambdac*HR^(1/gammac)
-    
+
     #Simulating the control and treatment data
-    combinedData <- simulateDTEWeibullData(n, n, gammat, gammac, lambdat, lambdac, bigT, recTime, 0.8)
+    
+    output <- simulateDTEWeibullData(n, n, gammat, gammac, lambdat, lambdac, bigT, recTime, 0.8)
+    
+    combinedData <- output$dataCombined
+    
+    censvec[i] <- output$censTime
     
     #Performing a log-rank test on the combined data set
     test <- survdiff(Surv(survival_time, status)~group, data = combinedData)
@@ -536,20 +591,22 @@ calcAssPowerFunc <- function(type){
 ass <- calcAssPowerFunc("assurance")
 power <- calcAssPowerFunc("power")
 powerND <- calcAssPowerFunc("powerND")
+flexass <- calcAssPowerFunc("flexAss")
+
+png("PowerAss.png", units="in", width=8, height=5, res=700)
 
 plot(power$nvec*2, predict(power$smoothedout), ylim=c(0,1), type="l", xlab = "Total sample size", ylab = "Power/assurance", lty = 2)
 lines(ass$nvec*2, predict(ass$smoothedout), col="red", lty=1)
 lines(powerND$nvec*2, predict(powerND$smoothedout), col="blue", lty=3)
+lines(flexass$nvec*2, predict(flexass$smoothedout), col = "lightgreen", lty = 4)
 
-legend("bottomright", legend = c("Assurance", "Power", "Power assuming no delay"), col=c("red", "black", "blue"), lty=1:3)
+legend("bottomright", legend = c("Assurance", "Power", "Power assuming no delay", "Flexible assurance (Section 5)"), col=c("red", "black", "blue", "lightgreen"), lty=1:4)
 
 dev.off()
 
 # sum(is.na(predict(ass$smoothedout, 1:500)<0.7))+sum(na.omit(predict(ass$smoothedout, 1:500)<0.7))*2
 # sum(is.na(predict(power$smoothedout, 1:500)<0.7))+sum(na.omit(predict(power$smoothedout, 1:500)<0.7))*2
 # sum(is.na(predict(powerND$smoothedout, 1:500)<0.7))+sum(na.omit(predict(powerND$smoothedout, 1:500)<0.7))*2
-
-
 
 
 
