@@ -1989,6 +1989,7 @@ combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
 ```{r}
 library(ggplot2)
 library(tidyverse)
+library(gridExtra)
 
 HRVec <- seq(0.5, 1, by=0.05)
 
@@ -2106,19 +2107,30 @@ HR1Look3 <- data.frame(Outcome = c(HR1$WieandDecisionIA2, HR1$OBFDecisionIA2, HR
 # saveRDS(HR1Look2, file = "Data/HR1Look2.rds")
 
 
+#Do this for Look 1
+p <- list()
+for (i in 1:length(HRVec)){
+ p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
+   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
+}
+
 
 png("Look1.png", units="in", width=32, height=15, res=700)
-par(mfrow=c(4,3))
-for (i in 1:length(HRVec)){
- p1 <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
- #print(p1)
-}
+do.call(grid.arrange, p)
 dev.off()
 
 
+#Do this for Look 2
+p <- list()
+for (i in 1:length(HRVec)){
+ p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look2")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
+   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at second IA")
+}
 
 
+png("Look2.png", units="in", width=32, height=15, res=700)
+do.call(grid.arrange, p)
+dev.off()
 
 
 ```
