@@ -1470,7 +1470,7 @@ library(rjags)
 library(survival)
 library(tidyverse)
 
-for (k in 1:100){
+for (k in 1:1){
   print(k)
 
 nEvents <- 512
@@ -1480,6 +1480,13 @@ recTime <- 34
 WieandOutcome <- ""
 OBFOutcome <- ""
 PropOutcome <- ""
+WieandOHR1 <- NA
+WieandOHR2 <- NA
+OBFOHR1 <- NA
+OBFOHR2 <- NA
+PropOHR1 <- NA
+PropOHR2 <- NA 
+FinalOHR <- NA
 
 #bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
 #HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
@@ -1556,11 +1563,9 @@ overallFinalData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifels
   if (censorFunc(nEvents*0.5)$deltad>1){
     WieandOutcome <- "Stop for futility at IA1"
   } else {
-  
      if (censorFunc(nEvents*0.75)$deltad>1){
       WieandOutcome <- "Stop for futility at IA2"
     } else {
-      
       if (censorFunc(nEvents)$test$chisq > qchisq(0.95, 1) & censorFunc(nEvents)$deltad<1){
         WieandOutcome <- "Successful trial (at the end)"
       } else {
@@ -1569,6 +1574,10 @@ overallFinalData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifels
     }
   }
   
+  WieandOHR1 <- censorFunc(nEvents*0.5)$deltad
+  WieandOHR2 <- censorFunc(nEvents*0.75)$deltad
+  FinalOHR <- censorFunc(nEvents)$deltad
+  
   
   #We perform the OBF rule
   
@@ -1576,11 +1585,9 @@ overallFinalData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifels
   if (censorFunc(nEvents*(1/3))$deltad>0.998){
     OBFOutcome <- "Stop for futility at IA1"
   } else {
-  
      if (censorFunc(nEvents*(2/3))$deltad>0.913){
       OBFOutcome <- "Stop for futility at IA2"
     } else {
-      
       if (censorFunc(nEvents)$test$chisq > qchisq(0.95, 1) & censorFunc(nEvents)$deltad<1){
         OBFOutcome <- "Successful trial (at the end)"
       } else {
@@ -1589,23 +1596,27 @@ overallFinalData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifels
     }
   }
   
+  OBFOHR1 <- censorFunc(nEvents*(1/3))$deltad
+  OBFOHR2 <- censorFunc(nEvents*(2/3))$deltad
+  
   #We perform the proposed rule
   
    if (censorFunc(nEventsIA1)$deltad>1){
     PropOutcome <- "Stop for futility at IA1"
   } else {
-  
      if (censorFunc(nEventsIA2)$deltad>1){
       PropOutcome <- "Stop for futility at IA2"
     } else {
-      
       if (censorFunc(nEvents)$test$chisq > qchisq(0.95, 1) & censorFunc(nEvents)$deltad<1){
         PropOutcome <- "Successful trial (at the end)"
       } else {
-         PropOutcome <- "Not a successful trial (at the end)"
+        PropOutcome <- "Not a successful trial (at the end)"
       }
     }
   }
+  
+  PropOHR1 <- censorFunc(nEventsIA1)$deltad
+  PropOHR2 <- censorFunc(nEventsIA2)$deltad
   
 
   #A function which calculates BPP given the interim data and the time of censoring
@@ -1816,10 +1827,14 @@ PropBPP2 <- BPPFunc(censorFunc(nEventsIA2)$censorData, censorFunc(nEventsIA2)$ce
 if (k==1){
   outcomeDF <- data.frame(WieandOutcome = WieandOutcome, OBFOutcome = OBFOutcome, PropOutcome = PropOutcome, WBPP1 = WBPP1, WBPP2 = WBPP2,
            OBFBPP1 = OBFBPP1, OBFBPP2 = OBFBPP2, PropBPP1 = PropBPP1, PropBPP2 = PropBPP2,
-           nEventsIA1 = nEventsIA1, nEventsIA2 = nEventsIA2)
+           nEventsIA1 = nEventsIA1, nEventsIA2 = nEventsIA2, WieandOHR1 = WieandOHR1, WieandOHR2 = WieandOHR2,
+           OBFOHR1 = OBFOHR1, OBFOHR2 = OBFOHR2, PropOHR1 = PropOHR1, PropOHR2 = PropOHR2, FinalOHR = FinalOHR)
+  
 } else {
   currentDF <- data.frame(WieandOutcome = WieandOutcome, OBFOutcome = OBFOutcome, PropOutcome = PropOutcome, WBPP1 = WBPP1, WBPP2 = WBPP2,
-           OBFBPP1 = OBFBPP1, OBFBPP2 = OBFBPP2, PropBPP1 = PropBPP1, PropBPP2 = PropBPP2, nEventsIA1 = nEventsIA1, nEventsIA2 = nEventsIA2)
+           OBFBPP1 = OBFBPP1, OBFBPP2 = OBFBPP2, PropBPP1 = PropBPP1, PropBPP2 = PropBPP2,
+           nEventsIA1 = nEventsIA1, nEventsIA2 = nEventsIA2, WieandOHR1 = WieandOHR1, WieandOHR2 = WieandOHR2,
+           OBFOHR1 = OBFOHR1, OBFOHR2 = OBFOHR2, PropOHR1 = PropOHR1, PropOHR2 = PropOHR2, FinalOHR = FinalOHR)
   outcomeDF <- rbind(outcomeDF, currentDF)
 }
 
