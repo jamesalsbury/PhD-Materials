@@ -1470,7 +1470,7 @@ library(rjags)
 library(survival)
 library(tidyverse)
 
-for (k in 1:100){
+for (k in 1:1){
   print(k)
 
 nEvents <- 512
@@ -1491,7 +1491,7 @@ FinalOHR <- NA
 #bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
 #HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
 bigT <- 3
-HR <- 0.6
+HR <- 0.55
 lambdat <- lambdac*HR
 
 CP <- exp(-(lambdac*bigT))
@@ -2150,6 +2150,153 @@ dev.off()
 
 ```
 
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i]), readRDS(paste0("Data/HROriginal/HR", HRVec[i], ".rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
+
+for (i in 1:length(HRVec)){
+ p1 <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
+   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
+ print(p1)
+}
+
+for (i in 1:length(HRVec)){
+ p1 <- ggplot(get(paste0("HR", HRVec[i], "Look2")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
+   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at second IA")
+ print(p1)
+}
+
+
+
+
+# HR0.5Look2$Outcome <- factor(HR0.5Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.55Look2$Outcome <- factor(HR0.55Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.6Look2$Outcome <- factor(HR0.6Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.65Look2$Outcome <- factor(HR0.65Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.7Look2$Outcome <- factor(HR0.7Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.75Look2$Outcome <- factor(HR0.75Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.8Look2$Outcome <- factor(HR0.8Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.85Look2$Outcome <- factor(HR0.85Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.9Look2$Outcome <- factor(HR0.9Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR0.95Look2$Outcome <- factor(HR0.95Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+# HR1Look2$Outcome <- factor(HR1Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
+
+
+
+# HR0.5$PropOutcome <- factor(HR0.5$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.55$PropOutcome <- factor(HR0.55$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.6$PropOutcome <- factor(HR0.6$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.65$PropOutcome <- factor(HR0.65$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.7$PropOutcome <- factor(HR0.7$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.75$PropOutcome <- factor(HR0.75$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.8$PropOutcome <- factor(HR0.8$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.85$PropOutcome <- factor(HR0.85$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.9$PropOutcome <- factor(HR0.9$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR0.95$PropOutcome <- factor(HR0.95$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+# 
+# HR1$PropOutcome <- factor(HR1$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
+
+# PropDecisionIA2 <- rep(NA, 100)
+# 
+# for (i in 1:100){
+#   if (HR1.1$PropOutcome[i]=="Stop for futility at IA1"){
+#     PropDecisionIA2[i] <- "Already stopped"
+#   } else if (HR1.1$PropOutcome[i]=="Stop for futility at IA2"){
+#     PropDecisionIA2[i] <- "Stop for futility at IA2"
+#   } else {
+#     PropDecisionIA2[i] <- "Continue"
+#   }
+# }
+# 
+# HR1.1 <- cbind(HR1.1, PropDecisionIA2)
+
+getwd()
+
+
+#HR0.7 = subset(HR0.7, select = -WieandDecisionIA2)
+
+# saveRDS(HR0.5, file = "Data/HROriginal/HR0.5.rds")
+# saveRDS(HR0.6, file = "Data/HROriginal/HR0.6.rds")
+# saveRDS(HR0.7, file = "Data/HROriginal/HR0.7.rds")
+# saveRDS(HR0.8, file = "Data/HROriginal/HR0.8.rds")
+# saveRDS(HR0.9, file = "Data/HROriginal/HR0.9.rds")
+# saveRDS(HR1, file = "Data/HROriginal/HR1.rds")
+# saveRDS(HR1.1, file = "Data/HROriginal/HR1.1.rds")
+
+
+# HR0.5Look1 <- data.frame(Outcome = c(HR0.5$WieandDecisionIA1, HR0.5$OBFDecisionIA1, HR0.5$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.5$WBPP1, HR0.5$OBFBPP1, HR0.5$PropBPP1), ObservedHR = c(HR0.5$WieandOHR1, HR0.5$OBFOHR1, HR0.5$PropOHR1))
+# HR0.6Look1 <- data.frame(Outcome = c(HR0.6$WieandDecisionIA1, HR0.6$OBFDecisionIA1, HR0.6$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.6$WBPP1, HR0.6$OBFBPP1, HR0.6$PropBPP1), ObservedHR = c(HR0.6$WieandOHR1, HR0.6$OBFOHR1, HR0.6$PropOHR1))
+# HR0.7Look1 <- data.frame(Outcome = c(HR0.7$WieandDecisionIA1, HR0.7$OBFDecisionIA1, HR0.7$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.7$WBPP1, HR0.7$OBFBPP1, HR0.7$PropBPP1), ObservedHR = c(HR0.7$WieandOHR1, HR0.7$OBFOHR1, HR0.7$PropOHR1))
+# HR0.8Look1 <- data.frame(Outcome = c(HR0.8$WieandDecisionIA1, HR0.8$OBFDecisionIA1, HR0.8$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.8$WBPP1, HR0.8$OBFBPP1, HR0.8$PropBPP1), ObservedHR = c(HR0.8$WieandOHR1, HR0.8$OBFOHR1, HR0.8$PropOHR1))
+# HR0.9Look1 <- data.frame(Outcome = c(HR0.9$WieandDecisionIA1, HR0.9$OBFDecisionIA1, HR0.9$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.9$WBPP1, HR0.9$OBFBPP1, HR0.9$PropBPP1), ObservedHR = c(HR0.9$WieandOHR1, HR0.9$OBFOHR1, HR0.9$PropOHR1))
+# HR1Look1 <- data.frame(Outcome = c(HR1$WieandDecisionIA1, HR1$OBFDecisionIA1, HR1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1$WBPP1, HR1$OBFBPP1, HR1$PropBPP1), ObservedHR = c(HR1$WieandOHR1, HR1$OBFOHR1, HR1$PropOHR1))
+# HR1.1Look1 <- data.frame(Outcome = c(HR1.1$WieandDecisionIA1, HR1.1$OBFDecisionIA1, HR1.1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1.1$WBPP1, HR1.1$OBFBPP1, HR1.1$PropBPP1), ObservedHR = c(HR1.1$WieandOHR1, HR1.1$OBFOHR1, HR1.1$PropOHR1))
+
+saveRDS(HR0.5Look1, file = "Data/HRLook1Data/HR0.5Look1.rds")
+saveRDS(HR0.6Look1, file = "Data/HRLook1Data/HR0.6Look1.rds")
+saveRDS(HR0.7Look1, file = "Data/HRLook1Data/HR0.7Look1.rds")
+saveRDS(HR0.8Look1, file = "Data/HRLook1Data/HR0.8Look1.rds")
+saveRDS(HR0.9Look1, file = "Data/HRLook1Data/HR0.9Look1.rds")
+saveRDS(HR1Look1, file = "Data/HRLook1Data/HR1Look1.rds")
+saveRDS(HR1.1Look1, file = "Data/HRLook1Data/HR1.1Look1.rds")
+
+
+
+#Do this for Look 1
+p <- list()
+for (i in 1:length(HRVec)){
+ p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
+   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
+}
+
+
+ggplot(HR1.1Look1) + geom_point(aes(x = ObservedHR, y = BPP, color = Rule, shape = Outcome))
+
+                                
+
+png("Look1.png", units="in", width=32, height=15, res=700)
+do.call(grid.arrange, p)
+dev.off()
+
+
+#Do this for Look 2
+p <- list()
+for (i in 1:length(HRVec)){
+ p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look2")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
+   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at second IA")
+}
+
+
+png("Look2.png", units="in", width=32, height=15, res=700)
+do.call(grid.arrange, p)
+dev.off()
+
+
+```
 
 
 
