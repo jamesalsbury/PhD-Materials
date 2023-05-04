@@ -1470,7 +1470,7 @@ library(rjags)
 library(survival)
 library(tidyverse)
 
-for (k in 1:1){
+for (k in 1:100){
   print(k)
 
 nEvents <- 512
@@ -1491,7 +1491,7 @@ FinalOHR <- NA
 #bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
 #HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
 bigT <- 3
-HR <- 0.55
+HR <- 0.6
 lambdat <- lambdac*HR
 
 CP <- exp(-(lambdac*bigT))
