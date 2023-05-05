@@ -2162,7 +2162,7 @@ for (i in 1:length(HRVec)){
 }
 
 for (i in 1:length(HRVec)){
-  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/HRLook1Data/HR", HRVec[i], "Look1.rds")))
 }
 
 for (i in 1:length(HRVec)){
@@ -2266,34 +2266,23 @@ saveRDS(HR1.1Look1, file = "Data/HRLook1Data/HR1.1Look1.rds")
 
 
 
-#Do this for Look 1
+
+
 p <- list()
 for (i in 1:length(HRVec)){
- p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
+ p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look1"))) + geom_point(aes(x = ObservedHR, y = BPP, color = Rule, shape = Outcome)) + ylim(0,1) + xlab("Observed HR at IA1") + xlim(0,2) + geom_vline(xintercept = 1, color = "red", lty = 2) + geom_hline(yintercept = 0.65, lty = 3, show.legend = T) +  ggtitle(paste0("HR = ", HRVec[i]))
 }
 
 
-ggplot(HR1.1Look1) + geom_point(aes(x = ObservedHR, y = BPP, color = Rule, shape = Outcome))
 
-                                
-
-png("Look1.png", units="in", width=32, height=15, res=700)
+png("HRLook1.png", units="in", width=32, height=15, res=700)
 do.call(grid.arrange, p)
 dev.off()
 
 
-#Do this for Look 2
-p <- list()
-for (i in 1:length(HRVec)){
- p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look2")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at second IA")
-}
 
 
-png("Look2.png", units="in", width=32, height=15, res=700)
-do.call(grid.arrange, p)
-dev.off()
+
 
 
 ```
