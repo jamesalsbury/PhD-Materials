@@ -1487,6 +1487,7 @@ OBFOHR2 <- NA
 PropOHR1 <- NA
 PropOHR2 <- NA 
 FinalOHR <- NA
+FinalOutcome <- NA
 
 #bigT <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 3, sd = 1)
 #HR <- truncnorm::rtruncnorm(n = 1, a = 0, mean = 0.75, sd = 0.1)
@@ -1617,6 +1618,13 @@ overallFinalData <- data.frame(time = c(rexp(nPatients/2, rate = lambdac), ifels
   
   PropOHR1 <- censorFunc(nEventsIA1)$deltad
   PropOHR2 <- censorFunc(nEventsIA2)$deltad
+  
+  #What would the outcome have been if we had not stopped for futility?
+  if (censorFunc(nEvents)$test$chisq > qchisq(0.95, 1) & censorFunc(nEvents)$deltad<1){
+        FinalOutcome <- "Successful trial"
+      } else {
+        FinalOutcome <- "Not a successful trial"
+      }
   
 
   #A function which calculates BPP given the interim data and the time of censoring
@@ -1828,13 +1836,13 @@ if (k==1){
   outcomeDF <- data.frame(WieandOutcome = WieandOutcome, OBFOutcome = OBFOutcome, PropOutcome = PropOutcome, WBPP1 = WBPP1, WBPP2 = WBPP2,
            OBFBPP1 = OBFBPP1, OBFBPP2 = OBFBPP2, PropBPP1 = PropBPP1, PropBPP2 = PropBPP2,
            nEventsIA1 = nEventsIA1, nEventsIA2 = nEventsIA2, WieandOHR1 = WieandOHR1, WieandOHR2 = WieandOHR2,
-           OBFOHR1 = OBFOHR1, OBFOHR2 = OBFOHR2, PropOHR1 = PropOHR1, PropOHR2 = PropOHR2, FinalOHR = FinalOHR)
+           OBFOHR1 = OBFOHR1, OBFOHR2 = OBFOHR2, PropOHR1 = PropOHR1, PropOHR2 = PropOHR2, FinalOHR = FinalOHR, FinalOutcome = FinalOutcome)
   
 } else {
   currentDF <- data.frame(WieandOutcome = WieandOutcome, OBFOutcome = OBFOutcome, PropOutcome = PropOutcome, WBPP1 = WBPP1, WBPP2 = WBPP2,
            OBFBPP1 = OBFBPP1, OBFBPP2 = OBFBPP2, PropBPP1 = PropBPP1, PropBPP2 = PropBPP2,
            nEventsIA1 = nEventsIA1, nEventsIA2 = nEventsIA2, WieandOHR1 = WieandOHR1, WieandOHR2 = WieandOHR2,
-           OBFOHR1 = OBFOHR1, OBFOHR2 = OBFOHR2, PropOHR1 = PropOHR1, PropOHR2 = PropOHR2, FinalOHR = FinalOHR)
+           OBFOHR1 = OBFOHR1, OBFOHR2 = OBFOHR2, PropOHR1 = PropOHR1, PropOHR2 = PropOHR2, FinalOHR = FinalOHR, FinalOutcome = FinalOutcome)
   outcomeDF <- rbind(outcomeDF, currentDF)
 }
 
@@ -1929,7 +1937,7 @@ combinedData$recTime <- runif(nPatients, min = 0, max = recTime)
   
   controlkm <- survfit(Surv(survival_time, status)~1, data = IAData)
   
-  #plot(controlkm, conf.int = F, col = "blue", xlim=c(0,100))
+  plot(controlkm, conf.int = F, col = "blue", xlim=c(0,100))
   
   controltime <- seq(0, 100, by=0.01)
   
