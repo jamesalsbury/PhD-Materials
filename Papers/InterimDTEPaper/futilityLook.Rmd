@@ -2014,271 +2014,69 @@ library(ggplot2)
 library(tidyverse)
 library(gridExtra)
 
-HRVec <- seq(0.5, 1, by=0.05)
+HRVec <- seq(0.5, 1.1, by=0.1)
 
 for (i in 1:length(HRVec)){
-  assign(paste0("HR", HRVec[i]), readRDS(paste0("Data/OriginalData/HR", HRVec[i], ".rds")))
+  assign(paste0("HR", HRVec[i]), readRDS(paste0("Data/HRData/HR", HRVec[i], ".rds")))
 }
 
 for (i in 1:length(HRVec)){
   assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
 }
 
-for (i in 1:length(HRVec)){
-  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
-}
 
-for (i in 1:length(HRVec)){
- p1 <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
- print(p1)
-}
+#Processing of the data
 
-for (i in 1:length(HRVec)){
- p1 <- ggplot(get(paste0("HR", HRVec[i], "Look2")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at second IA")
- print(p1)
-}
-
-
-
-
-# HR0.5Look2$Outcome <- factor(HR0.5Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.55Look2$Outcome <- factor(HR0.55Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.6Look2$Outcome <- factor(HR0.6Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.65Look2$Outcome <- factor(HR0.65Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.7Look2$Outcome <- factor(HR0.7Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.75Look2$Outcome <- factor(HR0.75Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.8Look2$Outcome <- factor(HR0.8Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.85Look2$Outcome <- factor(HR0.85Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.9Look2$Outcome <- factor(HR0.9Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.95Look2$Outcome <- factor(HR0.95Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR1Look2$Outcome <- factor(HR1Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-
-
-
-# HR0.5$PropOutcome <- factor(HR0.5$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.55$PropOutcome <- factor(HR0.55$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.6$PropOutcome <- factor(HR0.6$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.65$PropOutcome <- factor(HR0.65$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.7$PropOutcome <- factor(HR0.7$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.75$PropOutcome <- factor(HR0.75$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.8$PropOutcome <- factor(HR0.8$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.85$PropOutcome <- factor(HR0.85$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.9$PropOutcome <- factor(HR0.9$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.95$PropOutcome <- factor(HR0.95$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR1$PropOutcome <- factor(HR1$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-
-WieandDecisionFinal <- rep(NA, 100)
-
-for (i in 1:100){
-  if (HR0.5$WieandOutcome[i]=="Successful trial (at the end)"){
-    WieandDecisionFinal[i] <- "Successful"
-  } else if (HR0.5$PropOutcome[i]=="Not a successful trial (at the end)"){
-    WieandDecisionFinal[i] <- "Unsuccessful"
-  } else {
-    WieandDecisionFinal[i] <- "Already stopped"
-  }
-}
-
-HR1 <- cbind(HR1, PropDecisionIA2)
-
-# saveRDS(HR0.5, file = "Data/HR0.5.rds")
-# saveRDS(HR0.55, file = "Data/HR0.55.rds")
-# saveRDS(HR0.6, file = "Data/HR0.6.rds")
-# saveRDS(HR0.65, file = "Data/HR0.65.rds")
-# saveRDS(HR0.7, file = "Data/HR0.7.rds")
-# saveRDS(HR0.75, file = "Data/HR0.75.rds")
-# saveRDS(HR0.8, file = "Data/HR0.8.rds")
-# saveRDS(HR0.85, file = "Data/HR0.85.rds")
-# saveRDS(HR0.9, file = "Data/HR0.9.rds")
-# saveRDS(HR0.95, file = "Data/HR0.95.rds")
-# saveRDS(HR1, file = "Data/HR1.rds")
-
-HR0.5Look3 <- data.frame(Outcome = c(HR0.5$WieandDecisionIA2, HR0.5$OBFDecisionIA2, HR0.5$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.5$WBPP2, HR0.5$OBFBPP2, HR0.5$PropBPP2))
-HR0.55Look3 <- data.frame(Outcome = c(HR0.55$WieandDecisionIA2, HR0.55$OBFDecisionIA2, HR0.55$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.55$WBPP2, HR0.55$OBFBPP2, HR0.55$PropBPP2))
-HR0.6Look3 <- data.frame(Outcome = c(HR0.6$WieandDecisionIA2, HR0.6$OBFDecisionIA2, HR0.6$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.6$WBPP2, HR0.6$OBFBPP2, HR0.6$PropBPP2))
-HR0.65Look3 <- data.frame(Outcome = c(HR0.65$WieandDecisionIA2, HR0.65$OBFDecisionIA2, HR0.65$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.65$WBPP2, HR0.65$OBFBPP2, HR0.65$PropBPP2))
-HR0.7Look3 <- data.frame(Outcome = c(HR0.7$WieandDecisionIA2, HR0.7$OBFDecisionIA2, HR0.7$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.7$WBPP2, HR0.7$OBFBPP2, HR0.7$PropBPP2))
-HR0.75Look3 <- data.frame(Outcome = c(HR0.75$WieandDecisionIA2, HR0.75$OBFDecisionIA2, HR0.75$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.75$WBPP2, HR0.75$OBFBPP2, HR0.75$PropBPP2))
-HR0.8Look3 <- data.frame(Outcome = c(HR0.8$WieandDecisionIA2, HR0.8$OBFDecisionIA2, HR0.8$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.8$WBPP2, HR0.8$OBFBPP2, HR0.8$PropBPP2))
-HR0.85Look3 <- data.frame(Outcome = c(HR0.85$WieandDecisionIA2, HR0.85$OBFDecisionIA2, HR0.85$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.85$WBPP2, HR0.85$OBFBPP2, HR0.85$PropBPP2))
-HR0.9Look3 <- data.frame(Outcome = c(HR0.9$WieandDecisionIA2, HR0.9$OBFDecisionIA2, HR0.9$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.9$WBPP2, HR0.9$OBFBPP2, HR0.9$PropBPP2))
-HR0.95Look3 <- data.frame(Outcome = c(HR0.95$WieandDecisionIA2, HR0.95$OBFDecisionIA2, HR0.95$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.95$WBPP2, HR0.95$OBFBPP2, HR0.95$PropBPP2))
-HR1Look3 <- data.frame(Outcome = c(HR1$WieandDecisionIA2, HR1$OBFDecisionIA2, HR1$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1$WBPP2, HR1$OBFBPP2, HR1$PropBPP2))
-
-# saveRDS(HR0.5Look2, file = "Data/HR0.5Look2.rds")
-# saveRDS(HR0.55Look2, file = "Data/HR0.55Look2.rds")
-# saveRDS(HR0.6Look2, file = "Data/HR0.6Look2.rds")
-# saveRDS(HR0.65Look2, file = "Data/HR0.65Look2.rds")
-# saveRDS(HR0.7Look2, file = "Data/HR0.7Look2.rds")
-# saveRDS(HR0.75Look2, file = "Data/HR0.75Look2.rds")
-# saveRDS(HR0.8Look2, file = "Data/HR0.8Look2.rds")
-# saveRDS(HR0.85Look2, file = "Data/HR0.85Look2.rds")
-# saveRDS(HR0.9Look2, file = "Data/HR0.9Look2.rds")
-# saveRDS(HR0.95Look2, file = "Data/HR0.95Look2.rds")
-# saveRDS(HR1Look2, file = "Data/HR1Look2.rds")
-
-
-#Do this for Look 1
-p <- list()
-for (i in 1:length(HRVec)){
- p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
-}
-
-
-png("Look1.png", units="in", width=32, height=15, res=700)
-do.call(grid.arrange, p)
-dev.off()
-
-
-#Do this for Look 2
-p <- list()
-for (i in 1:length(HRVec)){
- p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look2")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at second IA")
-}
-
-
-png("Look2.png", units="in", width=32, height=15, res=700)
-do.call(grid.arrange, p)
-dev.off()
-
-
-```
-
-```{r}
-library(ggplot2)
-library(tidyverse)
-library(gridExtra)
-
-HRVec <- seq(0.5, 1.1, by=0.1)
-
-for (i in 1:length(HRVec)){
-  assign(paste0("HR", HRVec[i]), readRDS(paste0("Data/HROriginal/HR", HRVec[i], ".rds")))
-}
-
-for (i in 1:length(HRVec)){
-  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/HRLook1Data/HR", HRVec[i], "Look1.rds")))
-}
-
-for (i in 1:length(HRVec)){
-  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
-}
-
-for (i in 1:length(HRVec)){
- p1 <- ggplot(get(paste0("HR", HRVec[i], "Look1")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at first IA")
- print(p1)
-}
-
-for (i in 1:length(HRVec)){
- p1 <- ggplot(get(paste0("HR", HRVec[i], "Look2")), aes(x = Outcome, y = BPP, color = Rule)) + geom_boxplot() + ylim(0,1) + 
-   ggtitle(paste0("HR = ", HRVec[i])) + geom_hline(yintercept = 0.65) + xlab("Outcome at second IA")
- print(p1)
-}
-
-
-
-
-# HR0.5Look2$Outcome <- factor(HR0.5Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.55Look2$Outcome <- factor(HR0.55Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.6Look2$Outcome <- factor(HR0.6Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.65Look2$Outcome <- factor(HR0.65Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.7Look2$Outcome <- factor(HR0.7Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.75Look2$Outcome <- factor(HR0.75Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.8Look2$Outcome <- factor(HR0.8Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.85Look2$Outcome <- factor(HR0.85Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.9Look2$Outcome <- factor(HR0.9Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR0.95Look2$Outcome <- factor(HR0.95Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-# HR1Look2$Outcome <- factor(HR1Look2$Outcome, levels = c("Already stopped", "Stop for futility at IA2", "Continue"), ordered = T)
-
-
-
-# HR0.5$PropOutcome <- factor(HR0.5$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.55$PropOutcome <- factor(HR0.55$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.6$PropOutcome <- factor(HR0.6$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.65$PropOutcome <- factor(HR0.65$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.7$PropOutcome <- factor(HR0.7$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.75$PropOutcome <- factor(HR0.75$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.8$PropOutcome <- factor(HR0.8$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.85$PropOutcome <- factor(HR0.85$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.9$PropOutcome <- factor(HR0.9$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR0.95$PropOutcome <- factor(HR0.95$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-# 
-# HR1$PropOutcome <- factor(HR1$PropOutcome, levels = c("Stop for futility at IA1", "Stop for futility at IA2", "Not a successful trial (at the end)", "Successful trial (at the end)"), ordered = T)
-
-# PropDecisionIA2 <- rep(NA, 100)
+# DecisionFunc <- function(x){
+#   PropDecisionIA2 <- rep(NA, 100)
 # 
 # for (i in 1:100){
-#   if (HR1.1$PropOutcome[i]=="Stop for futility at IA1"){
+#   if (x$PropOutcome[i]=="Stop for futility at IA1"){
 #     PropDecisionIA2[i] <- "Already stopped"
-#   } else if (HR1.1$PropOutcome[i]=="Stop for futility at IA2"){
+#   } else if(x$PropOutcome[i]=="Stop for futility at IA2"){
 #     PropDecisionIA2[i] <- "Stop for futility at IA2"
 #   } else {
 #     PropDecisionIA2[i] <- "Continue"
 #   }
 # }
 # 
-# HR1.1 <- cbind(HR1.1, PropDecisionIA2)
+#   return(PropDecisionIA2)
+# 
+# }
+# 
+# HR1.1 <- cbind(HR1.1, DecisionFunc(HR1.1))
+#
+#
+# saveRDS(HR0.5, file = "Data/HRData/HR0.5.rds")
+# saveRDS(HR0.6, file = "Data/HRData/HR0.6.rds")
+# saveRDS(HR0.7, file = "Data/HRData/HR0.7.rds")
+# saveRDS(HR0.8, file = "Data/HRData/HR0.8.rds")
+# saveRDS(HR0.9, file = "Data/HRData/HR0.9.rds")
+# saveRDS(HR1, file = "Data/HRData/HR1.rds")
+# saveRDS(HR1.1, file = "Data/HRData/HR1.1.rds")
+# 
+# 
+# HR0.5Look1 <- data.frame(Outcome = c(HR0.5$WieandDecisionIA1, HR0.5$OBFDecisionIA1, HR0.5$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.5$WBPP1, HR0.5$OBFBPP1, HR0.5$PropBPP1), ObservedHR = c(HR0.5$WieandOHR1, HR0.5$OBFOHR1, HR0.5$PropOHR1) ,TrueOutcome = rep(HR0.5$FinalOutcome, 3))
+# HR0.6Look1 <- data.frame(Outcome = c(HR0.6$WieandDecisionIA1, HR0.6$OBFDecisionIA1, HR0.6$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.6$WBPP1, HR0.6$OBFBPP1, HR0.6$PropBPP1), ObservedHR = c(HR0.6$WieandOHR1, HR0.6$OBFOHR1, HR0.6$PropOHR1) ,TrueOutcome = rep(HR0.6$FinalOutcome, 3))
+# HR0.7Look1 <- data.frame(Outcome = c(HR0.7$WieandDecisionIA1, HR0.7$OBFDecisionIA1, HR0.7$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.7$WBPP1, HR0.7$OBFBPP1, HR0.7$PropBPP1), ObservedHR = c(HR0.7$WieandOHR1, HR0.7$OBFOHR1, HR0.7$PropOHR1) ,TrueOutcome = rep(HR0.7$FinalOutcome, 3))
+# HR0.8Look1 <- data.frame(Outcome = c(HR0.8$WieandDecisionIA1, HR0.8$OBFDecisionIA1, HR0.8$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.8$WBPP1, HR0.8$OBFBPP1, HR0.8$PropBPP1), ObservedHR = c(HR0.8$WieandOHR1, HR0.8$OBFOHR1, HR0.8$PropOHR1) ,TrueOutcome = rep(HR0.8$FinalOutcome, 3))
+# HR0.9Look1 <- data.frame(Outcome = c(HR0.9$WieandDecisionIA1, HR0.9$OBFDecisionIA1, HR0.9$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.9$WBPP1, HR0.9$OBFBPP1, HR0.9$PropBPP1), ObservedHR = c(HR0.9$WieandOHR1, HR0.9$OBFOHR1, HR0.9$PropOHR1) ,TrueOutcome = rep(HR0.9$FinalOutcome, 3))
+# HR1Look1 <- data.frame(Outcome = c(HR1$WieandDecisionIA1, HR1$OBFDecisionIA1, HR1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1$WBPP1, HR1$OBFBPP1, HR1$PropBPP1), ObservedHR = c(HR1$WieandOHR1, HR1$OBFOHR1, HR1$PropOHR1) ,TrueOutcome = rep(HR1$FinalOutcome, 3))
+# HR1.1Look1 <- data.frame(Outcome = c(HR1.1$WieandDecisionIA1, HR1.1$OBFDecisionIA1, HR1.1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1.1$WBPP1, HR1.1$OBFBPP1, HR1.1$PropBPP1), ObservedHR = c(HR1.1$WieandOHR1, HR1.1$OBFOHR1, HR1.1$PropOHR1) ,TrueOutcome = rep(HR1.1$FinalOutcome, 3))
+# 
+# 
+# saveRDS(HR0.5Look1, file = "Data/Look1Data/HR0.5Look1.rds")
+# saveRDS(HR0.6Look1, file = "Data/Look1Data/HR0.6Look1.rds")
+# saveRDS(HR0.7Look1, file = "Data/Look1Data/HR0.7Look1.rds")
+# saveRDS(HR0.8Look1, file = "Data/Look1Data/HR0.8Look1.rds")
+# saveRDS(HR0.9Look1, file = "Data/Look1Data/HR0.9Look1.rds")
+# saveRDS(HR1Look1, file = "Data/Look1Data/HR1Look1.rds")
+# saveRDS(HR1.1Look1, file = "Data/Look1Data/HR1.1Look1.rds")
 
-getwd()
-
-
-#HR0.7 = subset(HR0.7, select = -WieandDecisionIA2)
-
-# saveRDS(HR0.5, file = "Data/HROriginal/HR0.5.rds")
-# saveRDS(HR0.6, file = "Data/HROriginal/HR0.6.rds")
-# saveRDS(HR0.7, file = "Data/HROriginal/HR0.7.rds")
-# saveRDS(HR0.8, file = "Data/HROriginal/HR0.8.rds")
-# saveRDS(HR0.9, file = "Data/HROriginal/HR0.9.rds")
-# saveRDS(HR1, file = "Data/HROriginal/HR1.rds")
-# saveRDS(HR1.1, file = "Data/HROriginal/HR1.1.rds")
-
-
-# HR0.5Look1 <- data.frame(Outcome = c(HR0.5$WieandDecisionIA1, HR0.5$OBFDecisionIA1, HR0.5$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.5$WBPP1, HR0.5$OBFBPP1, HR0.5$PropBPP1), ObservedHR = c(HR0.5$WieandOHR1, HR0.5$OBFOHR1, HR0.5$PropOHR1))
-# HR0.6Look1 <- data.frame(Outcome = c(HR0.6$WieandDecisionIA1, HR0.6$OBFDecisionIA1, HR0.6$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.6$WBPP1, HR0.6$OBFBPP1, HR0.6$PropBPP1), ObservedHR = c(HR0.6$WieandOHR1, HR0.6$OBFOHR1, HR0.6$PropOHR1))
-# HR0.7Look1 <- data.frame(Outcome = c(HR0.7$WieandDecisionIA1, HR0.7$OBFDecisionIA1, HR0.7$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.7$WBPP1, HR0.7$OBFBPP1, HR0.7$PropBPP1), ObservedHR = c(HR0.7$WieandOHR1, HR0.7$OBFOHR1, HR0.7$PropOHR1))
-# HR0.8Look1 <- data.frame(Outcome = c(HR0.8$WieandDecisionIA1, HR0.8$OBFDecisionIA1, HR0.8$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.8$WBPP1, HR0.8$OBFBPP1, HR0.8$PropBPP1), ObservedHR = c(HR0.8$WieandOHR1, HR0.8$OBFOHR1, HR0.8$PropOHR1))
-# HR0.9Look1 <- data.frame(Outcome = c(HR0.9$WieandDecisionIA1, HR0.9$OBFDecisionIA1, HR0.9$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.9$WBPP1, HR0.9$OBFBPP1, HR0.9$PropBPP1), ObservedHR = c(HR0.9$WieandOHR1, HR0.9$OBFOHR1, HR0.9$PropOHR1))
-# HR1Look1 <- data.frame(Outcome = c(HR1$WieandDecisionIA1, HR1$OBFDecisionIA1, HR1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1$WBPP1, HR1$OBFBPP1, HR1$PropBPP1), ObservedHR = c(HR1$WieandOHR1, HR1$OBFOHR1, HR1$PropOHR1))
-# HR1.1Look1 <- data.frame(Outcome = c(HR1.1$WieandDecisionIA1, HR1.1$OBFDecisionIA1, HR1.1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1.1$WBPP1, HR1.1$OBFBPP1, HR1.1$PropBPP1), ObservedHR = c(HR1.1$WieandOHR1, HR1.1$OBFOHR1, HR1.1$PropOHR1))
-
-saveRDS(HR0.5Look1, file = "Data/HRLook1Data/HR0.5Look1.rds")
-saveRDS(HR0.6Look1, file = "Data/HRLook1Data/HR0.6Look1.rds")
-saveRDS(HR0.7Look1, file = "Data/HRLook1Data/HR0.7Look1.rds")
-saveRDS(HR0.8Look1, file = "Data/HRLook1Data/HR0.8Look1.rds")
-saveRDS(HR0.9Look1, file = "Data/HRLook1Data/HR0.9Look1.rds")
-saveRDS(HR1Look1, file = "Data/HRLook1Data/HR1Look1.rds")
-saveRDS(HR1.1Look1, file = "Data/HRLook1Data/HR1.1Look1.rds")
-
-
-
-
-
+#Look 1
 p <- list()
 for (i in 1:length(HRVec)){
- p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look1"))) + geom_point(aes(x = ObservedHR, y = BPP, color = Rule, shape = Outcome)) + ylim(0,1) + xlab("Observed HR at IA1") + xlim(0,2) + geom_vline(xintercept = 1, color = "red", lty = 2) + geom_hline(yintercept = 0.65, lty = 3, show.legend = T) +  ggtitle(paste0("HR = ", HRVec[i]))
+ p[[i]] <- ggplot(get(paste0("HR", HRVec[i], "Look1"))) + geom_point(aes(x = ObservedHR, y = BPP, color = TrueOutcome, shape = Outcome)) + ylim(0,1) + xlab("Observed HR at IA1") + xlim(0,2) + geom_vline(xintercept = 1, color = "red", lty = 2) + geom_hline(yintercept = 0.65, lty = 3, show.legend = T) +  ggtitle(paste0("HR = ", HRVec[i]))
 }
 
 
@@ -2287,6 +2085,779 @@ png("HRLook1.png", units="in", width=32, height=15, res=700)
 do.call(grid.arrange, p)
 dev.off()
 
+```
+
+
+```{r}
+#This data creates the ROC curve
+
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+
+
+WTN <- 0
+WFP <- 0
+WFN <- 0
+WTP <- 0
+
+OBFTN <- 0
+OBFFP <- 0
+OBFFN <- 0
+OBFTP <- 0
+
+PTN <- 0
+PFP <- 0
+PFN <- 0
+PTP <- 0
+
+#Do this for 0.5
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.5Look1$Outcome[i]=="Continue"){
+  if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.5Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.5Look1$Outcome[i]=="Continue"){
+  if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.5Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.5Look1$Outcome[i]=="Continue"){
+  if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.5Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.6
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.6Look1$Outcome[i]=="Continue"){
+  if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.6Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.6Look1$Outcome[i]=="Continue"){
+  if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.6Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.6Look1$Outcome[i]=="Continue"){
+  if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.6Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.7Look1$Outcome[i]=="Continue"){
+  if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.7Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.7Look1$Outcome[i]=="Continue"){
+  if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.7Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.7Look1$Outcome[i]=="Continue"){
+  if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.7Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.8Look1$Outcome[i]=="Continue"){
+  if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.8Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.8Look1$Outcome[i]=="Continue"){
+  if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.8Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.8Look1$Outcome[i]=="Continue"){
+  if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.8Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.9Look1$Outcome[i]=="Continue"){
+  if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.9Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.9Look1$Outcome[i]=="Continue"){
+  if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.9Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.9Look1$Outcome[i]=="Continue"){
+  if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.9Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR1Look1$Outcome[i]=="Continue"){
+  if (HR1Look1$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR1Look1$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR1Look1$Outcome[i]=="Continue"){
+  if (HR1Look1$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR1Look1$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR1Look1$Outcome[i]=="Continue"){
+  if (HR1Look1$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR1Look1$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR1.1Look1$Outcome[i]=="Continue"){
+  if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR1.1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR1.1Look1$Outcome[i]=="Continue"){
+  if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR1.1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR1.1Look1$Outcome[i]=="Continue"){
+  if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR1.1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+
+
+WDF <- data.frame(Stop = c(WTN, WFN), Continue = c(WFP, WTP), row.names = c("Not successful", "Successful"))
+OBFDF <- data.frame(Stop = c(OBFTN, OBFFN), Continue = c(OBFFP, OBFTP), row.names = c("Not successful", "Successful"))
+PDF <- data.frame(Stop = c(PTN, PFN), Continue = c(PFP, PTP), row.names = c("Not successful", "Successful"))
+
+WPercentDF <- data.frame(Stop = c(WTN/(WTN+WFN), WFN/(WTN+WFN)), Continue = c(WFP/(WFP+WTP), WTP/(WFP+WTP)), row.names = c("Not successful", "Successful"))
+OBFPercentDF <- data.frame(Stop = c(OBFTN/(OBFTN+OBFFN), OBFFN/(OBFTN+OBFFN)), Continue = c(OBFFP/(OBFFP+OBFTP), OBFTP/(OBFFP+OBFTP)), row.names = c("Not successful", "Successful"))
+PPercentDF <- data.frame(Stop = c(PTN/(PTN+PFN), PFN/(PTN+PFN)), Continue = c(PFP/(PFP+PTP), PTP/(PFP+PTP)), row.names = c("Not successful", "Successful"))
+
+
+
+
+WSensitivity <- WTP/(WTP+WFN)
+WSpecificity <- WFP/(WFP + WTN)
+
+OBFSensitivity <- OBFTP/(OBFTP+OBFFN)
+OBFSpecificity <- OBFFP/(OBFFP + OBFTN)
+
+PSensitivity <- PTP/(PTP+PFN)
+PSpecificity <- PFP/(PFP + PTN)
+
+
+BPPValVec <- seq(0, 1, by=0.05) 
+
+BPPSensVec <- rep(NA, length(BPPValVec))
+BPPSpecVec <- rep(NA, length(BPPValVec))
+
+
+
+for (j in 1:length(BPPValVec)){
+  HR0.5Look1New <- HR0.5Look1
+HR0.6Look1New <- HR0.6Look1
+HR0.7Look1New <- HR0.7Look1
+HR0.8Look1New <- HR0.8Look1
+HR0.9Look1New <- HR0.9Look1
+HR1Look1New <- HR1Look1
+HR1.1Look1New <- HR1.1Look1
+
+HR0.5Look1New <- HR0.5Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.6Look1New <- HR0.6Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.7Look1New <- HR0.7Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.8Look1New <- HR0.8Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.9Look1New <- HR0.9Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR1Look1New <- HR1Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR1.1Look1New <- HR1.1Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+
+
+BPPTN <- 0
+BPPFP <- 0
+BPPFN <- 0
+BPPTP <- 0
+
+#Do this for 0.5
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.5Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.5Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.6
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.6Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.6Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.7Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.7Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.8Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.8Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.9Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.9Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR1Look1New$BPPOutcome[i]=="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR1Look1New$BPPOutcome[i]=="Stop"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR1.1Look1New$BPPOutcome[i]=="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR1.1Look1New$BPPOutcome[i]=="Stop"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+BPPSensVec[j] <- BPPTP/(BPPTP+BPPFN)
+BPPSpecVec[j] <- BPPFP/(BPPFP + BPPTN)
+}
+
+
+
+
+
+
+
+
+
+png("HRLook1ROC.png", units="in", width=32, height=15, res=700)
+plot(WSpecificity, WSensitivity,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "yellow")
+points(OBFSpecificity, OBFSensitivity, col = "blue", pch = 19)
+points(PSpecificity, PSensitivity, col= "red", pch = 19)
+points(BPPSpecVec, BPPSensVec, col = "green", pch = 19)
+legend("bottomright", legend  = c("Wieand and Proposed", "OBF", "BPP"), col = c("red", "blue", "green"), pch = 19)
+dev.off()
+
+
+
+
 
 
 
@@ -2294,6 +2865,3 @@ dev.off()
 
 
 ```
-
-
-
