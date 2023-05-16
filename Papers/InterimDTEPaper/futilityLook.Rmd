@@ -2618,6 +2618,14 @@ WPercentDF <- data.frame(Stop = c(WTN/(WTN+WFN), WFN/(WTN+WFN)), Continue = c(WF
 OBFPercentDF <- data.frame(Stop = c(OBFTN/(OBFTN+OBFFN), OBFFN/(OBFTN+OBFFN)), Continue = c(OBFFP/(OBFFP+OBFTP), OBFTP/(OBFFP+OBFTP)), row.names = c("Not successful", "Successful"))
 PPercentDF <- data.frame(Stop = c(PTN/(PTN+PFN), PFN/(PTN+PFN)), Continue = c(PFP/(PFP+PTP), PTP/(PFP+PTP)), row.names = c("Not successful", "Successful"))
 
+WDF
+OBFDF
+PDF
+
+```
+
+
+```{r}
 
 
 
@@ -2630,6 +2638,18 @@ OBFSpecificity <- OBFFP/(OBFFP + OBFTN)
 PSensitivity <- PTP/(PTP+PFN)
 PSpecificity <- PFP/(PFP + PTN)
 
+xfun <- function(x){x}
+
+plot(WSpecificity, WSensitivity,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "yellow")
+points(OBFSpecificity, OBFSensitivity, col = "blue", pch = 19)
+points(PSpecificity, PSensitivity, col= "red", pch = 19)
+curve(xfun, from = 0, to = 1, add = T, lty = 2)
+legend("bottomright", legend  = c("Wieand and Proposed", "OBF"), col = c("red", "blue"), pch = 19)
+
+
+```
+
+```{r}
 
 BPPValVec <- seq(0, 1, by=0.05) 
 
@@ -2847,14 +2867,27 @@ BPPSpecVec[j] <- BPPFP/(BPPFP + BPPTN)
 
 
 
-png("HRLook1ROC.png", units="in", width=32, height=15, res=700)
+#png("HRLook1ROC.png", units="in", width=32, height=15, res=700)
 plot(WSpecificity, WSensitivity,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "yellow")
 points(OBFSpecificity, OBFSensitivity, col = "blue", pch = 19)
 points(PSpecificity, PSensitivity, col= "red", pch = 19)
 points(BPPSpecVec, BPPSensVec, col = "green", pch = 19)
+curve(xfun, from = 0, to = 1, add = T, lty = 2)
 legend("bottomright", legend  = c("Wieand and Proposed", "OBF", "BPP"), col = c("red", "blue", "green"), pch = 19)
-dev.off()
+#dev.off()
 
+
+
+
+
+
+
+```
+
+
+Look at including the second IA too?
+
+```{r}
 
 
 
