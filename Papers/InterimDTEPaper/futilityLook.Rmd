@@ -2056,22 +2056,22 @@ for (i in 1:length(HRVec)){
 # saveRDS(HR1.1, file = "Data/HRData/HR1.1.rds")
 # 
 # 
-# HR0.5Look1 <- data.frame(Outcome = c(HR0.5$WieandDecisionIA1, HR0.5$OBFDecisionIA1, HR0.5$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.5$WBPP1, HR0.5$OBFBPP1, HR0.5$PropBPP1), ObservedHR = c(HR0.5$WieandOHR1, HR0.5$OBFOHR1, HR0.5$PropOHR1) ,TrueOutcome = rep(HR0.5$FinalOutcome, 3))
-# HR0.6Look1 <- data.frame(Outcome = c(HR0.6$WieandDecisionIA1, HR0.6$OBFDecisionIA1, HR0.6$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.6$WBPP1, HR0.6$OBFBPP1, HR0.6$PropBPP1), ObservedHR = c(HR0.6$WieandOHR1, HR0.6$OBFOHR1, HR0.6$PropOHR1) ,TrueOutcome = rep(HR0.6$FinalOutcome, 3))
-# HR0.7Look1 <- data.frame(Outcome = c(HR0.7$WieandDecisionIA1, HR0.7$OBFDecisionIA1, HR0.7$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.7$WBPP1, HR0.7$OBFBPP1, HR0.7$PropBPP1), ObservedHR = c(HR0.7$WieandOHR1, HR0.7$OBFOHR1, HR0.7$PropOHR1) ,TrueOutcome = rep(HR0.7$FinalOutcome, 3))
-# HR0.8Look1 <- data.frame(Outcome = c(HR0.8$WieandDecisionIA1, HR0.8$OBFDecisionIA1, HR0.8$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.8$WBPP1, HR0.8$OBFBPP1, HR0.8$PropBPP1), ObservedHR = c(HR0.8$WieandOHR1, HR0.8$OBFOHR1, HR0.8$PropOHR1) ,TrueOutcome = rep(HR0.8$FinalOutcome, 3))
-# HR0.9Look1 <- data.frame(Outcome = c(HR0.9$WieandDecisionIA1, HR0.9$OBFDecisionIA1, HR0.9$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.9$WBPP1, HR0.9$OBFBPP1, HR0.9$PropBPP1), ObservedHR = c(HR0.9$WieandOHR1, HR0.9$OBFOHR1, HR0.9$PropOHR1) ,TrueOutcome = rep(HR0.9$FinalOutcome, 3))
-# HR1Look1 <- data.frame(Outcome = c(HR1$WieandDecisionIA1, HR1$OBFDecisionIA1, HR1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1$WBPP1, HR1$OBFBPP1, HR1$PropBPP1), ObservedHR = c(HR1$WieandOHR1, HR1$OBFOHR1, HR1$PropOHR1) ,TrueOutcome = rep(HR1$FinalOutcome, 3))
-# HR1.1Look1 <- data.frame(Outcome = c(HR1.1$WieandDecisionIA1, HR1.1$OBFDecisionIA1, HR1.1$PropDecisionIA1), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1.1$WBPP1, HR1.1$OBFBPP1, HR1.1$PropBPP1), ObservedHR = c(HR1.1$WieandOHR1, HR1.1$OBFOHR1, HR1.1$PropOHR1) ,TrueOutcome = rep(HR1.1$FinalOutcome, 3))
+# HR0.5Look2 <- data.frame(Outcome = c(HR0.5$WieandDecisionIA2, HR0.5$OBFDecisionIA2, HR0.5$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.5$WBPP2, HR0.5$OBFBPP2, HR0.5$PropBPP2), ObservedHR = c(HR0.5$WieandOHR2, HR0.5$OBFOHR2, HR0.5$PropOHR2) ,TrueOutcome = rep(HR0.5$FinalOutcome, 3))
+# HR0.6Look2 <- data.frame(Outcome = c(HR0.6$WieandDecisionIA2, HR0.6$OBFDecisionIA2, HR0.6$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.6$WBPP2, HR0.6$OBFBPP2, HR0.6$PropBPP2), ObservedHR = c(HR0.6$WieandOHR2, HR0.6$OBFOHR2, HR0.6$PropOHR2) ,TrueOutcome = rep(HR0.6$FinalOutcome, 3))
+# HR0.7Look2 <- data.frame(Outcome = c(HR0.7$WieandDecisionIA2, HR0.7$OBFDecisionIA2, HR0.7$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.7$WBPP2, HR0.7$OBFBPP2, HR0.7$PropBPP2), ObservedHR = c(HR0.7$WieandOHR2, HR0.7$OBFOHR2, HR0.7$PropOHR2) ,TrueOutcome = rep(HR0.7$FinalOutcome, 3))
+# HR0.8Look2 <- data.frame(Outcome = c(HR0.8$WieandDecisionIA2, HR0.8$OBFDecisionIA2, HR0.8$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.8$WBPP2, HR0.8$OBFBPP2, HR0.8$PropBPP2), ObservedHR = c(HR0.8$WieandOHR2, HR0.8$OBFOHR2, HR0.8$PropOHR2) ,TrueOutcome = rep(HR0.8$FinalOutcome, 3))
+# HR0.9Look2 <- data.frame(Outcome = c(HR0.9$WieandDecisionIA2, HR0.9$OBFDecisionIA2, HR0.9$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR0.9$WBPP2, HR0.9$OBFBPP2, HR0.9$PropBPP2), ObservedHR = c(HR0.9$WieandOHR2, HR0.9$OBFOHR2, HR0.9$PropOHR2) ,TrueOutcome = rep(HR0.9$FinalOutcome, 3))
+# HR1Look2 <- data.frame(Outcome = c(HR1$WieandDecisionIA2, HR1$OBFDecisionIA2, HR1$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1$WBPP2, HR1$OBFBPP2, HR1$PropBPP2), ObservedHR = c(HR1$WieandOHR2, HR1$OBFOHR2, HR1$PropOHR2) ,TrueOutcome = rep(HR1$FinalOutcome, 3))
+# HR1.1Look2 <- data.frame(Outcome = c(HR1.1$WieandDecisionIA2, HR1.1$OBFDecisionIA2, HR1.1$PropDecisionIA2), Rule = c(rep("Wieand", 100), rep("OBF", 100), rep("Proposed", 100)), BPP = c(HR1.1$WBPP2, HR1.1$OBFBPP2, HR1.1$PropBPP2), ObservedHR = c(HR1.1$WieandOHR2, HR1.1$OBFOHR2, HR1.1$PropOHR2) ,TrueOutcome = rep(HR1.1$FinalOutcome, 3))
 # 
 # 
-# saveRDS(HR0.5Look1, file = "Data/Look1Data/HR0.5Look1.rds")
-# saveRDS(HR0.6Look1, file = "Data/Look1Data/HR0.6Look1.rds")
-# saveRDS(HR0.7Look1, file = "Data/Look1Data/HR0.7Look1.rds")
-# saveRDS(HR0.8Look1, file = "Data/Look1Data/HR0.8Look1.rds")
-# saveRDS(HR0.9Look1, file = "Data/Look1Data/HR0.9Look1.rds")
-# saveRDS(HR1Look1, file = "Data/Look1Data/HR1Look1.rds")
-# saveRDS(HR1.1Look1, file = "Data/Look1Data/HR1.1Look1.rds")
+# saveRDS(HR0.5Look2, file = "Data/Look2Data/HR0.5Look2.rds")
+# saveRDS(HR0.6Look2, file = "Data/Look2Data/HR0.6Look2.rds")
+# saveRDS(HR0.7Look2, file = "Data/Look2Data/HR0.7Look2.rds")
+# saveRDS(HR0.8Look2, file = "Data/Look2Data/HR0.8Look2.rds")
+# saveRDS(HR0.9Look2, file = "Data/Look2Data/HR0.9Look2.rds")
+# saveRDS(HR1Look2, file = "Data/Look2Data/HR1Look2.rds")
+# saveRDS(HR1.1Look2, file = "Data/Look2Data/HR1.1Look2.rds")
 
 #Look 1
 p <- list()
@@ -2133,7 +2133,7 @@ for (i in 1:100){
 
 #If prediction is negative
 for (i in 1:100){
-  if(HR0.5Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.5Look1$Outcome[i]!="Continue"){
   if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
     WFN <- WFN + 1
   } else{
@@ -2156,7 +2156,7 @@ for (i in 101:200){
 
 #If prediction is negative
 for (i in 101:200){
-  if(HR0.5Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.5Look1$Outcome[i]!="Continue"){
   if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
     OBFFN <- OBFFN + 1
   } else{
@@ -2179,7 +2179,7 @@ for (i in 201:300){
 
 #If prediction is negative
 for (i in 201:300){
-  if(HR0.5Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.5Look1$Outcome[i]!="Continue"){
   if (HR0.5Look1$TrueOutcome[i]=="Successful trial"){
     PFN <- PFN + 1
   } else{
@@ -2203,7 +2203,7 @@ for (i in 1:100){
 
 #If prediction is negative
 for (i in 1:100){
-  if(HR0.6Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.6Look1$Outcome[i]!="Continue"){
   if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
     WFN <- WFN + 1
   } else{
@@ -2226,7 +2226,7 @@ for (i in 101:200){
 
 #If prediction is negative
 for (i in 101:200){
-  if(HR0.6Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.6Look1$Outcome[i]!="Continue"){
   if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
     OBFFN <- OBFFN + 1
   } else{
@@ -2249,7 +2249,7 @@ for (i in 201:300){
 
 #If prediction is negative
 for (i in 201:300){
-  if(HR0.6Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.6Look1$Outcome[i]!="Continue"){
   if (HR0.6Look1$TrueOutcome[i]=="Successful trial"){
     PFN <- PFN + 1
   } else{
@@ -2273,7 +2273,7 @@ for (i in 1:100){
 
 #If prediction is negative
 for (i in 1:100){
-  if(HR0.7Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.7Look1$Outcome[i]!="Continue"){
   if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
     WFN <- WFN + 1
   } else{
@@ -2296,7 +2296,7 @@ for (i in 101:200){
 
 #If prediction is negative
 for (i in 101:200){
-  if(HR0.7Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.7Look1$Outcome[i]!="Continue"){
   if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
     OBFFN <- OBFFN + 1
   } else{
@@ -2319,7 +2319,7 @@ for (i in 201:300){
 
 #If prediction is negative
 for (i in 201:300){
-  if(HR0.7Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.7Look1$Outcome[i]!="Continue"){
   if (HR0.7Look1$TrueOutcome[i]=="Successful trial"){
     PFN <- PFN + 1
   } else{
@@ -2343,7 +2343,7 @@ for (i in 1:100){
 
 #If prediction is negative
 for (i in 1:100){
-  if(HR0.8Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.8Look1$Outcome[i]!="Continue"){
   if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
     WFN <- WFN + 1
   } else{
@@ -2366,7 +2366,7 @@ for (i in 101:200){
 
 #If prediction is negative
 for (i in 101:200){
-  if(HR0.8Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.8Look1$Outcome[i]!="Continue"){
   if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
     OBFFN <- OBFFN + 1
   } else{
@@ -2389,7 +2389,7 @@ for (i in 201:300){
 
 #If prediction is negative
 for (i in 201:300){
-  if(HR0.8Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.8Look1$Outcome[i]!="Continue"){
   if (HR0.8Look1$TrueOutcome[i]=="Successful trial"){
     PFN <- PFN + 1
   } else{
@@ -2413,7 +2413,7 @@ for (i in 1:100){
 
 #If prediction is negative
 for (i in 1:100){
-  if(HR0.9Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.9Look1$Outcome[i]!="Continue"){
   if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
     WFN <- WFN + 1
   } else{
@@ -2436,7 +2436,7 @@ for (i in 101:200){
 
 #If prediction is negative
 for (i in 101:200){
-  if(HR0.9Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.9Look1$Outcome[i]!="Continue"){
   if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
     OBFFN <- OBFFN + 1
   } else{
@@ -2459,7 +2459,7 @@ for (i in 201:300){
 
 #If prediction is negative
 for (i in 201:300){
-  if(HR0.9Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR0.9Look1$Outcome[i]!="Continue"){
   if (HR0.9Look1$TrueOutcome[i]=="Successful trial"){
     PFN <- PFN + 1
   } else{
@@ -2483,7 +2483,7 @@ for (i in 1:100){
 
 #If prediction is negative
 for (i in 1:100){
-  if(HR1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR1Look1$Outcome[i]!="Continue"){
   if (HR1Look1$TrueOutcome[i]=="Successful trial"){
     WFN <- WFN + 1
   } else{
@@ -2506,7 +2506,7 @@ for (i in 101:200){
 
 #If prediction is negative
 for (i in 101:200){
-  if(HR1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR1Look1$Outcome[i]!="Continue"){
   if (HR1Look1$TrueOutcome[i]=="Successful trial"){
     OBFFN <- OBFFN + 1
   } else{
@@ -2529,7 +2529,7 @@ for (i in 201:300){
 
 #If prediction is negative
 for (i in 201:300){
-  if(HR1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR1Look1$Outcome[i]!="Continue"){
   if (HR1Look1$TrueOutcome[i]=="Successful trial"){
     PFN <- PFN + 1
   } else{
@@ -2553,7 +2553,7 @@ for (i in 1:100){
 
 #If prediction is negative
 for (i in 1:100){
-  if(HR1.1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR1.1Look1$Outcome[i]!="Continue"){
   if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
     WFN <- WFN + 1
   } else{
@@ -2576,7 +2576,7 @@ for (i in 101:200){
 
 #If prediction is negative
 for (i in 101:200){
-  if(HR1.1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR1.1Look1$Outcome[i]!="Continue"){
   if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
     OBFFN <- OBFFN + 1
   } else{
@@ -2599,7 +2599,7 @@ for (i in 201:300){
 
 #If prediction is negative
 for (i in 201:300){
-  if(HR1.1Look1$Outcome[i]=="Stop for futility at IA1"){
+  if(HR1.1Look1$Outcome[i]!="Continue"){
   if (HR1.1Look1$TrueOutcome[i]=="Successful trial"){
     PFN <- PFN + 1
   } else{
@@ -2888,8 +2888,793 @@ legend("bottomright", legend  = c("Wieand and Proposed", "OBF", "BPP"), col = c(
 Look at including the second IA too?
 
 ```{r}
+#This data creates the ROC curve
+
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
 
 
+WTN <- 0
+WFP <- 0
+WFN <- 0
+WTP <- 0
+
+OBFTN <- 0
+OBFFP <- 0
+OBFFN <- 0
+OBFTP <- 0
+
+PTN <- 0
+PFP <- 0
+PFN <- 0
+PTP <- 0
+
+#Do this for 0.5
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.5Look2$Outcome[i]=="Continue"){
+  if (HR0.5Look2$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.5Look2$Outcome[i]!="Continue"){
+  if (HR0.5Look2$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.5Look2$Outcome[i]=="Continue"){
+  if (HR0.5Look2$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.5Look2$Outcome[i]!="Continue"){
+  if (HR0.5Look2$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.5Look2$Outcome[i]=="Continue"){
+  if (HR0.5Look2$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.5Look2$Outcome[i]!="Continue"){
+  if (HR0.5Look2$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.6
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.6Look2$Outcome[i]=="Continue"){
+  if (HR0.6Look2$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.6Look2$Outcome[i]!="Continue"){
+  if (HR0.6Look2$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.6Look2$Outcome[i]=="Continue"){
+  if (HR0.6Look2$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.6Look2$Outcome[i]!="Continue"){
+  if (HR0.6Look2$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.6Look2$Outcome[i]=="Continue"){
+  if (HR0.6Look2$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.6Look2$Outcome[i]!="Continue"){
+  if (HR0.6Look2$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.7Look2$Outcome[i]=="Continue"){
+  if (HR0.7Look2$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.7Look2$Outcome[i]!="Continue"){
+  if (HR0.7Look2$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.7Look2$Outcome[i]=="Continue"){
+  if (HR0.7Look2$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.7Look2$Outcome[i]!="Continue"){
+  if (HR0.7Look2$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.7Look2$Outcome[i]=="Continue"){
+  if (HR0.7Look2$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.7Look2$Outcome[i]!="Continue"){
+  if (HR0.7Look2$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.8Look2$Outcome[i]=="Continue"){
+  if (HR0.8Look2$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.8Look2$Outcome[i]!="Continue"){
+  if (HR0.8Look2$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.8Look2$Outcome[i]=="Continue"){
+  if (HR0.8Look2$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.8Look2$Outcome[i]!="Continue"){
+  if (HR0.8Look2$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.8Look2$Outcome[i]=="Continue"){
+  if (HR0.8Look2$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.8Look2$Outcome[i]!="Continue"){
+  if (HR0.8Look2$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR0.9Look2$Outcome[i]=="Continue"){
+  if (HR0.9Look2$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR0.9Look2$Outcome[i]!="Continue"){
+  if (HR0.9Look2$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR0.9Look2$Outcome[i]=="Continue"){
+  if (HR0.9Look2$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR0.9Look2$Outcome[i]!="Continue"){
+  if (HR0.9Look2$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR0.9Look2$Outcome[i]=="Continue"){
+  if (HR0.9Look2$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR0.9Look2$Outcome[i]!="Continue"){
+  if (HR0.9Look2$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR1Look2$Outcome[i]=="Continue"){
+  if (HR1Look2$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR1Look2$Outcome[i]!="Continue"){
+  if (HR1Look2$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR1Look2$Outcome[i]=="Continue"){
+  if (HR1Look2$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR1Look2$Outcome[i]!="Continue"){
+  if (HR1Look2$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR1Look2$Outcome[i]=="Continue"){
+  if (HR1Look2$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR1Look2$Outcome[i]!="Continue"){
+  if (HR1Look2$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for Wieand
+#If prediction is positive
+for (i in 1:100){
+  if(HR1.1Look2$Outcome[i]=="Continue"){
+  if (HR1.1Look2$TrueOutcome[i]=="Successful trial"){
+    WTP <- WTP + 1
+  } else{
+    WFP <- WFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:100){
+  if(HR1.1Look2$Outcome[i]!="Continue"){
+  if (HR1.1Look2$TrueOutcome[i]=="Successful trial"){
+    WFN <- WFN + 1
+  } else{
+    WTN <- WTN + 1
+  }
+}
+}
+
+#Do this for OBF
+#If prediction is positive
+for (i in 101:200){
+  if(HR1.1Look2$Outcome[i]=="Continue"){
+  if (HR1.1Look2$TrueOutcome[i]=="Successful trial"){
+    OBFTP <- OBFTP + 1
+  } else{
+    OBFFP <- OBFFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 101:200){
+  if(HR1.1Look2$Outcome[i]!="Continue"){
+  if (HR1.1Look2$TrueOutcome[i]=="Successful trial"){
+    OBFFN <- OBFFN + 1
+  } else{
+    OBFTN <- OBFTN + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If prediction is positive
+for (i in 201:300){
+  if(HR1.1Look2$Outcome[i]=="Continue"){
+  if (HR1.1Look2$TrueOutcome[i]=="Successful trial"){
+    PTP <- PTP + 1
+  } else{
+    PFP <- PFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 201:300){
+  if(HR1.1Look2$Outcome[i]!="Continue"){
+  if (HR1.1Look2$TrueOutcome[i]=="Successful trial"){
+    PFN <- PFN + 1
+  } else{
+    PTN <- PTN + 1
+  }
+}
+}
+
+
+
+WDF <- data.frame(Stop = c(WTN, WFN), Continue = c(WFP, WTP), row.names = c("Not successful", "Successful"))
+OBFDF <- data.frame(Stop = c(OBFTN, OBFFN), Continue = c(OBFFP, OBFTP), row.names = c("Not successful", "Successful"))
+PDF <- data.frame(Stop = c(PTN, PFN), Continue = c(PFP, PTP), row.names = c("Not successful", "Successful"))
+
+WPercentDF <- data.frame(Stop = c(WTN/(WTN+WFN), WFN/(WTN+WFN)), Continue = c(WFP/(WFP+WTP), WTP/(WFP+WTP)), row.names = c("Not successful", "Successful"))
+OBFPercentDF <- data.frame(Stop = c(OBFTN/(OBFTN+OBFFN), OBFFN/(OBFTN+OBFFN)), Continue = c(OBFFP/(OBFFP+OBFTP), OBFTP/(OBFFP+OBFTP)), row.names = c("Not successful", "Successful"))
+PPercentDF <- data.frame(Stop = c(PTN/(PTN+PFN), PFN/(PTN+PFN)), Continue = c(PFP/(PFP+PTP), PTP/(PFP+PTP)), row.names = c("Not successful", "Successful"))
+
+WDF
+OBFDF
+PDF
+
+```
+
+```{r}
+
+
+
+WSensitivity <- WTP/(WTP+WFN)
+WSpecificity <- WFP/(WFP + WTN)
+
+OBFSensitivity <- OBFTP/(OBFTP+OBFFN)
+OBFSpecificity <- OBFFP/(OBFFP + OBFTN)
+
+PSensitivity <- PTP/(PTP+PFN)
+PSpecificity <- PFP/(PFP + PTN)
+
+xfun <- function(x){x}
+
+plot(WSpecificity, WSensitivity,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "yellow")
+points(OBFSpecificity, OBFSensitivity, col = "blue", pch = 19)
+points(PSpecificity, PSensitivity, col= "red", pch = 19)
+curve(xfun, from = 0, to = 1, add = T, lty = 2)
+legend("bottomright", legend  = c("Wieand", "OBF", "Proposed"), col = c("yellow", "blue", "red"), pch = 19)
+
+
+```
+
+
+
+
+```{r}
+
+BPPValVec <- seq(0, 1, by=0.05) 
+
+BPPSensVec <- rep(NA, length(BPPValVec))
+BPPSpecVec <- rep(NA, length(BPPValVec))
+
+
+
+for (j in 1:length(BPPValVec)){
+  HR0.5Look1New <- HR0.5Look1
+HR0.6Look1New <- HR0.6Look1
+HR0.7Look1New <- HR0.7Look1
+HR0.8Look1New <- HR0.8Look1
+HR0.9Look1New <- HR0.9Look1
+HR1Look1New <- HR1Look1
+HR1.1Look1New <- HR1.1Look1
+
+HR0.5Look1New <- HR0.5Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.6Look1New <- HR0.6Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.7Look1New <- HR0.7Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.8Look1New <- HR0.8Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.9Look1New <- HR0.9Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR1Look1New <- HR1Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR1.1Look1New <- HR1.1Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+
+
+BPPTN <- 0
+BPPFP <- 0
+BPPFN <- 0
+BPPTP <- 0
+
+#Do this for 0.5
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.5Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.5Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.6
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.6Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.6Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.7Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.7Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.8Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.8Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR0.9Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR0.9Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR1Look1New$BPPOutcome[i]=="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR1Look1New$BPPOutcome[i]=="Stop"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for BPP
+#If prediction is positive
+for (i in 1:300){
+  if(HR1.1Look1New$BPPOutcome[i]=="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTP <- BPPTP + 1
+  } else{
+    BPPFP <- BPPFP + 1
+  }
+}
+}
+
+#If prediction is negative
+for (i in 1:300){
+  if(HR1.1Look1New$BPPOutcome[i]=="Stop"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFN <- BPPFN + 1
+  } else{
+    BPPTN <- BPPTN + 1
+  }
+}
+}
+BPPSensVec[j] <- BPPTP/(BPPTP+BPPFN)
+BPPSpecVec[j] <- BPPFP/(BPPFP + BPPTN)
+}
+
+
+
+
+
+
+
+
+
+#png("HRLook1ROC.png", units="in", width=32, height=15, res=700)
+plot(WSpecificity, WSensitivity,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "yellow")
+points(OBFSpecificity, OBFSensitivity, col = "blue", pch = 19)
+points(PSpecificity, PSensitivity, col= "red", pch = 19)
+points(BPPSpecVec, BPPSensVec, col = "green", pch = 19)
+curve(xfun, from = 0, to = 1, add = T, lty = 2)
+legend("bottomright", legend  = c("Wieand and Proposed", "OBF", "BPP"), col = c("red", "blue", "green"), pch = 19)
+#dev.off()
 
 
 
