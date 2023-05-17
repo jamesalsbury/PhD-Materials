@@ -1,0 +1,890 @@
+---
+title: "futilityLook1"
+output: html_document
+date: "2023-05-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+
+OHRValVec <- seq(0.2, 2.2, by=0.005) 
+
+
+WTPRVec <- rep(NA, length(OHRValVec))
+WFPRVec <- rep(NA, length(OHRValVec))
+
+OBFTPRVec <- rep(NA, length(OHRValVec))
+OBFFPRVec <- rep(NA, length(OHRValVec))
+
+PropTPRVec <- rep(NA, length(OHRValVec))
+PropFPRVec <- rep(NA, length(OHRValVec))
+
+for (j in 1:length(OHRValVec)){
+  HR0.5Look1New <- HR0.5Look1
+HR0.6Look1New <- HR0.6Look1
+HR0.7Look1New <- HR0.7Look1
+HR0.8Look1New <- HR0.8Look1
+HR0.9Look1New <- HR0.9Look1
+HR1Look1New <- HR1Look1
+HR1.1Look1New <- HR1.1Look1
+
+HR0.5Look1New <- HR0.5Look1New %>%
+  mutate(RuleOutcome = ifelse(ObservedHR<=OHRValVec[j], "Continue", "Stop"))
+HR0.6Look1New <- HR0.6Look1New %>%
+  mutate(RuleOutcome = ifelse(ObservedHR<=OHRValVec[j], "Continue", "Stop"))
+HR0.7Look1New <- HR0.7Look1New %>%
+  mutate(RuleOutcome = ifelse(ObservedHR<=OHRValVec[j], "Continue", "Stop"))
+HR0.8Look1New <- HR0.8Look1New %>%
+  mutate(RuleOutcome = ifelse(ObservedHR<=OHRValVec[j], "Continue", "Stop"))
+HR0.9Look1New <- HR0.9Look1New %>%
+  mutate(RuleOutcome = ifelse(ObservedHR<=OHRValVec[j], "Continue", "Stop"))
+HR1Look1New <- HR1Look1New %>%
+  mutate(RuleOutcome = ifelse(ObservedHR<=OHRValVec[j], "Continue", "Stop"))
+HR1.1Look1New <- HR1.1Look1New %>%
+  mutate(RuleOutcome = ifelse(ObservedHR<=OHRValVec[j], "Continue", "Stop"))
+
+WTN <- 0
+WFP <- 0
+WFN <- 0
+WTP <- 0
+
+OBFTN <- 0
+OBFFP <- 0
+OBFFN <- 0
+OBFTP <- 0
+
+PTN <- 0
+PFP <- 0
+PFN <- 0
+PTP <- 0
+
+#Do this for 0.5
+#Do this for Wieand
+#If decision is to continue
+for (i in 1:100){
+  if(HR0.5Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 1:100){
+  if(HR0.5Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for OBF
+#If decision is to continue
+for (i in 101:200){
+  if(HR0.5Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFTN <- OBFTN + 1
+  } else {
+    OBFFN <- OBFFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 101:200){
+  if(HR0.5Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFFP <- OBFFP + 1
+  } else{
+    OBFTP <- OBFTP + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If decision is to continue
+for (i in 201:300){
+  if(HR0.5Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    PTN <- PTN + 1
+  } else {
+    PFN <- PFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 201:300){
+  if(HR0.5Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    PFP <- PFP + 1
+  } else{
+    PTP <- PTP + 1
+  }
+}
+}
+
+#Do this for 0.6
+#Do this for Wieand
+#If decision is to continue
+for (i in 1:100){
+  if(HR0.6Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 1:100){
+  if(HR0.6Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for OBF
+#If decision is to continue
+for (i in 101:200){
+  if(HR0.6Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFTN <- OBFTN + 1
+  } else {
+    OBFFN <- OBFFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 101:200){
+  if(HR0.6Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFFP <- OBFFP + 1
+  } else{
+    OBFTP <- OBFTP + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If decision is to continue
+for (i in 201:300){
+  if(HR0.6Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    PTN <- PTN + 1
+  } else {
+    PFN <- PFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 201:300){
+  if(HR0.6Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    PFP <- PFP + 1
+  } else{
+    PTP <- PTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for Wieand
+#If decision is to continue
+for (i in 1:100){
+  if(HR0.7Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 1:100){
+  if(HR0.7Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for OBF
+#If decision is to continue
+for (i in 101:200){
+  if(HR0.7Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFTN <- OBFTN + 1
+  } else {
+    OBFFN <- OBFFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 101:200){
+  if(HR0.7Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFFP <- OBFFP + 1
+  } else{
+    OBFTP <- OBFTP + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If decision is to continue
+for (i in 201:300){
+  if(HR0.7Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    PTN <- PTN + 1
+  } else {
+    PFN <- PFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 201:300){
+  if(HR0.7Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    PFP <- PFP + 1
+  } else{
+    PTP <- PTP + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for Wieand
+#If decision is to continue
+for (i in 1:100){
+  if(HR0.8Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 1:100){
+  if(HR0.8Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for OBF
+#If decision is to continue
+for (i in 101:200){
+  if(HR0.8Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFTN <- OBFTN + 1
+  } else {
+    OBFFN <- OBFFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 101:200){
+  if(HR0.8Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFFP <- OBFFP + 1
+  } else{
+    OBFTP <- OBFTP + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If decision is to continue
+for (i in 201:300){
+  if(HR0.8Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    PTN <- PTN + 1
+  } else {
+    PFN <- PFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 201:300){
+  if(HR0.8Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    PFP <- PFP + 1
+  } else{
+    PTP <- PTP + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for Wieand
+#If decision is to continue
+for (i in 1:100){
+  if(HR0.9Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 1:100){
+  if(HR0.9Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for OBF
+#If decision is to continue
+for (i in 101:200){
+  if(HR0.9Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFTN <- OBFTN + 1
+  } else {
+    OBFFN <- OBFFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 101:200){
+  if(HR0.9Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFFP <- OBFFP + 1
+  } else{
+    OBFTP <- OBFTP + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If decision is to continue
+for (i in 201:300){
+  if(HR0.9Look1New$RuleOutcome[i]=="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    PTN <- PTN + 1
+  } else {
+    PFN <- PFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 201:300){
+  if(HR0.9Look1New$RuleOutcome[i]!="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    PFP <- PFP + 1
+  } else{
+    PTP <- PTP + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for Wieand
+#If decision is to continue
+for (i in 1:100){
+  if(HR1Look1New$RuleOutcome[i]=="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 1:100){
+  if(HR1Look1New$RuleOutcome[i]!="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for OBF
+#If decision is to continue
+for (i in 101:200){
+  if(HR1Look1New$RuleOutcome[i]=="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFTN <- OBFTN + 1
+  } else {
+    OBFFN <- OBFFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 101:200){
+  if(HR1Look1New$RuleOutcome[i]!="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFFP <- OBFFP + 1
+  } else{
+    OBFTP <- OBFTP + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If decision is to continue
+for (i in 201:300){
+  if(HR1Look1New$RuleOutcome[i]=="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    PTN <- PTN + 1
+  } else {
+    PFN <- PFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 201:300){
+  if(HR1Look1New$RuleOutcome[i]!="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    PFP <- PFP + 1
+  } else{
+    PTP <- PTP + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for Wieand
+#If decision is to continue
+for (i in 1:100){
+  if(HR1.1Look1New$RuleOutcome[i]=="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 1:100){
+  if(HR1.1Look1New$RuleOutcome[i]!="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for OBF
+#If decision is to continue
+for (i in 101:200){
+  if(HR1.1Look1New$RuleOutcome[i]=="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFTN <- OBFTN + 1
+  } else {
+    OBFFN <- OBFFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 101:200){
+  if(HR1.1Look1New$RuleOutcome[i]!="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    OBFFP <- OBFFP + 1
+  } else{
+    OBFTP <- OBFTP + 1
+  }
+}
+}
+
+#Do this for Proposed
+#If decision is to continue
+for (i in 201:300){
+  if(HR1.1Look1New$RuleOutcome[i]=="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    PTN <- PTN + 1
+  } else {
+    PFN <- PFN + 1
+  }
+}
+}
+
+#If decision is to stop
+for (i in 201:300){
+  if(HR1.1Look1New$RuleOutcome[i]!="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    PFP <- PFP + 1
+  } else{
+    PTP <- PTP + 1
+  }
+}
+}
+
+
+
+WTPRVec[j] <- WTP/(WTP+WFN)
+WFPRVec[j] <- WFP/(WFP + WTN)
+
+OBFTPRVec[j] <- OBFTP/(OBFTP+OBFFN)
+OBFFPRVec[j] <- OBFFP/(OBFFP + OBFTN)
+
+PropTPRVec[j] <- PTP/(PTP+PFN)
+PropFPRVec[j] <- PFP/(PFP + PTN)
+# 
+# BPPTPRVec[j] <- BPPTP/(BPPTP+BPPFN)
+# BPPFPRVec[j] <- BPPFP/(BPPFP + BPPTN)
+
+
+}
+
+
+```
+
+
+```{r}
+BPPValVec <- seq(0, 1.05, by=0.005) 
+
+BPPTPRVec <- rep(NA, length(BPPValVec))
+BPPFPRVec <- rep(NA, length(BPPValVec))
+
+
+
+for (j in 1:length(BPPValVec)){
+  HR0.5Look1New <- HR0.5Look1
+HR0.6Look1New <- HR0.6Look1
+HR0.7Look1New <- HR0.7Look1
+HR0.8Look1New <- HR0.8Look1
+HR0.9Look1New <- HR0.9Look1
+HR1Look1New <- HR1Look1
+HR1.1Look1New <- HR1.1Look1
+
+HR0.5Look1New <- HR0.5Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.6Look1New <- HR0.6Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.7Look1New <- HR0.7Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.8Look1New <- HR0.8Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR0.9Look1New <- HR0.9Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR1Look1New <- HR1Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+HR1.1Look1New <- HR1.1Look1New %>%
+  mutate(BPPOutcome = ifelse(BPP>=BPPValVec[j], "Continue", "Stop"))
+
+
+BPPTN <- 0
+BPPFP <- 0
+BPPFN <- 0
+BPPTP <- 0
+
+
+
+
+#Do this for 0.5
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.5Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.5Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.5Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.6
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.6Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.6Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.6Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.7Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.7Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.7Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.8
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.8Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.8Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.8Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.9
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.9Look1New$BPPOutcome[i]=="Continue"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.9Look1New$BPPOutcome[i]=="Stop"){
+  if (HR0.9Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1Look1New$BPPOutcome[i]=="Continue"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1Look1New$BPPOutcome[i]=="Stop"){
+  if (HR1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1.1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1.1Look1New$BPPOutcome[i]=="Continue"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1.1Look1New$BPPOutcome[i]=="Stop"){
+  if (HR1.1Look1New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+BPPTPRVec[j] <- BPPTP/(BPPTP+BPPFN)
+BPPFPRVec[j] <- BPPFP/(BPPFP + BPPTN)
+}
+
+xfun <- function(x){x}
+
+
+plot(WFPRVec, WTPRVec,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "black", pch = 19)
+points(OBFFPRVec, OBFTPRVec, col = "blue", pch = 19)
+points(PropFPRVec, PropTPRVec, col= "red", pch = 19)
+points(BPPFPRVec, BPPTPRVec, col = "green", pch = 19)
+curve(xfun, from = 0, to = 1, add = T, lty = 2)
+legend("bottomright", legend  = c("Wieand", "OBF", "Proposed", "BPP"), col = c("black", "blue", "red", "green"), pch = 19)
+
+abs(trapz(WFPRVec, WTPRVec))
+abs(trapz(OBFFPRVec, OBFTPRVec))
+abs(trapz(PropFPRVec, PropTPRVec))
+abs(trapz(BPPFPRVec, BPPTPRVec))
+
+```
+
+
+Now we can look at including the second look into the ROC curve - try it for BPP firstly
+
+
+```{r}
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
+
+BPP1Val <- 0.5
+
+
+Look1Outcome <- ifelse(HR0.5Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.5Look2 <- cbind(HR0.5Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.6Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.6Look2 <- cbind(HR0.6Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.7Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.7Look2 <- cbind(HR0.7Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.8Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.8Look2 <- cbind(HR0.8Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.9Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.9Look2 <- cbind(HR0.9Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR1Look2 <- cbind(HR1Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1.1Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR1.1Look2 <- cbind(HR1.1Look2, Look1Outcome)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
