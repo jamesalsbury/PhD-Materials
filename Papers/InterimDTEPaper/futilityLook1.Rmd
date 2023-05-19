@@ -843,28 +843,136 @@ for (i in 1:length(HRVec)){
 }
 
 BPP1Val <- 0.5
+BPP2Val <- 0.97
 
 
 Look1Outcome <- ifelse(HR0.5Look1$BPP>=BPP1Val, "Continue", "Stop")
-HR0.5Look2 <- cbind(HR0.5Look2, Look1Outcome)
+HR0.5Look2New <- cbind(HR0.5Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR0.6Look1$BPP>=BPP1Val, "Continue", "Stop")
-HR0.6Look2 <- cbind(HR0.6Look2, Look1Outcome)
+HR0.6Look2New <- cbind(HR0.6Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR0.7Look1$BPP>=BPP1Val, "Continue", "Stop")
-HR0.7Look2 <- cbind(HR0.7Look2, Look1Outcome)
+HR0.7Look2New <- cbind(HR0.7Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR0.8Look1$BPP>=BPP1Val, "Continue", "Stop")
-HR0.8Look2 <- cbind(HR0.8Look2, Look1Outcome)
+HR0.8Look2New <- cbind(HR0.8Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR0.9Look1$BPP>=BPP1Val, "Continue", "Stop")
-HR0.9Look2 <- cbind(HR0.9Look2, Look1Outcome)
+HR0.9Look2New <- cbind(HR0.9Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR1Look1$BPP>=BPP1Val, "Continue", "Stop")
-HR1Look2 <- cbind(HR1Look2, Look1Outcome)
+HR1Look2New <- cbind(HR1Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR1.1Look1$BPP>=BPP1Val, "Continue", "Stop")
-HR1.1Look2 <- cbind(HR1.1Look2, Look1Outcome)
+HR1.1Look2New <- cbind(HR1.1Look2, Look1Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.5Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.5Look2New$BPP[i]>=BPP2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.5Look2New <- cbind(HR0.5Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.6Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.6Look2New$BPP[i]>=BPP2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.6Look2New <- cbind(HR0.6Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.7Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.7Look2New$BPP[i]>=BPP2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.7Look2New <- cbind(HR0.7Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.8Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.8Look2New$BPP[i]>=BPP2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.8Look2New <- cbind(HR0.8Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.9Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.9Look2New$BPP[i]>=BPP2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.9Look2New <- cbind(HR0.9Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1Look2New$BPP[i]>=BPP2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1Look2New <- cbind(HR1Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1.1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1.1Look2New$BPP[i]>=BPP2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1.1Look2New <- cbind(HR1.1Look2New, Look2Outcome)
+
+
 
 
 
