@@ -842,11 +842,14 @@ for (i in 1:length(HRVec)){
   assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
 }
 
-BPP1Val <- 0.5
-BPP2Val <- 0.97
+BPP2ValVec <- seq(0, 1, by=0.05)
+
+BPPTPRVec[j] <- rep(NA, length(BPP2ValVec))
+BPPFPRVec[j] <- rep(NA, length(BPP2ValVec))
 
 
-Look1Outcome <- ifelse(HR0.5Look1$BPP>=BPP1Val, "Continue", "Stop")
+for (j in 1:length(BPP2ValVec)){
+  Look1Outcome <- ifelse(HR0.5Look1$BPP>=BPP1Val, "Continue", "Stop")
 HR0.5Look2New <- cbind(HR0.5Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR0.6Look1$BPP>=BPP1Val, "Continue", "Stop")
@@ -971,6 +974,188 @@ for (i in 1:300){
 }
 
 HR1.1Look2New <- cbind(HR1.1Look2New, Look2Outcome)
+
+BPPTN <- 0
+BPPFP <- 0
+BPPFN <- 0
+BPPTP <- 0
+
+
+#Do this for 0.5
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.5Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.5Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.6
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.6Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.6Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.7Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.7Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.8
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.8Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.8Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.9
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.9Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.9Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1.1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1.1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1.1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+BPPTPRVec[j] <- BPPTP/(BPPTP+BPPFN)
+BPPFPRVec[j] <- BPPFP/(BPPFP + BPPTN)
+}
 
 
 
