@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(tidyverse)
 library(gridExtra)
+library(pracma)
 
 HRVec <- seq(0.5, 1.1, by=0.1)
 
@@ -23,6 +24,7 @@ for (i in 1:length(HRVec)){
 
 
 OHRValVec <- seq(0.2, 2.2, by=0.005) 
+#OHRValVec <- seq(1, 1, by=1) 
 
 
 WTPRVec <- rep(NA, length(OHRValVec))
@@ -811,13 +813,15 @@ BPPFPRVec[j] <- BPPFP/(BPPFP + BPPTN)
 
 xfun <- function(x){x}
 
-
-plot(WFPRVec, WTPRVec,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "black", pch = 19)
-points(OBFFPRVec, OBFTPRVec, col = "blue", pch = 19)
-points(PropFPRVec, PropTPRVec, col= "red", pch = 19)
-points(BPPFPRVec, BPPTPRVec, col = "green", pch = 19)
+#png("HRLook1.png", units="in", width=7, height=5, res=700)
+plot(WFPRVec, WTPRVec,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "black", type = "l")
+lines(OBFFPRVec, OBFTPRVec, col = "blue")
+lines(PropFPRVec, PropTPRVec, col= "red")
+lines(BPPFPRVec, BPPTPRVec, col = "green", pch = 19)
 curve(xfun, from = 0, to = 1, add = T, lty = 2)
 legend("bottomright", legend  = c("Wieand", "OBF", "Proposed", "BPP"), col = c("black", "blue", "red", "green"), pch = 19)
+#dev.off()
+
 
 abs(trapz(WFPRVec, WTPRVec))
 abs(trapz(OBFFPRVec, OBFTPRVec))
@@ -842,10 +846,15 @@ for (i in 1:length(HRVec)){
   assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
 }
 
-BPP2ValVec <- seq(0, 1, by=0.05)
+BPP1Val <- 0.5
 
-BPPTPRVec[j] <- rep(NA, length(BPP2ValVec))
-BPPFPRVec[j] <- rep(NA, length(BPP2ValVec))
+#AUCFunc <- function(BPP1Val){
+  
+
+BPP2ValVec <- seq(-0.1, 1.05, by=0.05)
+
+BPPTPRVec <- rep(NA, length(BPP2ValVec))
+BPPFPRVec <- rep(NA, length(BPP2ValVec))
 
 
 for (j in 1:length(BPP2ValVec)){
@@ -868,6 +877,353 @@ Look1Outcome <- ifelse(HR1Look1$BPP>=BPP1Val, "Continue", "Stop")
 HR1Look2New <- cbind(HR1Look2, Look1Outcome)
 
 Look1Outcome <- ifelse(HR1.1Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR1.1Look2New <- cbind(HR1.1Look2, Look1Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.5Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.5Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.5Look2New <- cbind(HR0.5Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.6Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.6Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.6Look2New <- cbind(HR0.6Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.7Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.7Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.7Look2New <- cbind(HR0.7Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.8Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.8Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.8Look2New <- cbind(HR0.8Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.9Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.9Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.9Look2New <- cbind(HR0.9Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1Look2New <- cbind(HR1Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1.1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1.1Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1.1Look2New <- cbind(HR1.1Look2New, Look2Outcome)
+
+BPPTN <- 0
+BPPFP <- 0
+BPPFN <- 0
+BPPTP <- 0
+
+
+#Do this for 0.5
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.5Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.5Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.6
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.6Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.6Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.7Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.7Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.8
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.8Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.8Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 0.9
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.9Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.9Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1.1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1.1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1.1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+BPPTPRVec[j] <- BPPTP/(BPPTP+BPPFN)
+BPPFPRVec[j] <- BPPFP/(BPPFP + BPPTN)
+}
+
+#-abs(trapz(BPPFPRVec, BPPTPRVec))
+plot(BPPFPRVec,BPPTPRVec, xlim=c(0,1), ylim=c(0,1) )
+
+
+#}
+
+optimize(AUCFunc, c(-1,2))
+
+
+x <- seq(-1, 2, by=0.05)
+y <- sapply(x, AUCFunc)
+plot(x,y, type="l")
+
+```
+
+Try changing BPP2
+
+```{r}
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
+
+AUCFunc <- function(BPP2Val){
+  
+
+BPP1ValVec <- seq(-0.05, 1.05, by=0.05)
+
+BPPTPRVec <- rep(NA, length(BPP1ValVec))
+BPPFPRVec <- rep(NA, length(BPP1ValVec))
+
+
+for (j in 1:length(BPP1ValVec)){
+  Look1Outcome <- ifelse(HR0.5Look1$BPP>=BPP1ValVec[j], "Continue", "Stop")
+HR0.5Look2New <- cbind(HR0.5Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.6Look1$BPP>=BPP1ValVec[j], "Continue", "Stop")
+HR0.6Look2New <- cbind(HR0.6Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.7Look1$BPP>=BPP1ValVec[j], "Continue", "Stop")
+HR0.7Look2New <- cbind(HR0.7Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.8Look1$BPP>=BPP1ValVec[j], "Continue", "Stop")
+HR0.8Look2New <- cbind(HR0.8Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.9Look1$BPP>=BPP1ValVec[j], "Continue", "Stop")
+HR0.9Look2New <- cbind(HR0.9Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1Look1$BPP>=BPP1ValVec[j], "Continue", "Stop")
+HR1Look2New <- cbind(HR1Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1.1Look1$BPP>=BPP1ValVec[j], "Continue", "Stop")
 HR1.1Look2New <- cbind(HR1.1Look2, Look1Outcome)
 
 Look2Outcome <- rep(NA, 300)
@@ -1157,22 +1513,1397 @@ BPPTPRVec[j] <- BPPTP/(BPPTP+BPPFN)
 BPPFPRVec[j] <- BPPFP/(BPPFP + BPPTN)
 }
 
+-abs(trapz(BPPFPRVec, BPPTPRVec))
 
+}
 
+optimize(AUCFunc, c(0,1))
 
 
 ```
 
+We have found that the biggest area under the curve is when BPP1 is 0.1211661
+
+```{r}
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
+  
+  BPP1Val <- 0.1211661
+
+BPP2ValVec <- seq(-0.05, 1.05, by=0.05)
+
+BPPTPRVec <- rep(NA, length(BPP2ValVec))
+BPPFPRVec <- rep(NA, length(BPP2ValVec))
 
 
+for (j in 1:length(BPP2ValVec)){
+  Look1Outcome <- ifelse(HR0.5Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.5Look2New <- cbind(HR0.5Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.6Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.6Look2New <- cbind(HR0.6Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.7Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.7Look2New <- cbind(HR0.7Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.8Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.8Look2New <- cbind(HR0.8Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.9Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR0.9Look2New <- cbind(HR0.9Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR1Look2New <- cbind(HR1Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1.1Look1$BPP>=BPP1Val, "Continue", "Stop")
+HR1.1Look2New <- cbind(HR1.1Look2, Look1Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.5Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.5Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.5Look2New <- cbind(HR0.5Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.6Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.6Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.6Look2New <- cbind(HR0.6Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.7Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.7Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.7Look2New <- cbind(HR0.7Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.8Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.8Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.8Look2New <- cbind(HR0.8Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.9Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.9Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.9Look2New <- cbind(HR0.9Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1Look2New <- cbind(HR1Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1.1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1.1Look2New$BPP[i]>=BPP2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1.1Look2New <- cbind(HR1.1Look2New, Look2Outcome)
+
+BPPTN <- 0
+BPPFP <- 0
+BPPFN <- 0
+BPPTP <- 0
 
 
+#Do this for 0.5
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.5Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.5Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
 
 
+#Do this for 0.6
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.6Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.6Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.7Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.7Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
 
 
+#Do this for 0.8
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.8Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.8Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
 
 
+#Do this for 0.9
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR0.9Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR0.9Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+
+
+#Do this for 1.1
+#Do this for BPP
+#If prediction is to continue
+for (i in 1:300){
+  if(HR1.1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPTN <- BPPTN + 1
+  } else{
+    BPPFN <- BPPFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:300){
+  if(HR1.1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    BPPFP <- BPPFP + 1
+  } else{
+    BPPTP <- BPPTP + 1
+  }
+}
+}
+BPPTPRVec[j] <- BPPTP/(BPPTP+BPPFN)
+BPPFPRVec[j] <- BPPFP/(BPPFP + BPPTN)
+}
+
+plot(BPPFPRVec, BPPTPRVec,ylim=c(0,1), xlim=c(0,1), xlab = "False Positive Rate", ylab = "True Positive Rate", col = "black", type = "l")
+#lines(BPPFPRVecIA1, BPPTPRVecIA1, col = "blue")
+# lines(OBFFPRVec, OBFTPRVec, col = "blue")
+# lines(PropFPRVec, PropTPRVec, col= "red")
+# lines(BPPFPRVec, BPPTPRVec, col = "green", pch = 19)
+# curve(xfun, from = 0, to = 1, add = T, lty = 2)
+# legend("bottomright", legend  = c("Wieand", "OBF", "Proposed", "BPP"), col = c("black", "blue", "red", "green"), pch = 19)
+
+
+```
+
+We can now do the same for the three other rules
+
+```{r}
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
+
+
+#OHR1Val <- 1
+AUCFunc <- function(OHR1Val){
+  
+
+OHR2ValVec <- seq(0.2, 2.2, by=0.05)
+
+WTPRVec <- rep(NA, length(OHR2ValVec))
+WFPRVec <- rep(NA, length(OHR2ValVec))
+
+HR0.5Look1 <- HR0.5Look1[1:100,]
+HR0.6Look1 <- HR0.6Look1[1:100,]
+HR0.7Look1 <- HR0.7Look1[1:100,]
+HR0.8Look1 <- HR0.8Look1[1:100,]
+HR0.9Look1 <- HR0.9Look1[1:100,]
+HR1Look1 <- HR1Look1[1:100,]
+HR1.1Look1 <- HR1.1Look1[1:100,]
+
+
+for (j in 1:length(OHR2ValVec)){
+  Look1Outcome <- ifelse(HR0.5Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.5Look2New <- cbind(HR0.5Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.6Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.6Look2New <- cbind(HR0.6Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.7Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.7Look2New <- cbind(HR0.7Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.8Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.8Look2New <- cbind(HR0.8Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.9Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.9Look2New <- cbind(HR0.9Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR1Look2New <- cbind(HR1Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1.1Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR1.1Look2New <- cbind(HR1.1Look2, Look1Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.5Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.5Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.5Look2New <- cbind(HR0.5Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.6Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.6Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.6Look2New <- cbind(HR0.6Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.7Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.7Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.7Look2New <- cbind(HR0.7Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.8Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.8Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.8Look2New <- cbind(HR0.8Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.9Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.9Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.9Look2New <- cbind(HR0.9Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1Look2New <- cbind(HR1Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1.1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1.1Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1.1Look2New <- cbind(HR1.1Look2New, Look2Outcome)
+
+WTN <- 0
+WFP <- 0
+WFN <- 0
+WTP <- 0
+
+
+#Do this for 0.5
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.5Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.5Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for 0.6
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.6Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.6Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.7Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.7Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.8Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.8Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.9Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.9Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR1.1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR1.1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+WTPRVec[j] <- WTP/(WTP+WFN)
+WFPRVec[j] <- WFP/(WFP + WTN)
+}
+
+-abs(trapz(WFPRVec, WTPRVec))
+#plot(WFPRVec, WTPRVec, type="l", xlim=c(0,1), ylim=c(0,1))
+
+}
+
+optimize(AUCFunc, c(0.1,2.2))
+
+```
+
+```{r}
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
+
+
+#OHR1Val <- 1
+AUCFunc <- function(OHR2Val){
+  
+
+OHR1ValVec <- seq(0.2, 2.2, by=0.05)
+
+WTPRVec <- rep(NA, length(OHR1ValVec))
+WFPRVec <- rep(NA, length(OHR1ValVec))
+
+HR0.5Look1 <- HR0.5Look1[1:100,]
+HR0.6Look1 <- HR0.6Look1[1:100,]
+HR0.7Look1 <- HR0.7Look1[1:100,]
+HR0.8Look1 <- HR0.8Look1[1:100,]
+HR0.9Look1 <- HR0.9Look1[1:100,]
+HR1Look1 <- HR1Look1[1:100,]
+HR1.1Look1 <- HR1.1Look1[1:100,]
+
+
+for (j in 1:length(OHR1ValVec)){
+  Look1Outcome <- ifelse(HR0.5Look1$ObservedHR<=OHR1ValVec[j], "Continue", "Stop")
+HR0.5Look2New <- cbind(HR0.5Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.6Look1$ObservedHR<=OHR1ValVec[j], "Continue", "Stop")
+HR0.6Look2New <- cbind(HR0.6Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.7Look1$ObservedHR<=OHR1ValVec[j], "Continue", "Stop")
+HR0.7Look2New <- cbind(HR0.7Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.8Look1$ObservedHR<=OHR1ValVec[j], "Continue", "Stop")
+HR0.8Look2New <- cbind(HR0.8Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.9Look1$ObservedHR<=OHR1ValVec[j], "Continue", "Stop")
+HR0.9Look2New <- cbind(HR0.9Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1Look1$ObservedHR<=OHR1ValVec[j], "Continue", "Stop")
+HR1Look2New <- cbind(HR1Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1.1Look1$ObservedHR<=OHR1ValVec[j], "Continue", "Stop")
+HR1.1Look2New <- cbind(HR1.1Look2, Look1Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.5Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.5Look2New$ObservedHR[i]<=OHR2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.5Look2New <- cbind(HR0.5Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.6Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.6Look2New$ObservedHR[i]<=OHR2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.6Look2New <- cbind(HR0.6Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.7Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.7Look2New$ObservedHR[i]<=OHR2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.7Look2New <- cbind(HR0.7Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.8Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.8Look2New$ObservedHR[i]<=OHR2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.8Look2New <- cbind(HR0.8Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.9Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.9Look2New$ObservedHR[i]<=OHR2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.9Look2New <- cbind(HR0.9Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1Look2New$ObservedHR[i]<=OHR2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1Look2New <- cbind(HR1Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1.1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1.1Look2New$ObservedHR[i]<=OHR2Val){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1.1Look2New <- cbind(HR1.1Look2New, Look2Outcome)
+
+WTN <- 0
+WFP <- 0
+WFN <- 0
+WTP <- 0
+
+
+#Do this for 0.5
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.5Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.5Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for 0.6
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.6Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.6Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.7Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.7Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.8Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.8Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.9Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.9Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR1.1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR1.1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+WTPRVec[j] <- WTP/(WTP+WFN)
+WFPRVec[j] <- WFP/(WFP + WTN)
+}
+
+-abs(trapz(WFPRVec, WTPRVec))
+#plot(WFPRVec, WTPRVec, type="l", xlim=c(0,1), ylim=c(0,1))
+
+}
+
+optimize(AUCFunc, c(0.1,2.2))
+
+```
+
+
+When OHR1 is 1.397941, this is optimised
+
+```{r}
+
+HRVec <- seq(0.5, 1.1, by=0.1)
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look1"), readRDS(paste0("Data/Look1Data/HR", HRVec[i], "Look1.rds")))
+}
+
+for (i in 1:length(HRVec)){
+  assign(paste0("HR", HRVec[i], "Look2"), readRDS(paste0("Data/Look2Data/HR", HRVec[i], "Look2.rds")))
+}
+
+
+OHR1Val <- 1.397941
+#AUCFunc <- function(OHR1Val){
+  
+
+OHR2ValVec <- seq(0.2, 2.2, by=0.05)
+
+WTPRVec <- rep(NA, length(OHR2ValVec))
+WFPRVec <- rep(NA, length(OHR2ValVec))
+
+HR0.5Look1 <- HR0.5Look1[1:100,]
+HR0.6Look1 <- HR0.6Look1[1:100,]
+HR0.7Look1 <- HR0.7Look1[1:100,]
+HR0.8Look1 <- HR0.8Look1[1:100,]
+HR0.9Look1 <- HR0.9Look1[1:100,]
+HR1Look1 <- HR1Look1[1:100,]
+HR1.1Look1 <- HR1.1Look1[1:100,]
+
+
+for (j in 1:length(OHR2ValVec)){
+  Look1Outcome <- ifelse(HR0.5Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.5Look2New <- cbind(HR0.5Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.6Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.6Look2New <- cbind(HR0.6Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.7Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.7Look2New <- cbind(HR0.7Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.8Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.8Look2New <- cbind(HR0.8Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR0.9Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR0.9Look2New <- cbind(HR0.9Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR1Look2New <- cbind(HR1Look2, Look1Outcome)
+
+Look1Outcome <- ifelse(HR1.1Look1$ObservedHR<=OHR1Val, "Continue", "Stop")
+HR1.1Look2New <- cbind(HR1.1Look2, Look1Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.5Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.5Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.5Look2New <- cbind(HR0.5Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.6Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.6Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.6Look2New <- cbind(HR0.6Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.7Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.7Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.7Look2New <- cbind(HR0.7Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.8Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.8Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.8Look2New <- cbind(HR0.8Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR0.9Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR0.9Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR0.9Look2New <- cbind(HR0.9Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1Look2New <- cbind(HR1Look2New, Look2Outcome)
+
+Look2Outcome <- rep(NA, 300)
+for (i in 1:300){
+  if (HR1.1Look2New$Look1Outcome[i]=="Stop"){
+    Look2Outcome[i] <- "Stop"
+  } else {
+    if (HR1.1Look2New$ObservedHR[i]<=OHR2ValVec[j]){
+      Look2Outcome[i] <- "Continue"
+    } else{
+      Look2Outcome[i] <- "Stop"
+    }
+  }
+}
+
+HR1.1Look2New <- cbind(HR1.1Look2New, Look2Outcome)
+
+WTN <- 0
+WFP <- 0
+WFN <- 0
+WTP <- 0
+
+
+#Do this for 0.5
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.5Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.5Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.5Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+
+#Do this for 0.6
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.6Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.6Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.6Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.7
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.7Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.7Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.7Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.8
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.8Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.8Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.8Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 0.9
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR0.9Look2New$Look2Outcome[i]=="Continue"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR0.9Look2New$Look2Outcome[i]=="Stop"){
+  if (HR0.9Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 1
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+#Do this for 1.1
+#Do this for Wieand
+#If prediction is to continue
+for (i in 1:100){
+  if(HR1.1Look2New$Look2Outcome[i]=="Continue"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    WTN <- WTN + 1
+  } else{
+    WFN <- WFN + 1
+  }
+}
+}
+
+#If prediction is to stop
+for (i in 1:100){
+  if(HR1.1Look2New$Look2Outcome[i]=="Stop"){
+  if (HR1.1Look2New$TrueOutcome[i]=="Successful trial"){
+    WFP <- WFP + 1
+  } else{
+    WTP <- WTP + 1
+  }
+}
+}
+
+WTPRVec[j] <- WTP/(WTP+WFN)
+WFPRVec[j] <- WFP/(WFP + WTN)
+}
+
+-abs(trapz(WFPRVec, WTPRVec))
+plot(WFPRVec, WTPRVec, type="l", xlim=c(0,1), ylim=c(0,1))
+lines(BPPFPRVec, BPPTPRVec, col = "red")
+
+
+```
 
 
 
