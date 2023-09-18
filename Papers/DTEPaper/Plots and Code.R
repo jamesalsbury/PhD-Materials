@@ -347,10 +347,11 @@ dev.off()
 
 
 # Calculating the control distribution (through MCMC) for the example ----------------------------------------------------------------
+png("ExampleCombinedControl.png", units="in", width=8, height=5, res=700)
 
 Herbst <- read.csv(file = "Papers/DTEPaper/data/Herbst/Doce2.csv")
 kmfit1 <- survfit(Surv(Survival.time, Status)~1, data = Herbst)
-plot(kmfit1, col = "blue", conf.int = F)
+plot(kmfit1, col = "blue", conf.int = F, xlab = "Time (months)", ylab = "Overall Survival")
 
 Garon <- read.csv(file = "Papers/DTEPaper/data/Garon/Doce1.csv")
 kmfit2 <- survfit(Surv(Survival.time, Status)~1, data = Garon)
@@ -360,10 +361,13 @@ Kim <- read.csv(file = "Papers/DTEPaper/data/Kim/Doce3.csv")
 kmfit3 <- survfit(Surv(Survival.time, Status)~1, data = Kim)
 lines(kmfit3, col = "yellow", conf.int = F)
 
+legend("topright", legend = c("ZODIAC", "REVEL", "INTEREST"), lty = 1, col = c("blue", "red", "yellow"))
+dev.off()
 combinedDoce <- rbind(Herbst, Garon, Kim)
 
 kmfit4 <- survfit(Surv(Survival.time, Status)~1, data = combinedDoce)
 lines(kmfit4, col = "black", conf.int = F)
+
 
 #Performing MCMC on this data set
 
@@ -398,6 +402,11 @@ plot(output)
 
 lambda2sample <- as.numeric(unlist(output[,2]))
 gamma2sample <- as.numeric(unlist(output[,1]))
+
+#MCMCSample <- data.frame(shape = gamma2sample, scale = lambda2sample)
+
+#write.csv(MCMCSample, "MCMCSample.csv", row.names=FALSE)
+
 
 
 weibfit <- survreg(Surv(Survival.time, Status)~1, data = combinedDoce, dist = "weibull")
@@ -456,19 +465,10 @@ massHR1 <- 0.1
   for (j in 1:500){
     gammac <- sample(gamma2sample, 1)
     lambdac <- sample(lambda2sample, 1)
-    u <- runif(1)
-    if (u < massT0){
-      bigT <- 0
-    } else {
-      bigT <- rgamma(1, 7.29, 1.76)
-    }
-    #sampling the post-delay HR
-    u <- runif(1)
-    if (u < massHR1){
-      HR <- 1
-    } else {
-      HR <- rgamma(1, 29.6, 47.8)
-    }
+    
+    bigT <- ifelse(runif(1)>massT0,  rgamma(1, 7.29, 1.76), 0)
+    HR <- ifelse(runif(1)>massHR1,  rgamma(1, 29.6, 47.8), 1)
+    
     lambdat <- lambdac*HR^(1/gammac)
     gammat <- gammac
     
@@ -490,19 +490,8 @@ powerassFunc <- function(type, n){
       #Making the simplification
       gammat <- gammac
       #Sampling the elicited parameters (T and HR)
-      u <- runif(1)
-      if (u < massT0){
-        bigT <- 0
-      } else {
-        bigT <- rgamma(1, 7.29, 1.76)
-      }
-      #sampling the post-delay HR
-      u <- runif(1)
-      if (u < massHR1){
-        HR <- 1
-      } else {
-        HR <- rgamma(1, 29.6, 47.8)
-      }
+      bigT <- ifelse(runif(1)>massT0,  rgamma(1, 7.29, 1.76), 0)
+      HR <- ifelse(runif(1)>massHR1,  rgamma(1, 29.6, 47.8), 1)
       lambdat <- lambdac*HR^(1/gammac)
       
     } else if (type=="power"){
@@ -529,8 +518,6 @@ powerassFunc <- function(type, n){
       
       time1 <- trialtime[which.min(abs(trialtime-0.35*trialend))]
       time2 <- trialtime[which.min(abs(trialtime-0.55*trialend))]
-      
-    
       
       s1 <- sample(SimMatrix[,which.min(abs(trialtime-0.35*trialend))], 1)
       s2 <- 1
@@ -576,15 +563,15 @@ powerassFunc <- function(type, n){
     #Include HR < 1 here
     vec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
   }
-  return(mean(vec))
+  return(list(ass=mean(vec), cens = mean(censvec)))
 }
 
 
 calcAssPowerFunc <- function(type){
   nvec <- seq(20, 500, by=10)
   output <- sapply(X = nvec, FUN = powerassFunc, type = type)
-  smoothedout <- loess(output~nvec)
-  return(list(smoothedout = smoothedout, nvec = nvec))
+  smoothedout <- loess(unlist(output[1,])~nvec)
+  return(list(smoothedout = smoothedout, nvec = nvec, cens = output$cens))
   
 }
 
