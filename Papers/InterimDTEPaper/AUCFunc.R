@@ -141,7 +141,7 @@ ROCFunction_BPP <- function(BPP1, BPP2){
 }
 
 #Changing BPP2
-BPP1 <- seq(0, 1, by=0.05)
+BPP1 <- seq(0, 1, by=0.01)
 
 AUCFunc_BPP <- function(BPP2){
   BPPRule <- sapply(X = BPP1, FUN = ROCFunction_BPP, BPP2)
@@ -150,7 +150,7 @@ AUCFunc_BPP <- function(BPP2){
   abs(trapz(BPPRuleFPR, BPPRuleTPR))
 }
 
-optimize(AUCFunc_BPP, lower = 0.2, upper = 1, maximum = T)
+optimize(AUCFunc_BPP, lower = 0, upper = 1, maximum = T)
 
 BPPRule <- sapply(X = BPP1, FUN = ROCFunction_BPP, 0.3889344)
 BPPRuleFPR <- c(0, unlist(BPPRule[1,]), 1)
@@ -159,7 +159,7 @@ BPPRuleTPR <- c(0, unlist(BPPRule[2,]), 1)
 lines(BPPRuleFPR, BPPRuleTPR, col = "blue")
 
 #Changing BPP1
-BPP2 <- seq(0.2, 1, by=0.05)
+BPP2 <- seq(0, 1, by=0.01)
 
 AUCFunc_BPP <- function(BPP1){
   BPPRule <- sapply(X = BPP2, FUN = ROCFunction_BPP, BPP1)
@@ -168,7 +168,7 @@ AUCFunc_BPP <- function(BPP1){
   abs(trapz(BPPRuleFPR, BPPRuleTPR))
 }
 
-optimize(AUCFunc_BPP, lower = 0.2, upper = 1, maximum = T)
+optimize(AUCFunc_BPP, lower = 0, upper = 1, maximum = T)
 
 
 
