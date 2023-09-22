@@ -1,34 +1,49 @@
-SimDTEDataSet <- function(n1, n2, gamma1, gamma2, lambda1, lambda2, bigT, recTime, censTime){
+SimDTEDataSet <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, censTime) {
   #Simulates the treatment data
-  CP <- exp(-(lambda2*bigT)^gamma2)
+  CP <- exp(-(lambdac*bigT)^gammac)
   u <- runif(n2)
   
-  treatmenttime <- ifelse(u>=CP, (1/lambda2)*(-log(u))^(1/gamma2), (1/(lambda1^gamma1)*((lambda1*bigT)^gamma1-log(u)-(lambda2*bigT)^gamma2))^(1/gamma1))
+  treatmenttime <- ifelse(u>CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*bigT)^gammat-log(u)-(lambdac*bigT)^gammac))^(1/gammat))
   
-  dataCombined <- data.frame(time = c(rweibull(n1, gamma2, 1/lambda2), treatmenttime),
+  dataCombined <- data.frame(time = c(rweibull(n1, gammac, 1/lambdac), treatmenttime),
                              group = c(rep("Control", n1), rep("Treatment", n2)))
   
-  #Samples a recruitment time for each patient
-  dataCombined$recTime <- runif(n1+n2, min = 0, max =  recTime)
+  #Samples a recruitment time for each patient, from a Uniform distribution
+  dataCombined$recTime <- runif(n1+n2, min = 0, max = recTime)
   
-  #Pseudo-time calculates how far through the trial the patient has the event (from the beginning)
-  dataCombined$psuedoTime <- dataCombined$time + dataCombined$recTime
+  dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
   
-  #Looks to see whether the patient will be censored (or not)
-  dataCombined$status <- dataCombined$psuedoTime < censTime
-  
-  #Making it a binary value (rather than T/F), for ease to read
-  dataCombined$status <- dataCombined$status*1
-  
-  #Ensuring only the patients enrolled by the censoring time are included in the data set
+  dataCombined$status <- dataCombined$pseudoTime < censTime
+  dataCombined$status <- dataCombined$status * 1
   dataCombined$enrolled <- dataCombined$recTime < censTime
-  dataCombined <-  dataCombined[dataCombined$enrolled==T,]
-  
-  #Calculates the actual survival time for patients in the trial
-  dataCombined$survival_time <- ifelse(dataCombined$psuedoTime>censTime, censTime  - dataCombined$recTime, dataCombined$time)
+  dataCombined <- dataCombined[dataCombined$enrolled, ]
+  dataCombined$survival_time <- ifelse(dataCombined$pseudoTime > censTime,
+                                       censTime - dataCombined$recTime,
+                                       dataCombined$time)
   
   return(dataCombined)
 }
+
+
+# out <- SimDTEDataSet(100, 100, 1, 1, 0.1, 0.15, 3, 6, 0.8)
+# 
+# weibfit <- survreg(Surv(time, status)~1, data = out, dist = "weibull")
+# plot(weibfit)
+# gammac <- as.numeric(exp(-weibfit$icoef[2]))
+# lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
+# 
+# 
+# n1 <- 10
+# n2 <- 10
+# gammat <- 1
+# gammac <- 1
+# lambdat <- 0.8
+# lambdac <- 0.4
+# bigT <- 3
+# recTime <- 6
+# censTime <- 60
+
+
 
 normal.error <-
   function(parameters, values, probabilities, weights){
