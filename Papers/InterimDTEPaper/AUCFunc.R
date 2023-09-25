@@ -51,7 +51,7 @@ ROCFunction <- function(Rule, HRIA1, HRIA2){
   FPR <- FP/(FP+TN)
   TPR <- TP/(TP+FN)
   
-  return(list(FPR = FPR, TPR = TPR))
+  return(list(FPR = FPR, TPR = TPR, TP = TP, FP = FP, TN = TN, FN = FN))
   
   
 }
@@ -170,6 +170,30 @@ AUCFunc_BPP <- function(BPP1){
 
 optimize(AUCFunc_BPP, lower = 0, upper = 1, maximum = T)
 
+
+WieandFunc <- ROCFunction("Wieand", 1, 1)
+OBFFunc <- ROCFunction("OBF", 0.998, 0.913)
+PropFunc <- ROCFunction("Prop", 1, 1)
+
+BPPFunc <- ROCFunction_BPP(0.2, 0.2)
+
+plot(WieandFunc$FPR, WieandFunc$TPR, ylim = c(0,1), xlim = c(0,1), 
+     pch = 19, xlab = "False Positive Rate", ylab = "True Positive Rate", col = "red")
+
+points(OBFFunc$FPR, OBFFunc$TPR, pch = 19, col = "blue")
+
+points(PropFunc$FPR, PropFunc$TPR, pch = 19, col = "green")
+
+lines()
+
+legend("bottomright", legend = c("Wieand"), col = c("red"), pch = 19)
+
+
+legend("bottomright", legend = c("Wieand", "OBF", "Proposed"), col = c("red", "blue", "green"), pch = 19)
+
+
+
+curve(x^1, lty = 2, add = T)
 
 
 

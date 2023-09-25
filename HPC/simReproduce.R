@@ -1,18 +1,26 @@
 library(survival)
 library(dplyr)
+library(foreach)
+library(doParallel)
 
-#set.seed(123)  # Set a seed for reproducibility
+# Set the number of CPU cores you want to use
+num_cores <- 16 # Change this to the number of cores you want to use
+
+# Register parallel backend
+cl <- makeCluster(num_cores)
+registerDoParallel(cl)
 
 # Parameters
 lambdac <- 1/17.5
 lambdat <- lambdac * 0.75
 numPatients <- 340
 numEventsRequired <- 512
-NSims <- 1e4
-powerVec <- rep(NA, NSims)
-censVec <- rep(NA, NSims)
+NSims <- 1e5
+powerVec <- numeric(NSims)
+censVec <- numeric(NSims)
 
-for (j in 1:NSims){
+# Parallelize the simulation loop
+results <- foreach(j = 1:NSims, .packages = c("survival", "dplyr")) %dopar% {
   
   # Generate control and treatment data
   generateData <- function(lambda, group) {
@@ -48,16 +56,28 @@ for (j in 1:NSims){
   # Calculate survival time
   dataCombined$survival_time <- pmin(censTime - dataCombined$recTime, dataCombined$time)
   
-  #Making sure that the HR is less than 1
-  coxmodel <- coxph(Surv(survival_time, status)~group, data = dataCombined)
+  # Making sure that the HR is less than 1
+  coxmodel <- coxph(Surv(survival_time, status) ~ group, data = dataCombined)
   deltad <- as.numeric(exp(coef(coxmodel)))
   
-  LRT <- survdiff(Surv(time, status)~group, data = dataCombined)
-  powerVec[j] <- (LRT$chisq > qchisq(0.95, 1) & deltad<1)
-  censVec[j] <- censTime
+  LRT <- survdiff(Surv(time, status) ~ group, data = dataCombined)
+  power <- (LRT$chisq > qchisq(0.95, 1) & deltad < 1)
   
+  # Return power as part of the result
+  list(power = power, censTime = censTime)
 }
 
-mean(powerVec)
-mean(censVec)
+# Combine results from parallel runs
 
+powerVec <- sapply(results, function(result) result$power)
+censTime <- sapply(results, function(result) result$censTime)
+
+# Clean up parallel resources
+stopCluster(cl)
+
+# Calculate the mean power and mean censVec
+mean_power <- mean(powerVec)
+mean_censTime <- mean(censTime)
+
+cat("Mean Power:", mean_power, "\n")
+cat("Mean censVec:", mean_censTime, "\n")
