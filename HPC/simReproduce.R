@@ -4,7 +4,7 @@ library(foreach)
 library(doParallel)
 
 # Set the number of CPU cores you want to use
-num_cores <- 16 # Change this to the number of cores you want to use
+num_cores <- 8 # Change this to the number of cores you want to use
 
 # Register parallel backend
 cl <- makeCluster(num_cores)
@@ -15,7 +15,7 @@ lambdac <- 1/17.5
 lambdat <- lambdac * 0.75
 numPatients <- 340
 numEventsRequired <- 512
-NSims <- 1e5
+NSims <- 10e3
 powerVec <- numeric(NSims)
 censVec <- numeric(NSims)
 
