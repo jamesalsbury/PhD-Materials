@@ -47,7 +47,7 @@ paramsList <- list(
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 1e2
+  NSims = 1e5
 )
 
 # Generate control and treatment data
@@ -86,7 +86,7 @@ censFunc <- function(dataset, numObs) {
 for (i in 1:6){
   
   # Set the number of CPU cores you want to use
-  num_cores <- 6 # Change this to the number of cores you want to use
+  num_cores <- 32 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
