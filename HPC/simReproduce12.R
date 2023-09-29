@@ -169,17 +169,18 @@ for (i in 1:6){
     
     #Proposed rule
     sortedPseudoTimes <- sort(dataCombined$pseudo_time)
-    propVec <- rep(NA, paramsList$numEventsRequired)
-    for (k in 1:paramsList$numEventsRequired){
-      newData <- dataCombined
+    propVec <- numeric(paramsList$numEventsRequired)
+    cutoff_index <- ceiling(paramsList$numEventsRequired/2)
+    
+    for (k in cutoff_index:paramsList$numEventsRequired){
       censTime <- sortedPseudoTimes[k]
-      newData$status <- as.integer(newData$pseudo_time <= censTime)
-      newData <- newData[newData$recTime <= censTime, ]
-      newData$survival_time <- ifelse(newData$status == 1, newData$time, censTime - newData$recTime)
-      newData <- newData %>%
-        filter(status==1)
-      propVec[k] <- mean(newData$survival_time>3)
+      status <- as.integer(dataCombined$pseudo_time <= censTime)
+      filteredData <- dataCombined[dataCombined$recTime <= censTime, ]
+      survival_time <- ifelse(status == 1, filteredData$time, censTime - filteredData$recTime)
+      propVec[k] <- mean(survival_time[status==1]>3)
     }
+    
+    propVec[1:(cutoff_index-1)] <- 0
     
     Stop1 <- max(paramsList$numEventsRequired*0.5, which.min(propVec<(2/3)))
     Stop2 <- max(paramsList$numEventsRequired*0.75, which.min(propVec<(2/3)))
@@ -274,24 +275,25 @@ for (i in 1:6){
   
 }
 
+outcomeDF
 
-par(mfrow = c(2,3))
-
-for (i in 1:6){
-  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 50), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
-  points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand Duration`[i], pch = 19, col = "blue")
-  points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF Duration`[i], pch = 19, col = "yellow")
-  points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop Duration`[i], pch = 19, col = "green")
-  legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
-}
-
-for (i in 1:6){
-  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(100, 700), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
-  points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
-  points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
-  points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
-  legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
-}
+# par(mfrow = c(2,3))
+# 
+# for (i in 1:6){
+#   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 50), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
+#   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand Duration`[i], pch = 19, col = "blue")
+#   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF Duration`[i], pch = 19, col = "yellow")
+#   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop Duration`[i], pch = 19, col = "green")
+#   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+# }
+# 
+# for (i in 1:6){
+#   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(100, 700), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
+#   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
+#   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
+#   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
+#   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+# }
 
 
 
