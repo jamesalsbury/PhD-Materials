@@ -112,11 +112,11 @@ ScenarioList <- list(
 
 
 paramsList <- list(
-  recTime = 12,
+  recTime = 50,
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 1e3
+  NSims = 5e2
 )
 
 # Generate control and treatment data
@@ -154,7 +154,7 @@ censFunc <- function(dataset, numObs) {
 
 for (i in 1:length(ScenarioList)){
   
-  # Set the number of CPU cores you want to use
+  # Set the number of CPU cores you want to usehttp://127.0.0.1:40995/graphics/plot_zoom_png?width=1200&height=900
   num_cores <- 8 # Change this to the number of cores you want to use
   
   # Register parallel backend
@@ -351,27 +351,40 @@ outcomeDF
 par(mfrow = c(3,4))
 
 for (i in 1:length(ScenarioList)){
-  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 60), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
+  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 60), xlab = "Power", ylab = "Duration", xlim = c(0, 1),
+       main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand Duration`[i], pch = 19, col = "blue")
   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF Duration`[i], pch = 19, col = "yellow")
   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop Duration`[i], pch = 19, col = "green")
-  #legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+  legend("topleft", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
 }
 
 par(mfrow = c(3,4))
 
 for (i in 1:length(ScenarioList)){
-  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
+  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), 
+       xlab = "Power", ylab = "Sample size", xlim = c(0, 1), main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
   
   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
   
-  #legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+  legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
 }
 
 
+par(mfrow = c(3,4))
 
+for (i in 1:length(ScenarioList)){
+  plot(outcomeDF$`No IA Duration`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), 
+       xlab = "Duration", ylab = "Sample size", xlim = c(10, 60), main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
+  points(outcomeDF$`OBF Duration`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
+  
+  points(outcomeDF$`Prop Duration`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
+  points(outcomeDF$`Wieand Duration`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
+  
+  legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+}
 
 
 
