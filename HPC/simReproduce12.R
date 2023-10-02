@@ -3,7 +3,7 @@ library(dplyr)
 library(foreach)
 library(doParallel)
 
-ScenarioList <- list(
+KFScenarioList <- list(
   A = list(
     HR1 = 0.75,
     T1 = 1000,
@@ -41,13 +41,82 @@ ScenarioList <- list(
     T2 = 1000
 ))
 
+ScenarioList <- list(
+  A = list(
+    HR1 = 0.55,
+    T1 = 1000,
+    HR2 = 0.55,
+    T2 = 1000
+  ),
+  B = list(
+    HR1 = 0.65,
+    T1 = 1000,
+    HR2 = 0.65,
+    T2 = 1000
+  ),
+  C = list(
+    HR1 = 0.75,
+    T1 = 1000,
+    HR2 = 0.75,
+    T2 = 1000
+  ),
+  D = list(
+    HR1 = 0.85,
+    T1 = 1000,
+    HR2 = 0.85,
+    T2 = 1000
+  ),
+  E = list(
+    HR1 = 0.95,
+    T1 = 1000,
+    HR2 = 0.95,
+    T2 = 1000
+  ),
+  F = list(
+    HR1 = 1,
+    T1 = 1000,
+    HR2 = 1,
+    T2 = 1000
+  ),
+  G = list(
+    HR1 = 1.1,
+    T1 = 1000,
+    HR2 = 1.1,
+    T2 = 1000),
+  H = list(
+    HR1 = 1.2,
+    T1 = 1000,
+    HR2 = 1.2,
+    T2 = 1000),
+  I = list(
+    HR1 = 1.3,
+    T1 = 1000,
+    HR2 = 1.3,
+    T2 = 1000),
+  J = list(
+    HR1 = 1,
+    T1 = 3,
+    HR2 = 0.75,
+    T2 = 1000),
+  K = list(
+    HR1 = 1,
+    T1 = 6,
+    HR2 = 0.75,
+    T2 = 1000),
+  L = list(
+    HR1 = 1.3,
+    T1 = 3,
+    HR2 = 0.628,
+    T2 = 1000)
+)
+
 
 paramsList <- list(
   recTime = 12,
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 1e5
+  NSims = 1e3
 )
 
 # Generate control and treatment data
@@ -83,10 +152,10 @@ censFunc <- function(dataset, numObs) {
   return(list(dataCombined = dataset, censTime = censTime, sampleSize = sampleSize))
 }
 
-for (i in 1:6){
+for (i in 1:length(ScenarioList)){
   
   # Set the number of CPU cores you want to use
-  num_cores <- 32 # Change this to the number of cores you want to use
+  num_cores <- 8 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
@@ -277,23 +346,29 @@ for (i in 1:6){
 
 outcomeDF
 
-# par(mfrow = c(2,3))
-# 
-# for (i in 1:6){
-#   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 50), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
-#   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand Duration`[i], pch = 19, col = "blue")
-#   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF Duration`[i], pch = 19, col = "yellow")
-#   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop Duration`[i], pch = 19, col = "green")
-#   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
-# }
-# 
-# for (i in 1:6){
-#   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(100, 700), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
-#   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
-#   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
-#   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
-#   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
-# }
+
+
+par(mfrow = c(3,4))
+
+for (i in 1:length(ScenarioList)){
+  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 60), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
+  points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand Duration`[i], pch = 19, col = "blue")
+  points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF Duration`[i], pch = 19, col = "yellow")
+  points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop Duration`[i], pch = 19, col = "green")
+  #legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+}
+
+par(mfrow = c(3,4))
+
+for (i in 1:length(ScenarioList)){
+  plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), xlab = "Power", ylab = "Duration", xlim = c(0, 1))
+  points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
+  
+  points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
+  points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
+  
+  #legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+}
 
 
 
