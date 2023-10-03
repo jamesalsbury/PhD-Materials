@@ -8,115 +8,175 @@ KFScenarioList <- list(
     HR1 = 0.75,
     T1 = 1000,
     HR2 = 0.75,
-    T2 = 1000
+    T2 = 1000,
+    recTime = 12
 ),
   B = list(
     HR1 = 1,
     T1 = 1000,
     HR2 = 1,
-    T2 = 1000
+    T2 = 1000,
+    recTime = 12
 ),
   C = list(
     HR1 = 1.3,
     T1 = 1000,
     HR2 = 1.3,
-    T2 = 1000
+    T2 = 1000,
+    recTime = 12
 ),
   D = list(
     HR1 = 1,
     T1 = 3,
     HR2 = 0.693,
-    T2 = 1000
+    T2 = 1000,
+    recTime = 12
 ),
   E = list(
     HR1 = 1,
     T1 = 6,
     HR2 = 0.62,
-    T2 = 1000
+    T2 = 1000,
+    recTime = 12
 ),
   F = list(
     HR1 = 1.3,
     T1 = 3,
     HR2 = 0.628,
-    T2 = 1000
+    T2 = 1000,
+    recTime = 12
 ))
+
+# ScenarioList <- list(
+#   A = list(
+#     HR1 = 0.55,
+#     T1 = 1000,
+#     HR2 = 0.55,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   B = list(
+#     HR1 = 0.65,
+#     T1 = 1000,
+#     HR2 = 0.65,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   C = list(
+#     HR1 = 0.75,
+#     T1 = 1000,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   D = list(
+#     HR1 = 0.85,
+#     T1 = 1000,
+#     HR2 = 0.85,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   E = list(
+#     HR1 = 0.95,
+#     T1 = 1000,
+#     HR2 = 0.95,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   F = list(
+#     HR1 = 1,
+#     T1 = 1000,
+#     HR2 = 1,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   G = list(
+#     HR1 = 1.1,
+#     T1 = 1000,
+#     HR2 = 1.1,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   H = list(
+#     HR1 = 1.2,
+#     T1 = 1000,
+#     HR2 = 1.2,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   I = list(
+#     HR1 = 1.3,
+#     T1 = 1000,
+#     HR2 = 1.3,
+#     T2 = 1000,
+#     recTime = 12
+#     ),
+#   J = list(
+#     HR1 = 1,
+#     T1 = 3,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   K = list(
+#     HR1 = 1,
+#     T1 = 6,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   L = list(
+#     HR1 = 1.3,
+#     T1 = 3,
+#     HR2 = 0.628,
+#     T2 = 1000,
+#     recTime = 12)
+# )
+
+HR1Vec <- c(0.75, 1, 1.3)
+T1Vec <- c(0, 3, 6, 9)
+HR2Vec <- c(1, 0.75)
+recTimeVec <- c(12, 34)
+
+count <- 0
+
+n <- length(HR1Vec)*length(T1Vec)*length(HR2Vec)*length(recTimeVec)  # Number of elements you want in the list
+my_list <- vector("list", length = n)
+
+
+for (i in 1:length(HR1Vec)){
+  for (j in 1:length(T1Vec)){
+    for (k in 1:length(HR2Vec)){
+      for (l in 1:length(recTimeVec)){
+        
+      }
+    }
+  }
+  
+}
 
 ScenarioList <- list(
   A = list(
-    HR1 = 0.55,
-    T1 = 1000,
-    HR2 = 0.55,
-    T2 = 1000
-  ),
-  B = list(
-    HR1 = 0.65,
-    T1 = 1000,
-    HR2 = 0.65,
-    T2 = 1000
-  ),
-  C = list(
-    HR1 = 0.75,
-    T1 = 1000,
-    HR2 = 0.75,
-    T2 = 1000
-  ),
-  D = list(
-    HR1 = 0.85,
-    T1 = 1000,
-    HR2 = 0.85,
-    T2 = 1000
-  ),
-  E = list(
-    HR1 = 0.95,
-    T1 = 1000,
-    HR2 = 0.95,
-    T2 = 1000
-  ),
-  F = list(
-    HR1 = 1,
-    T1 = 1000,
-    HR2 = 1,
-    T2 = 1000
-  ),
-  G = list(
-    HR1 = 1.1,
-    T1 = 1000,
-    HR2 = 1.1,
-    T2 = 1000),
-  H = list(
-    HR1 = 1.2,
-    T1 = 1000,
-    HR2 = 1.2,
-    T2 = 1000),
-  I = list(
-    HR1 = 1.3,
-    T1 = 1000,
-    HR2 = 1.3,
-    T2 = 1000),
-  J = list(
-    HR1 = 1,
-    T1 = 3,
-    HR2 = 0.75,
-    T2 = 1000),
-  K = list(
     HR1 = 1,
     T1 = 6,
     HR2 = 0.75,
-    T2 = 1000),
-  L = list(
+    T2 = 1000,
+    recTime = 12
+  ),
+  B = list(
     HR1 = 1.3,
-    T1 = 3,
-    HR2 = 0.628,
-    T2 = 1000)
-)
+    T1 = 6,
+    HR2 = 1,
+    T2 = 1000,
+    recTime = 12
+  ))
 
 
 paramsList <- list(
-  recTime = 50,
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 5e2
+  NSims = 1e2
 )
 
 # Generate control and treatment data
@@ -154,7 +214,7 @@ censFunc <- function(dataset, numObs) {
 
 for (i in 1:length(ScenarioList)){
   
-  # Set the number of CPU cores you want to usehttp://127.0.0.1:40995/graphics/plot_zoom_png?width=1200&height=900
+  # Set the number of CPU cores you want to use
   num_cores <- 8 # Change this to the number of cores you want to use
   
   # Register parallel backend
@@ -164,7 +224,7 @@ for (i in 1:length(ScenarioList)){
   results <- foreach(j = 1:paramsList$NSims, .packages = c("survival", "dplyr")) %dopar% {
     
     dataCombined <- generateData(paramsList$lambdac, ScenarioList[[i]]$HR1, 
-                                 ScenarioList[[i]]$T1, ScenarioList[[i]]$HR2, ScenarioList[[i]]$T2, paramsList$numPatients, paramsList$recTime)
+                                 ScenarioList[[i]]$T1, ScenarioList[[i]]$HR2, ScenarioList[[i]]$T2, paramsList$numPatients, ScenarioList[[i]]$recTime)
     
     # Do it with no interim analysis first
     NoIAOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
