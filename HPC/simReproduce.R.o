@@ -1,0 +1,498 @@
+
+R version 4.0.5 (2021-03-31) -- "Shake and Throw"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(survival)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(foreach)
+> library(doParallel)
+Loading required package: iterators
+Loading required package: parallel
+> 
+> KFScenarioList <- list(
++   A = list(
++     HR1 = 0.75,
++     T1 = 1000,
++     HR2 = 0.75,
++     T2 = 1000,
++     recTime = 12
++ ),
++   B = list(
++     HR1 = 1,
++     T1 = 1000,
++     HR2 = 1,
++     T2 = 1000,
++     recTime = 12
++ ),
++   C = list(
++     HR1 = 1.3,
++     T1 = 1000,
++     HR2 = 1.3,
++     T2 = 1000,
++     recTime = 12
++ ),
++   D = list(
++     HR1 = 1,
++     T1 = 3,
++     HR2 = 0.693,
++     T2 = 1000,
++     recTime = 12
++ ),
++   E = list(
++     HR1 = 1,
++     T1 = 6,
++     HR2 = 0.62,
++     T2 = 1000,
++     recTime = 12
++ ),
++   F = list(
++     HR1 = 1.3,
++     T1 = 3,
++     HR2 = 0.628,
++     T2 = 1000,
++     recTime = 12
++ ))
+> 
+> HR1Vec <- c(0.75, 1, 1.3)
+> T1Vec <- c(0, 3, 6, 9)
+> HR2Vec <- c(1, 0.75)
+> recTimeVec <- c(12, 34)
+> 
+> count <- 1
+> 
+> n <- length(HR1Vec)*length(T1Vec)*length(HR2Vec)*length(recTimeVec)  # Number of elements you want in the list
+> ScenarioList <- vector("list", length = n)
+> 
+> 
+> for (i in 1:length(HR1Vec)){
++   for (j in 1:length(T1Vec)){
++     for (k in 1:length(HR2Vec)){
++       for (l in 1:length(recTimeVec)){
++         ScenarioList[[count]]$HR1 = HR1Vec[i]
++         ScenarioList[[count]]$T1 = T1Vec[j]
++         ScenarioList[[count]]$HR2 = HR2Vec[k]
++         ScenarioList[[count]]$T2 = 1000
++         ScenarioList[[count]]$recTime = recTimeVec[l]
++         count <- count + 1
++       }
++     }
++   }
++   
++ }
+> 
+> paramsList <- list(
++   numPatients = 340,
++   lambdac = -log(0.5)/12,
++   numEventsRequired = 512,
++   NSims = 5e4
++ )
+> 
+> # Generate control and treatment data
+> generateData <- function(lambdac, HR1, T1, HR2, T2, numPatients, recTime) {
++   CP <- exp(-lambdac*HR1*T1)
++   u <- runif(numPatients)
++   controlData <- -log(u)/lambdac
++   u <- runif(numPatients)
++   treatmentData <- ifelse(u>CP, -log(u)/(lambdac*HR1), (1/(lambdac*HR2))*(lambdac*HR2*T1-log(u)-lambdac*HR1*T1))
++   dataCombined <- data.frame(time = c(controlData, treatmentData), group = c(rep("Control", numPatients), rep("Treatment", numPatients)))
++   dataCombined$recTime <- runif(numPatients*2, min = 0, max = recTime)
++   dataCombined$pseudo_time <- dataCombined$time + dataCombined$recTime
++   return(dataCombined)
++ }
+> 
+> # Function to perform censoring and analysis
+> censFunc <- function(dataset, numObs) {
++   # Sort pseudo times and determine censoring time
++   sortedPseudoTimes <- sort(dataset$pseudo_time)
++   censTime <- sortedPseudoTimes[numObs]
++   
++   # Censor the observations
++   dataset$status <- as.integer(dataset$pseudo_time <= censTime)
++   
++   # Only include patients enrolled by the censoring time
++   dataset <- dataset[dataset$recTime <= censTime, ]
++   
++   # Calculate survival time
++   dataset$survival_time <- ifelse(dataset$status == 1, dataset$time, censTime - dataset$recTime)
++   
++   sampleSize <- nrow(dataset)
++   
++   return(list(dataCombined = dataset, censTime = censTime, sampleSize = sampleSize))
++ }
+> 
+> for (i in 1:length(ScenarioList)){
++   
++   # Set the number of CPU cores you want to use
++   num_cores <- 32 # Change this to the number of cores you want to use
++   
++   # Register parallel backend
++   cl <- makeCluster(num_cores)
++   registerDoParallel(cl)
++   
++   results <- foreach(j = 1:paramsList$NSims, .packages = c("survival", "dplyr")) %dopar% {
++     
++     dataCombined <- generateData(paramsList$lambdac, ScenarioList[[i]]$HR1, 
++                                  ScenarioList[[i]]$T1, ScenarioList[[i]]$HR2, ScenarioList[[i]]$T2, paramsList$numPatients, ScenarioList[[i]]$recTime)
++     
++     # Do it with no interim analysis first
++     NoIAOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
++     NoIA <- NoIAOutcome$dataCombined
++     NoIAcensTime <- NoIAOutcome$censTime
++     NoIASS <- NoIAOutcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = NoIA)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     NoIALRT <- survdiff(Surv(time, status) ~ group, data = NoIA)
++     NoIApower <- (NoIALRT$chisq > qchisq(0.95, 1) & deltad < 1)
++     
++     # Wieand rule
++     WieandOutcome <- "Continue"
++     W1Outcome <- censFunc(dataCombined, paramsList$numEventsRequired * 0.5)
++     W1 <- W1Outcome$dataCombined
++     W1censTime <- W1Outcome$censTime
++     W1SS <- W1Outcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = W1)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     if (deltad > 1) WieandOutcome <- "Stop1"
++     
++     W2Outcome <- censFunc(dataCombined, paramsList$numEventsRequired * 0.75)
++     W2 <- W2Outcome$dataCombined
++     W2censTime <- W2Outcome$censTime
++     W2SS <- W2Outcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = W2)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     if (deltad > 1 & WieandOutcome=="Continue") WieandOutcome <- "Stop2"
++     
++     WFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
++     WFinal <- WFinalOutcome$dataCombined
++     WFinalcensTime <- WFinalOutcome$censTime
++     WFinalSS <- WFinalOutcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = WFinal)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     WLRT <- survdiff(Surv(time, status) ~ group, data = WFinal)
++     Wpower <- (WLRT$chisq > qchisq(0.95, 1) & deltad < 1 & WieandOutcome == "Continue")
++     WCensTime <- ifelse(WieandOutcome == "Stop1", W1censTime, ifelse(WieandOutcome == "Stop2", W2censTime, WFinalcensTime))
++     WSS <- ifelse(WieandOutcome == "Stop1", W1SS, ifelse(WieandOutcome == "Stop2", W2SS, WFinalSS))
++     
++     #OBF rule
++     OBFOutcome <- "Continue"
++     OBF1Outcome <- censFunc(dataCombined, ceiling(paramsList$numEventsRequired/3))
++     OBF1 <- OBF1Outcome$dataCombined
++     OBF1censTime <- OBF1Outcome$censTime
++     OBF1SS <- OBF1Outcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = OBF1)
++     sumcoxmodel <- summary(coxmodel)
++     zscore <- -sumcoxmodel$coefficients[4]
++     if (zscore < 0.011) OBFOutcome <- "Stop1"
++     
++     OBF2Outcome <- censFunc(dataCombined, ceiling(2*paramsList$numEventsRequired/3))
++     OBF2 <- OBF2Outcome$dataCombined
++     OBF2censTime <- OBF2Outcome$censTime
++     OBF2SS <- OBF2Outcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = OBF2)
++     sumcoxmodel <- summary(coxmodel)
++     zscore <- -sumcoxmodel$coefficients[4]
++     if (zscore < 0.864 & OBFOutcome=="Continue") OBFOutcome <- "Stop2"
++     
++     OBFFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
++     OBFFinal <- OBFFinalOutcome$dataCombined
++     OBFFinalcensTime <- OBFFinalOutcome$censTime
++     OBFFinalSS <- OBFFinalOutcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = OBFFinal)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     OBFLRT <- survdiff(Surv(time, status) ~ group, data = OBFFinal)
++     OBFpower <- (OBFLRT$chisq > qchisq(0.95, 1) & deltad < 1 & OBFOutcome == "Continue")
++     OBFCensTime <- ifelse(OBFOutcome == "Stop1", OBF1censTime, ifelse(OBFOutcome == "Stop2", OBF2censTime, OBFFinalcensTime))
++     OBFSS <- ifelse(OBFOutcome == "Stop1", OBF1SS, ifelse(OBFOutcome == "Stop2", OBF2SS, OBFFinalSS))
++     
++     #Proposed rule
++     sortedPseudoTimes <- sort(dataCombined$pseudo_time)
++     propVec <- numeric(paramsList$numEventsRequired)
++     cutoff_index <- ceiling(paramsList$numEventsRequired/2)
++     
++     for (k in cutoff_index:paramsList$numEventsRequired){
++       censTime <- sortedPseudoTimes[k]
++       status <- as.integer(dataCombined$pseudo_time <= censTime)
++       filteredData <- dataCombined[dataCombined$recTime <= censTime, ]
++       survival_time <- ifelse(status == 1, filteredData$time, censTime - filteredData$recTime)
++       propVec[k] <- mean(survival_time[status==1]>3)
++     }
++     
++     propVec[1:(cutoff_index-1)] <- 0
++     
++     Stop1 <- max(paramsList$numEventsRequired*0.5, which.min(propVec<(2/3)))
++     Stop2 <- max(paramsList$numEventsRequired*0.75, which.min(propVec<(2/3)))
++     
++     PropOutcome <- "Continue"
++     Prop1Outcome <- censFunc(dataCombined, Stop1)
++     Prop1 <- Prop1Outcome$dataCombined
++     Prop1censTime <- Prop1Outcome$censTime
++     Prop1SS <- Prop1Outcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop1)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     if (deltad > 1) PropOutcome <- "Stop1"
++     
++     Prop2Outcome <- censFunc(dataCombined, Stop2)
++     Prop2 <- Prop2Outcome$dataCombined
++     Prop2censTime <- Prop2Outcome$censTime
++     Prop2SS <- Prop2Outcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop2)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     if (deltad > 1 & PropOutcome=="Continue") PropOutcome <- "Stop2"
++     
++     PropFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
++     PropFinal <- PropFinalOutcome$dataCombined
++     PropFinalcensTime <- PropFinalOutcome$censTime
++     PropFinalSS <- PropFinalOutcome$sampleSize
++     coxmodel <- coxph(Surv(survival_time, status) ~ group, data = PropFinal)
++     deltad <- as.numeric(exp(coef(coxmodel)))
++     PropLRT <- survdiff(Surv(time, status) ~ group, data = PropFinal)
++     Proppower <- (PropLRT$chisq > qchisq(0.95, 1) & deltad < 1 & PropOutcome == "Continue")
++     PropCensTime <- ifelse(PropOutcome == "Stop1", Prop1censTime, ifelse(PropOutcome == "Stop2", Prop2censTime, PropFinalcensTime))
++     PropSS <- ifelse(PropOutcome == "Stop1", Prop1SS, ifelse(PropOutcome == "Stop2", Prop2SS, PropFinalSS))
++     
++     
++     # Return results
++     list(NoIApower = NoIApower, NoIAcensTime = NoIAcensTime, NoIASS = NoIASS, 
++          Wpower = Wpower, WCensTime = WCensTime, WSS = WSS, 
++          OBFpower = OBFpower, OBFCensTime = OBFCensTime, OBFSS = OBFSS,
++          Proppower = Proppower, PropCensTime = PropCensTime, PropSS = PropSS)
++   }
++   
++   # Extract results
++   NoIApowerVec <- sapply(results, function(result) result$NoIApower)
++   NoIAcensTimeVec <- sapply(results, function(result) result$NoIAcensTime)
++   NoIASSVec <- sapply(results, function(result) result$NoIASS)
++   WpowerVec <- sapply(results, function(result) result$Wpower)
++   WCensTimeVec <- sapply(results, function(result) result$WCensTime)
++   WSSVec <- sapply(results, function(result) result$WSS)
++   OBFpowerVec <- sapply(results, function(result) result$OBFpower)
++   OBFCensTimeVec <- sapply(results, function(result) result$OBFCensTime)
++   OBFSSVec <- sapply(results, function(result) result$OBFSS)
++   ProppowerVec <- sapply(results, function(result) result$Proppower)
++   PropCensTimeVec <- sapply(results, function(result) result$PropCensTime)
++   PropSSVec <- sapply(results, function(result) result$PropSS)
++   
++   # Clean up parallel resources
++   stopCluster(cl)
++   
++   # Calculate the mean power and other statistics
++   mean_NoIApower <- mean(NoIApowerVec)
++   mean_NoIAcensTime <- mean(NoIAcensTimeVec)
++   mean_NoIASS <- mean(NoIASSVec)
++   mean_Wpower <- mean(WpowerVec)
++   mean_WCensTime <- mean(WCensTimeVec)
++   mean_WSS <- mean(WSSVec)
++   mean_OBFpower <- mean(OBFpowerVec)
++   mean_OBFCensTime <- mean(OBFCensTimeVec)
++   mean_OBFSS <- mean(OBFSSVec)
++   mean_Proppower <- mean(ProppowerVec)
++   mean_PropCensTime <- mean(PropCensTimeVec)
++   mean_PropSS <- mean(PropSSVec)
++   
++   
++   if (i==1){
++     outcomeDF <- data.frame(NoIAPower = mean_NoIApower, NoIADuration = mean_NoIAcensTime, NoIASS = mean_NoIASS,
++                             WieandPower = mean_Wpower, WieandDuration = mean_WCensTime, WieandSS = mean_WSS,
++                             OBFPower = mean_OBFpower, OBFDuration = mean_OBFCensTime, OBFSS = mean_OBFSS,
++                             PropPower = mean_Proppower, PropDuration = mean_PropCensTime, PropSS = mean_PropSS)
++     
++     colnames(outcomeDF) <- c("No IA Power", "No IA Duration", "No IA SS", 
++                              "Wieand Power", "Wieand Duration", "Wieand SS",
++                              "OBF Power", "OBF Duration", "OBF SS",
++                              "Prop Power", "Prop Duration", "Prop SS")
++   } else {
++     
++     tempVec <- c(mean_NoIApower, mean_NoIAcensTime, mean_NoIASS,
++                  mean_Wpower, mean_WCensTime, mean_WSS,
++                  mean_OBFpower, mean_OBFCensTime, mean_OBFSS,
++                  mean_Proppower, mean_PropCensTime, mean_PropSS)
++     
++     outcomeDF <- rbind(outcomeDF, tempVec)
++   }
++   
++ }
+> 
+> outcomeDF
+   No IA Power No IA Duration No IA SS Wieand Power Wieand Duration Wieand SS
+1      0.02500       30.51405      680      0.02450        21.59259  680.0000
+2      0.02530       43.87165      680      0.02436        34.11490  602.3479
+3      0.90176       34.32463      680      0.89958        34.12805  680.0000
+4      0.90008       47.38385      680      0.89586        47.15305  678.5812
+5      0.08820       30.89196      680      0.08794        26.80430  680.0000
+6      0.08876       44.24708      680      0.08678        38.94919  641.4894
+7      0.90132       34.32065      680      0.89876        34.11243  680.0000
+8      0.90184       47.38837      680      0.89742        47.15787  678.5917
+9      0.20438       31.27878      680      0.20424        29.70787  680.0000
+10     0.19976       44.63263      680      0.19764        41.93305  661.7286
+11     0.90208       34.31749      680      0.89940        34.10417  680.0000
+12     0.90018       47.37489      680      0.89660        47.14709  678.5825
+13     0.34726       31.66196      680      0.34712        31.01249  680.0000
+14     0.34586       45.02518      680      0.34390        43.61772  670.8378
+15     0.90300       34.32024      680      0.90060        34.11633  680.0000
+16     0.90098       47.37433      680      0.89660        47.14526  678.5814
+17     0.02552       30.51996      680      0.02522        21.60677  680.0000
+18     0.02456       43.85537      680      0.02350        34.08738  602.3704
+19     0.90026       34.31746      680      0.89772        34.10018  680.0000
+20     0.90218       47.38523      680      0.89850        47.15505  678.5692
+21     0.02460       30.51117      680      0.02416        21.58443  680.0000
+22     0.02382       43.86766      680      0.02284        34.13462  602.9567
+23     0.72270       33.79492      680      0.70328        32.03732  680.0000
+24     0.72510       46.85239      680      0.71112        45.61405  671.8939
+25     0.02550       30.51585      680      0.02494        21.59709  680.0000
+26     0.02556       43.87253      680      0.02448        34.11935  602.5744
+27     0.50830       33.28837      680      0.46782        28.26176  680.0000
+28     0.50854       46.35607      680      0.48770        43.20052  658.4132
+29     0.02530       30.51618      680      0.02492        21.54463  680.0000
+30     0.02656       43.86348      680      0.02536        34.16711  603.1066
+31     0.32306       32.78834      680      0.28788        25.09721  680.0000
+32     0.32452       45.87851      680      0.30504        40.53588  641.8735
+33     0.02516       30.50346      680      0.02472        21.63960  680.0000
+34     0.02522       43.87309      680      0.02406        34.10666  602.5117
+35     0.90114       34.32563      680      0.89828        34.11677  680.0000
+36     0.90026       47.36779      680      0.89672        47.15114  678.6802
+37     0.00352       30.07292      680      0.00340        16.22842  680.0000
+38     0.00356       43.41981      680      0.00320        29.23707  555.8087
+39     0.42164       33.17868      680      0.35982        25.33871  680.0000
+40     0.42144       46.26186      680      0.39448        41.37419  645.7692
+41     0.00062       29.62885      680      0.00048        14.40271  679.9999
+42     0.00066       42.99008      680      0.00056        27.05229  530.7708
+43     0.07940       32.11083      680      0.04510        16.21784  680.0000
+44     0.07926       45.20659      680      0.06584        32.60323  581.0679
+45     0.00012       29.21551      680      0.00010        13.87199  679.9998
+46     0.00010       42.57123      680      0.00010        26.08283  517.9333
+47     0.00808       31.10844      680      0.00438        14.16636  679.9999
+48     0.00792       44.22180      680      0.00584        27.95437  539.0889
+   OBF Power OBF Duration   OBF SS Prop Power Prop Duration  Prop SS
+1    0.02232     16.97568 660.7275    0.02486      23.49760 680.0000
+2    0.02070     28.17427 529.6365    0.02436      34.11490 602.3479
+3    0.88118     33.32359 679.7385    0.90058      34.18732 680.0000
+4    0.87358     46.24746 672.0474    0.89586      47.15305 678.5812
+5    0.08552     22.75783 675.8463    0.08802      27.04760 680.0000
+6    0.07906     33.73967 594.0988    0.08678      38.94919 641.4894
+7    0.87982     33.30795 679.7150    0.90012      34.18540 680.0000
+8    0.87484     46.24594 672.0088    0.89742      47.15787 678.5917
+9    0.20176     26.91609 679.0383    0.20430      29.79276 680.0000
+10   0.18730     38.10606 633.5382    0.19764      41.93305 661.7286
+11   0.88028     33.31930 679.7016    0.90062      34.17137 680.0000
+12   0.87364     46.21984 671.6412    0.89660      47.14709 678.5825
+13   0.34528     29.42179 679.6163    0.34722      31.07639 680.0000
+14   0.33278     40.93525 653.6545    0.34390      43.61772 670.8378
+15   0.88224     33.32258 679.7400    0.90164      34.17993 680.0000
+16   0.87292     46.20842 671.6855    0.89660      47.14526 678.5814
+17   0.02288     17.01964 660.7369    0.02548      23.47868 680.0000
+18   0.01980     28.17391 529.2436    0.02350      34.08738 602.3704
+19   0.87806     33.27583 679.7105    0.89908      34.17314 680.0000
+20   0.87608     46.26789 672.2730    0.89850      47.15505 678.5692
+21   0.02214     16.92219 660.4685    0.02450      23.48505 680.0000
+22   0.01932     28.15753 529.3190    0.02284      34.13462 602.9567
+23   0.62626     28.48051 675.5334    0.71946      33.10011 680.0000
+24   0.64994     42.46501 646.1692    0.71112      45.61405 671.8939
+25   0.02278     16.99701 660.6376    0.02532      23.47178 680.0000
+26   0.02052     28.18701 529.2877    0.02448      34.11935 602.5744
+27   0.37464     23.05375 667.4049    0.49846      30.77601 680.0000
+28   0.41874     38.09347 612.4396    0.48770      43.20052 658.4132
+29   0.02264     16.93521 660.5550    0.02512      23.43874 680.0000
+30   0.02148     28.23504 530.1675    0.02536      34.16711 603.1066
+31   0.21508     19.56262 661.7059    0.31190      27.88463 680.0000
+32   0.24820     34.14762 578.9324    0.30504      40.53588 641.8735
+33   0.02248     16.99928 660.8309    0.02508      23.48558 680.0000
+34   0.02046     28.19452 529.4416    0.02406      34.10666 602.5117
+35   0.87894     33.30207 679.6942    0.89972      34.18887 680.0000
+36   0.87436     46.25794 672.2673    0.89672      47.15114 678.6802
+37   0.00280     12.50625 631.1636    0.00352      21.42384 680.0000
+38   0.00246     23.44557 460.9252    0.00320      29.23707 555.8087
+39   0.24376     18.91605 654.5943    0.41882      31.10434 680.0000
+40   0.31694     34.94642 581.7901    0.39448      41.37419 645.7692
+41   0.00032     11.27262 614.6947    0.00062      19.63557 680.0000
+42   0.00036     21.45521 427.0850    0.00056      27.05229 530.7708
+43   0.02248     12.09661 621.7636    0.07440      23.75251 680.0000
+44   0.04270     25.18294 477.9995    0.06584      32.60323 581.0679
+45   0.00008     10.98350 608.5582    0.00012      18.85974 679.9998
+46   0.00004     20.61709 412.0290    0.00010      26.08283 517.9333
+47   0.00162     11.05413 609.2427    0.00698      19.78559 679.9999
+48   0.00348     21.69773 429.2441    0.00584      27.95437 539.0889
+> 
+> 
+> # 
+> # par(mfrow = c(3,4))
+> # 
+> # for (i in 1:length(ScenarioList)){
+> #   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 60), xlab = "Power", ylab = "Duration", xlim = c(0, 1),
+> #        main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
+> #   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand Duration`[i], pch = 19, col = "blue")
+> #   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF Duration`[i], pch = 19, col = "yellow")
+> #   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop Duration`[i], pch = 19, col = "green")
+> #   legend("topleft", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+> # }
+> # 
+> # par(mfrow = c(3,4))
+> # 
+> # for (i in 1:length(ScenarioList)){
+> #   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), 
+> #        xlab = "Power", ylab = "Sample size", xlim = c(0, 1), main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
+> #   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
+> #   
+> #   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
+> #   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
+> #   
+> #   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+> # }
+> # 
+> # 
+> # par(mfrow = c(3,4))
+> # 
+> # for (i in 1:length(ScenarioList)){
+> #   plot(outcomeDF$`No IA Duration`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), 
+> #        xlab = "Duration", ylab = "Sample size", xlim = c(10, 60), main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
+> #   points(outcomeDF$`OBF Duration`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
+> #   
+> #   points(outcomeDF$`Prop Duration`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
+> #   points(outcomeDF$`Wieand Duration`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
+> #   
+> #   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
+> # }
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+>                         
+> 
+> proc.time()
+    user   system  elapsed 
+ 865.816  102.515 6213.938 
