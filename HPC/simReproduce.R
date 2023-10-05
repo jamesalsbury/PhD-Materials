@@ -47,10 +47,16 @@ KFScenarioList <- list(
     recTime = 12
 ))
 
-HR1Vec <- c(0.75, 1, 1.3)
-T1Vec <- c(0, 3, 6, 9)
-HR2Vec <- c(1, 0.75)
-recTimeVec <- c(12, 34)
+# HR1Vec <- c(0.5, 0.75, 1, 1.5)
+# T1Vec <- c(0, 3, 6, 9)
+# HR2Vec <- c(1.3, 1, 0.75)
+# recTimeVec <- c(6, 40)
+
+
+HR1Vec <- 1
+T1Vec <- 3
+HR2Vec <-  0.6
+recTimeVec <- seq(0, 40, by=5)
 
 count <- 1
 
@@ -78,7 +84,7 @@ paramsList <- list(
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 10e4
+  NSims = 1e4
 )
 
 # Generate control and treatment data
@@ -358,77 +364,3 @@ outcomeDF <- cbind(outcomeDF, NoIASSRank, WieandSSRank, OBFSSRank, PropSSRank)
 
 outcomeDF
 
-
-# 
-# par(mfrow = c(3,4))
-# 
-# for (i in 1:length(ScenarioList)){
-#   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(10, 60), xlab = "Power", ylab = "Duration", xlim = c(0, 1),
-#        main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
-#   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand Duration`[i], pch = 19, col = "blue")
-#   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF Duration`[i], pch = 19, col = "yellow")
-#   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop Duration`[i], pch = 19, col = "green")
-#   legend("topleft", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
-# }
-# 
-# par(mfrow = c(3,4))
-# 
-# for (i in 1:length(ScenarioList)){
-#   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), 
-#        xlab = "Power", ylab = "Sample size", xlim = c(0, 1), main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
-#   points(outcomeDF$`OBF Power`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
-#   
-#   points(outcomeDF$`Prop Power`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
-#   points(outcomeDF$`Wieand Power`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
-#   
-#   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
-# }
-# 
-# 
-# par(mfrow = c(3,4))
-# 
-# for (i in 1:length(ScenarioList)){
-#   plot(outcomeDF$`No IA Duration`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), 
-#        xlab = "Duration", ylab = "Sample size", xlim = c(10, 60), main = paste0("HR ", ScenarioList[[i]]$HR1, " for ", ScenarioList[[i]]$T1, " months, then ", ScenarioList[[i]]$HR2))
-#   points(outcomeDF$`OBF Duration`[i], outcomeDF$`OBF SS`[i], pch = 19, col = "yellow")
-#   
-#   points(outcomeDF$`Prop Duration`[i], outcomeDF$`Prop SS`[i], pch = 19, col = "green")
-#   points(outcomeDF$`Wieand Duration`[i], outcomeDF$`Wieand SS`[i], pch = 19, col = "blue")
-#   
-#   legend("bottomright", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
-# }
-
-
-
-
-
-hist(outcomeDF$NoIAPowerRank)
-hist(outcomeDF$WieandPowerRank)
-hist(outcomeDF$OBFPowerRank)
-hist(outcomeDF$PropPowerRank)
-
-hist(outcomeDF$NoIADurationRank)
-hist(outcomeDF$WieandDurationRank)
-hist(outcomeDF$OBFDurationRank)
-hist(outcomeDF$PropDurationRank)
-
-hist(outcomeDF$NoIASSRank)
-hist(outcomeDF$WieandSSRank)
-hist(outcomeDF$OBFSSRank)
-hist(outcomeDF$PropSSRank)
- 
-
-saveRDS(outcomeDF, file = "HPC/outcomeDF.rds")
-
-plot(outcomeDF$PropPowerRank, outcomeDF$PropSSRank)
-plot(outcomeDF$PropPowerRank, outcomeDF$PropDurationRank)
-
-
-
-
-
-
-
-
-
-                        
