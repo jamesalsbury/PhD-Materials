@@ -54,8 +54,8 @@ KFScenarioList <- list(
 
 
 HR1Vec <- 1
-T1Vec <- 3
-HR2Vec <-  0.6
+T1Vec <- 6
+HR2Vec <-  0.9
 recTimeVec <- seq(0, 40, by=5)
 
 count <- 1

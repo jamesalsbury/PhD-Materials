@@ -1,5 +1,5 @@
 # 
-par(mfrow = c(3,4))
+par(mfrow = c(3,3))
 
 for (i in 1:length(ScenarioList)){
   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA Duration`[i], pch = 19, col = "red", ylim= c(0, 60), xlab = "Power", ylab = "Duration", xlim = c(0, 1),
@@ -10,7 +10,7 @@ for (i in 1:length(ScenarioList)){
  # legend("topleft", legend = c("No IA", "Wieand", "OBF", "Proposed"), col = c("red", "blue", "yellow", "green"), pch = 19)
 }
 
-par(mfrow = c(3,4))
+par(mfrow = c(3,3))
 
 for (i in 1:length(ScenarioList)){
   plot(outcomeDF$`No IA Power`[i], outcomeDF$`No IA SS`[i], pch = 19, col = "red", ylim= c(300, 700), xlab = "Power", ylab = "Sample size", xlim = c(0, 1), 
