@@ -47,16 +47,16 @@ KFScenarioList <- list(
     recTime = 12
 ))
 
-# HR1Vec <- c(0.5, 0.75, 1, 1.5)
-# T1Vec <- c(0, 3, 6, 9)
-# HR2Vec <- c(1.3, 1, 0.75)
-# recTimeVec <- c(6, 40)
+HR1Vec <- c(0.6, 0.75, 0.9, 1, 1.3)
+T1Vec <- c(0, 3, 6, 9)
+HR2Vec <- c(0.75, 1, 1.3)
+recTimeVec <- seq(0, 40, by=10)
 
-
-HR1Vec <- 1
-T1Vec <- 6
-HR2Vec <-  0.9
-recTimeVec <- seq(0, 40, by=5)
+# 
+# HR1Vec <- 1.2
+# T1Vec <- 0
+# HR2Vec <-  1.2
+# recTimeVec <- seq(0, 30, by=5)
 
 count <- 1
 
@@ -317,18 +317,18 @@ HR1Vec <- rep(NA, length(ScenarioList))
 T1Vec <- rep(NA, length(ScenarioList))
 HR2Vec <- rep(NA, length(ScenarioList))
 recTimeVec <- rep(NA, length(ScenarioList))
-NoIAPowerRank <- rep(NA, length(ScenarioList))
-WieandPowerRank <- rep(NA, length(ScenarioList))
-OBFPowerRank <- rep(NA, length(ScenarioList))
-PropPowerRank <- rep(NA, length(ScenarioList))
-NoIADurationRank <- rep(NA, length(ScenarioList))
-WieandDurationRank <- rep(NA, length(ScenarioList))
-OBFDurationRank <- rep(NA, length(ScenarioList))
-PropDurationRank <- rep(NA, length(ScenarioList))
-NoIASSRank <- rep(NA, length(ScenarioList))
-WieandSSRank <- rep(NA, length(ScenarioList))
-OBFSSRank <- rep(NA, length(ScenarioList))
-PropSSRank <- rep(NA, length(ScenarioList))
+# NoIAPowerRank <- rep(NA, length(ScenarioList))
+# WieandPowerRank <- rep(NA, length(ScenarioList))
+# OBFPowerRank <- rep(NA, length(ScenarioList))
+# PropPowerRank <- rep(NA, length(ScenarioList))
+# NoIADurationRank <- rep(NA, length(ScenarioList))
+# WieandDurationRank <- rep(NA, length(ScenarioList))
+# OBFDurationRank <- rep(NA, length(ScenarioList))
+# PropDurationRank <- rep(NA, length(ScenarioList))
+# NoIASSRank <- rep(NA, length(ScenarioList))
+# WieandSSRank <- rep(NA, length(ScenarioList))
+# OBFSSRank <- rep(NA, length(ScenarioList))
+# PropSSRank <- rep(NA, length(ScenarioList))
 
 
 for (i in 1:length(ScenarioList)){
@@ -337,30 +337,30 @@ for (i in 1:length(ScenarioList)){
   HR2Vec[i] <- ScenarioList[[i]]$HR2
   recTimeVec[i] <- ScenarioList[[i]]$recTime
   
-  PowerRank <- rank(-c(outcomeDF[i,]$`No IA Power`, outcomeDF[i,]$`Wieand Power`, outcomeDF[i,]$`OBF Power`, outcomeDF[i,]$`Prop Power`))
-  NoIAPowerRank[i] <- PowerRank[1]
-  WieandPowerRank[i] <- PowerRank[2]
-  OBFPowerRank[i] <- PowerRank[3]
-  PropPowerRank[i] <- PowerRank[4]
-  
-  DurationRank <- rank(c(outcomeDF[i,]$`No IA Duration`, outcomeDF[i,]$`Wieand Duration`, outcomeDF[i,]$`OBF Duration`, outcomeDF[i,]$`Prop Duration`))
-  NoIADurationRank[i] <- DurationRank[1]
-  WieandDurationRank[i] <- DurationRank[2]
-  OBFDurationRank[i] <- DurationRank[3]
-  PropDurationRank[i] <- DurationRank[4]
-  
-  SSRank <- rank(c(outcomeDF[i,]$`No IA SS`, outcomeDF[i,]$`Wieand SS`, outcomeDF[i,]$`OBF SS`, outcomeDF[i,]$`Prop SS`))
-  NoIASSRank[i] <- SSRank[1]
-  WieandSSRank[i] <- SSRank[2]
-  OBFSSRank[i] <- SSRank[3]
-  PropSSRank[i] <- SSRank[4]
+  # PowerRank <- rank(-c(outcomeDF[i,]$`No IA Power`, outcomeDF[i,]$`Wieand Power`, outcomeDF[i,]$`OBF Power`, outcomeDF[i,]$`Prop Power`))
+  # NoIAPowerRank[i] <- PowerRank[1]
+  # WieandPowerRank[i] <- PowerRank[2]
+  # OBFPowerRank[i] <- PowerRank[3]
+  # PropPowerRank[i] <- PowerRank[4]
+  # 
+  # DurationRank <- rank(c(outcomeDF[i,]$`No IA Duration`, outcomeDF[i,]$`Wieand Duration`, outcomeDF[i,]$`OBF Duration`, outcomeDF[i,]$`Prop Duration`))
+  # NoIADurationRank[i] <- DurationRank[1]
+  # WieandDurationRank[i] <- DurationRank[2]
+  # OBFDurationRank[i] <- DurationRank[3]
+  # PropDurationRank[i] <- DurationRank[4]
+  # 
+  # SSRank <- rank(c(outcomeDF[i,]$`No IA SS`, outcomeDF[i,]$`Wieand SS`, outcomeDF[i,]$`OBF SS`, outcomeDF[i,]$`Prop SS`))
+  # NoIASSRank[i] <- SSRank[1]
+  # WieandSSRank[i] <- SSRank[2]
+  # OBFSSRank[i] <- SSRank[3]
+  # PropSSRank[i] <- SSRank[4]
   
 }
 
 outcomeDF <- cbind(outcomeDF, HR1Vec, T1Vec, HR2Vec, recTimeVec)
-outcomeDF <- cbind(outcomeDF, NoIAPowerRank, WieandPowerRank, OBFPowerRank, PropPowerRank)
-outcomeDF <- cbind(outcomeDF, NoIADurationRank, WieandDurationRank, OBFDurationRank, PropDurationRank)
-outcomeDF <- cbind(outcomeDF, NoIASSRank, WieandSSRank, OBFSSRank, PropSSRank)
+# outcomeDF <- cbind(outcomeDF, NoIAPowerRank, WieandPowerRank, OBFPowerRank, PropPowerRank)
+# outcomeDF <- cbind(outcomeDF, NoIADurationRank, WieandDurationRank, OBFDurationRank, PropDurationRank)
+# outcomeDF <- cbind(outcomeDF, NoIASSRank, WieandSSRank, OBFSSRank, PropSSRank)
 
 outcomeDF
 
