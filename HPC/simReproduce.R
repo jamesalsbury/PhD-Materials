@@ -2,6 +2,7 @@ library(survival)
 library(dplyr)
 library(foreach)
 library(doParallel)
+library(rjags)
 
 KFScenarioList <- list(
   A = list(
@@ -47,10 +48,10 @@ KFScenarioList <- list(
     recTime = 12
 ))
 
-HR1Vec <- c(0.6, 0.75, 0.9, 1, 1.3)
-T1Vec <- c(0, 3, 6, 9)
-HR2Vec <- c(0.75, 1, 1.3)
-recTimeVec <- seq(0, 40, by=10)
+# HR1Vec <- c(0.6, 0.75, 0.9, 1, 1.3)
+# T1Vec <- c(0, 3, 6, 9)
+# HR2Vec <- c(0.75, 1, 1.3)
+# recTimeVec <- seq(0, 40, by=10)
 
 # 
 # HR1Vec <- 1.2
@@ -58,33 +59,64 @@ recTimeVec <- seq(0, 40, by=10)
 # HR2Vec <-  1.2
 # recTimeVec <- seq(0, 30, by=5)
 
-count <- 1
+# count <- 1
+# 
+# n <- length(HR1Vec)*length(T1Vec)*length(HR2Vec)*length(recTimeVec)  # Number of elements you want in the list
+# ScenarioList <- vector("list", length = n)
+# 
+# 
+# for (i in 1:length(HR1Vec)){
+#   for (j in 1:length(T1Vec)){
+#     for (k in 1:length(HR2Vec)){
+#       for (l in 1:length(recTimeVec)){
+#         ScenarioList[[count]]$HR1 = HR1Vec[i]
+#         ScenarioList[[count]]$T1 = T1Vec[j]
+#         ScenarioList[[count]]$HR2 = HR2Vec[k]
+#         ScenarioList[[count]]$T2 = 1000
+#         ScenarioList[[count]]$recTime = recTimeVec[l]
+#         count <- count + 1
+#       }
+#     }
+#   }
+# }
 
-n <- length(HR1Vec)*length(T1Vec)*length(HR2Vec)*length(recTimeVec)  # Number of elements you want in the list
-ScenarioList <- vector("list", length = n)
+ScenarioList <- list(
+  A = list(
+    HR1 = 1,
+    T1 = 1000,
+    HR2 = 1,
+    T2 = 1000,
+    recTime = 12
+  ),
+  B = list(
+    HR1 = 1.1,
+    T1 = 1000,
+    HR2 = 1.1,
+    T2 = 1000,
+    recTime = 12
+  ),
+  C = list(
+    HR1 = 0.75,
+    T1 = 1000,
+    HR2 = 0.75,
+    T2 = 1000,
+    recTime = 12
+  ),
+  D = list(
+    HR1 = 1,
+    T1 = 3,
+    HR2 = 0.75,
+    T2 = 1000,
+    recTime = 12
+  )
+)
 
-
-for (i in 1:length(HR1Vec)){
-  for (j in 1:length(T1Vec)){
-    for (k in 1:length(HR2Vec)){
-      for (l in 1:length(recTimeVec)){
-        ScenarioList[[count]]$HR1 = HR1Vec[i]
-        ScenarioList[[count]]$T1 = T1Vec[j]
-        ScenarioList[[count]]$HR2 = HR2Vec[k]
-        ScenarioList[[count]]$T2 = 1000
-        ScenarioList[[count]]$recTime = recTimeVec[l]
-        count <- count + 1
-      }
-    }
-  }
-  
-}
 
 paramsList <- list(
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 1e4
+  NSims = 1e1
 )
 
 # Generate control and treatment data
@@ -123,7 +155,7 @@ censFunc <- function(dataset, numObs) {
 for (i in 1:length(ScenarioList)){
   
   # Set the number of CPU cores you want to use
-  num_cores <- 32 # Change this to the number of cores you want to use
+  num_cores <- 4 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
@@ -363,4 +395,61 @@ outcomeDF <- cbind(outcomeDF, HR1Vec, T1Vec, HR2Vec, recTimeVec)
 # outcomeDF <- cbind(outcomeDF, NoIASSRank, WieandSSRank, OBFSSRank, PropSSRank)
 
 outcomeDF
+
+##############################
+#BPP check
+#############################
+i <- 4
+dataCombined <- generateData(paramsList$lambdac, ScenarioList[[i]]$HR1, 
+                             ScenarioList[[i]]$T1, ScenarioList[[i]]$HR2, ScenarioList[[i]]$T2, paramsList$numPatients, ScenarioList[[i]]$recTime)
+
+NoIAOutcome <- censFunc(dataCombined, paramsList$numEventsRequired*0.5)
+
+survmodel <- survfit(Surv(survival_time, status)~group, data = NoIAOutcome$dataCombined)
+
+plot(survmodel, col = c("blue", "red"))
+
+dataCombined <- NoIAOutcome$dataCombined
+
+
+#JAGS code which calculates posterior distributions
+
+modelstring="
+
+data {
+  for (j in 1:m){
+    zeros[j] <- 0
+  }
+}
+
+model {
+  C <- 10000
+  for (i in 1:n){
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, log(lambda2)-(lambda2*datTimes[i]), -(lambda2*datTimes[i]))
+  }
+  for (i in (n+1):m){                                                                                                             
+    zeros[i] ~ dpois(zeros.mean[i])
+    zeros.mean[i] <-  -l[i] + C
+    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(lambda2)-(lambda2*datTimes[i]), log(lambda1)-lambda1*(datTimes[i]-bigT)-(bigT*lambda2)), 
+      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i]), -(lambda2*bigT)-lambda1*(datTimes[i]-bigT)))
+  }
+  
+    lambda2 ~ dbeta(1, 1)T(0,)
+    HR ~ dnorm(0.75, 1)T(0,)
+    bigT ~ dnorm(3, 1)T(0,)
+    lambda1 <- lambda2*HR
+    
+}
+    "
+
+model = jags.model(textConnection(modelstring), data = list(datTimes = dataCombined$survival_time, 
+                                                            datEvent = dataCombined$status, n = sum(dataCombined$group=="Control"), 
+                                                            m=nrow(dataCombined)), quiet = T) 
+
+update(model, n.iter=1000)
+output=coda.samples(model=model, variable.names=c("HR", "bigT"), n.iter = 5000)
+
+plot(output)
 
