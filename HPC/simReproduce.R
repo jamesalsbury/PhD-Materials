@@ -4,7 +4,7 @@ library(foreach)
 library(doParallel)
 library(rjags)
 
-KFScenarioList <- list(
+ScenarioList <- list(
   A = list(
     HR1 = 0.75,
     T1 = 1000,
@@ -46,7 +46,50 @@ KFScenarioList <- list(
     HR2 = 0.628,
     T2 = 1000,
     recTime = 12
-))
+),
+  G = list(
+    HR1 = 0.75,
+    T1 = 1000,
+    HR2 = 0.75,
+    T2 = 1000,
+    recTime = 12
+),
+  H = list(
+    HR1 = 1,
+    T1 = 1000,
+    HR2 = 1,
+   T2 = 1000,
+    recTime = 12
+),
+  I = list(
+   HR1 = 1.3,
+  T1 = 1000,
+   HR2 = 1.3,
+   T2 = 1000,
+   recTime = 12
+),
+  J = list(
+    HR1 = 1,
+    T1 = 3,
+    HR2 = 0.693,
+    T2 = 1000,
+    recTime = 12
+),
+  K = list(
+    HR1 = 1,
+    T1 = 6,
+    HR2 = 0.62,
+    T2 = 1000,
+    recTime = 12
+),
+  L = list(
+    HR1 = 1.3,
+    T1 = 3,
+    HR2 = 0.628,
+    T2 = 1000,
+    recTime = 12
+)
+)
 
 # HR1Vec <- c(0.6, 0.75, 0.9, 1, 1.3)
 # T1Vec <- c(0, 3, 6, 9)
@@ -80,43 +123,43 @@ KFScenarioList <- list(
 #   }
 # }
 
-ScenarioList <- list(
-  A = list(
-    HR1 = 1,
-    T1 = 1000,
-    HR2 = 1,
-    T2 = 1000,
-    recTime = 12
-  ),
-  B = list(
-    HR1 = 1.1,
-    T1 = 1000,
-    HR2 = 1.1,
-    T2 = 1000,
-    recTime = 12
-  ),
-  C = list(
-    HR1 = 0.75,
-    T1 = 1000,
-    HR2 = 0.75,
-    T2 = 1000,
-    recTime = 12
-  ),
-  D = list(
-    HR1 = 1,
-    T1 = 3,
-    HR2 = 0.75,
-    T2 = 1000,
-    recTime = 12
-  )
-)
+# ScenarioList <- list(
+#   A = list(
+#     HR1 = 1,
+#     T1 = 1000,
+#     HR2 = 1,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   B = list(
+#     HR1 = 1.1,
+#     T1 = 1000,
+#     HR2 = 1.1,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   C = list(
+#     HR1 = 0.75,
+#     T1 = 1000,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   D = list(
+#     HR1 = 1,
+#     T1 = 3,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 12
+#   )
+# )
 
 
 paramsList <- list(
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 1e0
+  NSims = 5e2
 )
 
 # Generate control and treatment data
@@ -335,9 +378,9 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.it
 cPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Control") 
 tPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Treatment") 
 
-BPPVec <- rep(NA, 500)
+BPPVec <- rep(NA, 250)
 
-for (j in 1:500){
+for (j in 1:250){
   
   #Sampling the recruitment times for the unenrolled patients
   unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, BPPOutcome$censTime, recTime)
@@ -465,11 +508,13 @@ return(list(BPP = mean(BPPVec), BPPSS = nrow(dataCombined), BPPCensTime = BPPOut
   
 }
 
+BPPList <- vector("list", length(ScenarioList))
 
 for (i in 1:length(ScenarioList)){
   
+  
   # Set the number of CPU cores you want to use
-  num_cores <- 4 # Change this to the number of cores you want to use
+  num_cores <- 24 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
@@ -509,12 +554,12 @@ for (i in 1:length(ScenarioList)){
     BPP1Outcome <- BPPFunc(dataCombined, paramsList$numEventsRequired*0.5, ScenarioList[[i]]$recTime)
     BPP1censTime <- BPP1Outcome$BPPCensTime
     BPP1SS <- BPP1Outcome$BPPSS
-    if (BPP1Outcome$BPP < 0.5) BPPOutcome <- "Stop1"
+    if (BPP1Outcome$BPP < 0.2) BPPOutcome <- "Stop1"
     
     BPP2Outcome <- BPPFunc(dataCombined, paramsList$numEventsRequired*0.75, ScenarioList[[i]]$recTime)
     BPP2censTime <- BPP2Outcome$BPPCensTime
     BPP2SS <- BPP2Outcome$BPPSS
-    if (BPP2Outcome$BPP < 0.5 & BPPOutcome=="Continue") BPPOutcome <- "Stop2"
+    if (BPP2Outcome$BPP < 0.3 & BPPOutcome=="Continue") BPPOutcome <- "Stop2"
 
     BPPFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
     BPPFinal <- BPPFinalOutcome$dataCombined
@@ -533,7 +578,8 @@ for (i in 1:length(ScenarioList)){
          Wpower = Wpower, WCensTime = WCensTime, WSS = WSS, 
          OBFpower = OBFpower, OBFCensTime = OBFCensTime, OBFSS = OBFSS,
          Proppower = Proppower, PropCensTime = PropCensTime, PropSS = PropSS,
-         BPPpower = BPPpower, BPPCensTime = BPPCensTime, BPPSS = BPPSS)
+         BPPpower = BPPpower, BPPCensTime = BPPCensTime, BPPSS = BPPSS,
+         BPP1 = BPP1Outcome$BPP, BPP2 = BPP2Outcome$BPP)
   }
   
   # Extract results
@@ -552,6 +598,11 @@ for (i in 1:length(ScenarioList)){
   BPPpowerVec <- mean(sapply(results, function(result) result$BPPpower))
   BPPCensTimeVec <- mean(sapply(results, function(result) result$BPPCensTime))
   BPPSSVec <- mean(sapply(results, function(result) result$BPPSS))
+  BPPPower <- sapply(results, function(result) result$BPPpower)
+  BPP1Vec <- sapply(results, function(result) result$BPP1)
+  BPP2Vec <- sapply(results, function(result) result$BPP2)
+  
+  BPPList[[i]] <- data.frame(power = BPPPower, BPP1 = BPP1Vec, BPP2 = BPP2Vec)
   
   # Clean up parallel resources
   stopCluster(cl)
