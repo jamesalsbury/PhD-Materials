@@ -10,42 +10,42 @@ ScenarioList <- list(
     T1 = 1000,
     HR2 = 0.75,
     T2 = 1000,
-    recTime = 12
+    recTime = 34
 ),
   B = list(
     HR1 = 1,
     T1 = 1000,
     HR2 = 1,
     T2 = 1000,
-    recTime = 12
+    recTime = 34
 ),
   C = list(
     HR1 = 1.3,
     T1 = 1000,
     HR2 = 1.3,
     T2 = 1000,
-    recTime = 12
+    recTime = 34
 ),
   D = list(
     HR1 = 1,
     T1 = 3,
     HR2 = 0.693,
     T2 = 1000,
-    recTime = 12
+    recTime = 34
 ),
   E = list(
     HR1 = 1,
     T1 = 6,
     HR2 = 0.62,
     T2 = 1000,
-    recTime = 12
+    recTime = 34
 ),
   F = list(
     HR1 = 1.3,
     T1 = 3,
     HR2 = 0.628,
     T2 = 1000,
-    recTime = 12
+    recTime = 34
 ),
   G = list(
     HR1 = 0.75,
@@ -404,7 +404,7 @@ for (j in 1:250){
   unenrolledData <- data.frame(time = c(rexp(cPatientsLeft, rate = sampledlambda2), ifelse(u>CP, (-log(u))/sampledlambda2, (1/sampledlambda1)*(sampledbigT*sampledlambda1-log(u)-sampledbigT*sampledlambda2))), group = c(rep("Control", cPatientsLeft),
                                                                                                                                                                                                                           rep("Treatment", tPatientsLeft)), recTime = unenrolledRecTimes)
   
-  unenrolledData$psuedoTime <- unenrolledData$time + unenrolledData$recTime
+  unenrolledData$pseudo_time <- unenrolledData$time + unenrolledData$recTime
   
   
   #Extracting the observations that were censored at the IA  
@@ -514,7 +514,7 @@ for (i in 1:length(ScenarioList)){
   
   
   # Set the number of CPU cores you want to use
-  num_cores <- 24 # Change this to the number of cores you want to use
+  num_cores <- 30 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
@@ -554,12 +554,12 @@ for (i in 1:length(ScenarioList)){
     BPP1Outcome <- BPPFunc(dataCombined, paramsList$numEventsRequired*0.5, ScenarioList[[i]]$recTime)
     BPP1censTime <- BPP1Outcome$BPPCensTime
     BPP1SS <- BPP1Outcome$BPPSS
-    if (BPP1Outcome$BPP < 0.2) BPPOutcome <- "Stop1"
+    if (BPP1Outcome$BPP < 0.25) BPPOutcome <- "Stop1"
     
     BPP2Outcome <- BPPFunc(dataCombined, paramsList$numEventsRequired*0.75, ScenarioList[[i]]$recTime)
     BPP2censTime <- BPP2Outcome$BPPCensTime
     BPP2SS <- BPP2Outcome$BPPSS
-    if (BPP2Outcome$BPP < 0.3 & BPPOutcome=="Continue") BPPOutcome <- "Stop2"
+    if (BPP2Outcome$BPP < 0.4 & BPPOutcome=="Continue") BPPOutcome <- "Stop2"
 
     BPPFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
     BPPFinal <- BPPFinalOutcome$dataCombined
