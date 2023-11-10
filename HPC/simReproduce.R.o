@@ -194,7 +194,7 @@ Loaded modules: basemod,bugs
 +   numPatients = 340,
 +   lambdac = -log(0.5)/12,
 +   numEventsRequired = 512,
-+   NSims = 2.5e2
++   NSims = 5e3
 + )
 > 
 > # Generate control and treatment data
@@ -405,7 +405,7 @@ Loaded modules: basemod,bugs
 +                                                             m=nrow(dataCombined)), quiet = T) 
 + 
 + update(model, n.iter=100)
-+ output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 500)
++ output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 250)
 + 
 + #plot(output)
 + 
@@ -413,9 +413,9 @@ Loaded modules: basemod,bugs
 + cPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Control") 
 + tPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Treatment") 
 + 
-+ BPPVec <- rep(NA, 250)
++ BPPVec <- rep(NA, 200)
 + 
-+ for (j in 1:250){
++ for (j in 1:200){
 +   
 +   #Sampling the recruitment times for the unenrolled patients
 +   unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, BPPOutcome$censTime, recTime)
@@ -549,7 +549,7 @@ Loaded modules: basemod,bugs
 +   
 +   
 +   # Set the number of CPU cores you want to use
-+   num_cores <- 30 # Change this to the number of cores you want to use
++   num_cores <- 64 # Change this to the number of cores you want to use
 +   
 +   # Register parallel backend
 +   cl <- makeCluster(num_cores)
@@ -589,12 +589,12 @@ Loaded modules: basemod,bugs
 +     BPP1Outcome <- BPPFunc(dataCombined, paramsList$numEventsRequired*0.5, ScenarioList[[i]]$recTime)
 +     BPP1censTime <- BPP1Outcome$BPPCensTime
 +     BPP1SS <- BPP1Outcome$BPPSS
-+     if (BPP1Outcome$BPP < 0.21) BPPOutcome <- "Stop1"
++     if (BPP1Outcome$BPP < 0.25) BPPOutcome <- "Stop1"
 +     
 +     BPP2Outcome <- BPPFunc(dataCombined, paramsList$numEventsRequired*0.75, ScenarioList[[i]]$recTime)
 +     BPP2censTime <- BPP2Outcome$BPPCensTime
 +     BPP2SS <- BPP2Outcome$BPPSS
-+     if (BPP2Outcome$BPP < 0.35 & BPPOutcome=="Continue") BPPOutcome <- "Stop2"
++     if (BPP2Outcome$BPP < 0.4 & BPPOutcome=="Continue") BPPOutcome <- "Stop2"
 + 
 +     BPPFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
 +     BPPFinal <- BPPFinalOutcome$dataCombined
@@ -668,102 +668,6 @@ Loaded modules: basemod,bugs
 +   }
 +   
 + }
-> 
-> 
-> HR1Vec <- rep(NA, length(ScenarioList))
-> T1Vec <- rep(NA, length(ScenarioList))
-> HR2Vec <- rep(NA, length(ScenarioList))
-> recTimeVec <- rep(NA, length(ScenarioList))
-> # NoIAPowerRank <- rep(NA, length(ScenarioList))
-> # WieandPowerRank <- rep(NA, length(ScenarioList))
-> # OBFPowerRank <- rep(NA, length(ScenarioList))
-> # PropPowerRank <- rep(NA, length(ScenarioList))
-> # NoIADurationRank <- rep(NA, length(ScenarioList))
-> # WieandDurationRank <- rep(NA, length(ScenarioList))
-> # OBFDurationRank <- rep(NA, length(ScenarioList))
-> # PropDurationRank <- rep(NA, length(ScenarioList))
-> # NoIASSRank <- rep(NA, length(ScenarioList))
-> # WieandSSRank <- rep(NA, length(ScenarioList))
-> # OBFSSRank <- rep(NA, length(ScenarioList))
-> # PropSSRank <- rep(NA, length(ScenarioList))
-> 
-> 
-> for (i in 1:length(ScenarioList)){
-+   HR1Vec[i] <- ScenarioList[[i]]$HR1
-+   T1Vec[i] <- ScenarioList[[i]]$T1
-+   HR2Vec[i] <- ScenarioList[[i]]$HR2
-+   recTimeVec[i] <- ScenarioList[[i]]$recTime
-+   
-+   # PowerRank <- rank(-c(outcomeDF[i,]$`No IA Power`, outcomeDF[i,]$`Wieand Power`, outcomeDF[i,]$`OBF Power`, outcomeDF[i,]$`Prop Power`))
-+   # NoIAPowerRank[i] <- PowerRank[1]
-+   # WieandPowerRank[i] <- PowerRank[2]
-+   # OBFPowerRank[i] <- PowerRank[3]
-+   # PropPowerRank[i] <- PowerRank[4]
-+   # 
-+   # DurationRank <- rank(c(outcomeDF[i,]$`No IA Duration`, outcomeDF[i,]$`Wieand Duration`, outcomeDF[i,]$`OBF Duration`, outcomeDF[i,]$`Prop Duration`))
-+   # NoIADurationRank[i] <- DurationRank[1]
-+   # WieandDurationRank[i] <- DurationRank[2]
-+   # OBFDurationRank[i] <- DurationRank[3]
-+   # PropDurationRank[i] <- DurationRank[4]
-+   # 
-+   # SSRank <- rank(c(outcomeDF[i,]$`No IA SS`, outcomeDF[i,]$`Wieand SS`, outcomeDF[i,]$`OBF SS`, outcomeDF[i,]$`Prop SS`))
-+   # NoIASSRank[i] <- SSRank[1]
-+   # WieandSSRank[i] <- SSRank[2]
-+   # OBFSSRank[i] <- SSRank[3]
-+   # PropSSRank[i] <- SSRank[4]
-+   
-+ }
-> 
-> outcomeDF <- cbind(outcomeDF, HR1Vec, T1Vec, HR2Vec, recTimeVec)
-> # outcomeDF <- cbind(outcomeDF, NoIAPowerRank, WieandPowerRank, OBFPowerRank, PropPowerRank)
-> # outcomeDF <- cbind(outcomeDF, NoIADurationRank, WieandDurationRank, OBFDurationRank, PropDurationRank)
-> # outcomeDF <- cbind(outcomeDF, NoIASSRank, WieandSSRank, OBFSSRank, PropSSRank)
-> 
-> outcomeDF
-   No IA Power No IA Duration No IA SS Wieand Power Wieand Duration Wieand SS
-1        0.908       47.37789      680        0.904        47.15346   678.540
-2        0.032       43.86364      680        0.032        35.35723   616.364
-3        0.000       41.28945      680        0.000        25.17892   504.600
-4        0.904       47.72331      680        0.896        47.47996   678.388
-5        0.908       48.33711      680        0.888        47.59208   675.436
-6        0.896       48.35902      680        0.860        46.92264   670.724
-7        0.888       34.19263      680        0.884        33.62358   680.000
-8        0.032       30.30707      680        0.032        21.36502   680.000
-9        0.000       27.63864      680        0.000        13.57127   680.000
-10       0.896       34.83280      680        0.864        33.70606   680.000
-11       0.904       35.41790      680        0.796        32.00155   680.000
-12       0.900       35.35686      680        0.760        31.20848   680.000
-   OBF Power OBF Duration  OBF SS Prop Power Prop Duration Prop SS BPP Power
-1      0.892     46.44823 673.532      0.904      47.15346 678.540     0.844
-2      0.032     29.03209 540.592      0.032      35.35723 616.364     0.020
-3      0.000     19.90919 398.100      0.000      25.17892 504.600     0.000
-4      0.820     45.41031 665.116      0.896      47.47996 678.388     0.840
-5      0.784     44.06080 645.528      0.888      47.59208 675.436     0.812
-6      0.764     43.40594 636.908      0.860      46.92264 670.724     0.864
-7      0.872     32.83785 679.780      0.888      33.91044 680.000     0.816
-8      0.032     16.65366 658.712      0.032      23.14972 680.000     0.024
-9      0.000     10.77588 605.768      0.000      18.35607 680.000     0.000
-10     0.796     30.96181 677.672      0.892      34.50353 680.000     0.844
-11     0.604     26.77447 669.060      0.880      34.41312 680.000     0.724
-12     0.536     25.01514 666.080      0.896      35.04928 680.000     0.860
-   BPP Duration  BPP SS HR1Vec T1Vec HR2Vec recTimeVec
-1      45.42603 670.420   0.75  1000  0.750         34
-2      28.24095 554.568   1.00  1000  1.000         34
-3      25.08197 503.180   1.30  1000  1.300         34
-4      46.03059 673.492   1.00     3  0.693         34
-5      45.65253 667.080   1.00     6  0.620         34
-6      47.34986 677.056   1.30     3  0.628         34
-7      31.42077 680.000   0.75  1000  0.750         12
-8      16.19689 680.000   1.00  1000  1.000         12
-9      13.52411 680.000   1.30  1000  1.300         12
-10     32.94536 680.000   1.00     3  0.693         12
-11     30.56324 680.000   1.00     6  0.620         12
-12     33.95440 680.000   1.30     3  0.628         12
-> 
-> 
-> 
-> 
-> 
-> proc.time()
-    user   system  elapsed 
-   4.339    0.979 1560.161 
+Error in unserialize(socklist[[n]]) : error reading from connection
+Calls: %dopar% ... recvOneData -> recvOneData.SOCKcluster -> unserialize
+Execution halted

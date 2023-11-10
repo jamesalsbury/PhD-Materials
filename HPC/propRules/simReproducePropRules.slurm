@@ -1,8 +1,9 @@
 #!/bin/bash
-#SBATCH --mem=16G              # Request 4GB of memory
-#SBATCH --mail-user=jsalsbury1@sheffield.ac.uk  # Replace with your email address
-#SBATCH --ntasks-per-node=32
+#SBATCH --mem=32G              # Request 4GB of memory
+#SBATCH --mail-user=smp21js@sheffield.ac.uk
+#SBATCH --ntasks-per-node=64
+#SBATCH --time=15:00:00
 
-module load R/4.0.5-foss-2020b  # Recommended to load a specific version of R
+module load rjags/4-13-foss-2022a-R-4.2.1
 
 R CMD BATCH simReproducePropRules.R simReproducePropRules.R.o$JOB_ID

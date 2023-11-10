@@ -3,49 +3,92 @@ library(dplyr)
 library(foreach)
 library(doParallel)
 
-# KFScenarioList <- list(
-#   A = list(
-#     HR1 = 0.75,
-#     T1 = 1000,
-#     HR2 = 0.75,
-#     T2 = 1000,
-#     recTime = 12
-#   ),
-#   B = list(
-#     HR1 = 1,
-#     T1 = 1000,
-#     HR2 = 1,
-#     T2 = 1000,
-#     recTime = 12
-#   ),
-#   C = list(
-#     HR1 = 1.3,
-#     T1 = 1000,
-#     HR2 = 1.3,
-#     T2 = 1000,
-#     recTime = 12
-#   ),
-#   D = list(
-#     HR1 = 1,
-#     T1 = 3,
-#     HR2 = 0.693,
-#     T2 = 1000,
-#     recTime = 12
-#   ),
-#   E = list(
-#     HR1 = 1,
-#     T1 = 6,
-#     HR2 = 0.62,
-#     T2 = 1000,
-#     recTime = 12
-#   ),
-#   F = list(
-#     HR1 = 1.3,
-#     T1 = 3,
-#     HR2 = 0.628,
-#     T2 = 1000,
-#     recTime = 12
-#   ))
+ScenarioList <- list(
+  A = list(
+    HR1 = 0.75,
+    T1 = 1000,
+    HR2 = 0.75,
+    T2 = 1000,
+    recTime = 34
+  ),
+  B = list(
+    HR1 = 1,
+    T1 = 1000,
+    HR2 = 1,
+    T2 = 1000,
+    recTime = 34
+  ),
+  C = list(
+    HR1 = 1.3,
+    T1 = 1000,
+    HR2 = 1.3,
+    T2 = 1000,
+    recTime = 34
+  ),
+  D = list(
+    HR1 = 1,
+    T1 = 3,
+    HR2 = 0.693,
+    T2 = 1000,
+    recTime = 34
+  ),
+  E = list(
+    HR1 = 1,
+    T1 = 6,
+    HR2 = 0.62,
+    T2 = 1000,
+    recTime = 34
+  ),
+  F = list(
+    HR1 = 1.3,
+    T1 = 3,
+    HR2 = 0.628,
+    T2 = 1000,
+    recTime = 34
+  ),
+  G = list(
+    HR1 = 0.75,
+    T1 = 1000,
+    HR2 = 0.75,
+    T2 = 1000,
+    recTime = 12
+  ),
+  H = list(
+    HR1 = 1,
+    T1 = 1000,
+    HR2 = 1,
+    T2 = 1000,
+    recTime = 12
+  ),
+  I = list(
+    HR1 = 1.3,
+    T1 = 1000,
+    HR2 = 1.3,
+    T2 = 1000,
+    recTime = 12
+  ),
+  J = list(
+    HR1 = 1,
+    T1 = 3,
+    HR2 = 0.693,
+    T2 = 1000,
+    recTime = 12
+  ),
+  K = list(
+    HR1 = 1,
+    T1 = 6,
+    HR2 = 0.62,
+    T2 = 1000,
+    recTime = 12
+  ),
+  L = list(
+    HR1 = 1.3,
+    T1 = 3,
+    HR2 = 0.628,
+    T2 = 1000,
+    recTime = 12
+  )
+)
 
 # HR1Vec <- c(0.75, 1, 1.3)
 # T1Vec <- c(0, 3, 6, 9)
@@ -100,7 +143,7 @@ paramsList <- list(
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 1e0
+  NSims = 1e5
 )
 
 # Generate control and treatment data
@@ -266,7 +309,7 @@ PropFunc <- function(dataset, monthsDelay, propEvents){
 for (i in 1:length(ScenarioList)){
   
   # Set the number of CPU cores you want to use
-  num_cores <- 4 # Change this to the number of cores you want to use
+  num_cores <- 64 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
@@ -376,11 +419,7 @@ for (i in 1:length(ScenarioList)){
                  mean_OBFpower, mean_OBFCensTime, mean_OBFSS)
     
     for (k in 1:length(resultsList)){
-      tempVec <- cbind(tempVec, resultsList[[k]]$time)
-      tempVec <- cbind(tempVec, resultsList[[k]]$prop)
-      tempVec <- cbind(tempVec, resultsList[[k]]$power)
-      tempVec <- cbind(tempVec, resultsList[[k]]$CensTime)
-      tempVec <- cbind(tempVec, resultsList[[k]]$SS)
+      tempVec <- c(tempVec, resultsList[[k]]$time, resultsList[[k]]$prop, resultsList[[k]]$power, resultsList[[k]]$CensTime, resultsList[[k]]$SS)
     }
     
     outcomeDF <- rbind(outcomeDF, tempVec)
@@ -401,8 +440,6 @@ for (i in 1:length(ScenarioList)){
   T1Vec[i] <- ScenarioList[[i]]$T1
   HR2Vec[i] <- ScenarioList[[i]]$HR2
   recTimeVec[i] <- ScenarioList[[i]]$recTime
-
-  
 }
 
 outcomeDF <- cbind(outcomeDF, HR1Vec, T1Vec, HR2Vec, recTimeVec)

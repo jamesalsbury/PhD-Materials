@@ -1,0 +1,770 @@
+
+R version 4.2.1 (2022-06-23) -- "Funny-Looking Kid"
+Copyright (C) 2022 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(survival)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(foreach)
+> library(doParallel)
+Loading required package: iterators
+Loading required package: parallel
+> 
+> ScenarioList <- list(
++   A = list(
++     HR1 = 0.75,
++     T1 = 1000,
++     HR2 = 0.75,
++     T2 = 1000,
++     recTime = 34
++   ),
++   B = list(
++     HR1 = 1,
++     T1 = 1000,
++     HR2 = 1,
++     T2 = 1000,
++     recTime = 34
++   ),
++   C = list(
++     HR1 = 1.3,
++     T1 = 1000,
++     HR2 = 1.3,
++     T2 = 1000,
++     recTime = 34
++   ),
++   D = list(
++     HR1 = 1,
++     T1 = 3,
++     HR2 = 0.693,
++     T2 = 1000,
++     recTime = 34
++   ),
++   E = list(
++     HR1 = 1,
++     T1 = 6,
++     HR2 = 0.62,
++     T2 = 1000,
++     recTime = 34
++   ),
++   F = list(
++     HR1 = 1.3,
++     T1 = 3,
++     HR2 = 0.628,
++     T2 = 1000,
++     recTime = 34
++   ),
++   G = list(
++     HR1 = 0.75,
++     T1 = 1000,
++     HR2 = 0.75,
++     T2 = 1000,
++     recTime = 12
++   ),
++   H = list(
++     HR1 = 1,
++     T1 = 1000,
++     HR2 = 1,
++     T2 = 1000,
++     recTime = 12
++   ),
++   I = list(
++     HR1 = 1.3,
++     T1 = 1000,
++     HR2 = 1.3,
++     T2 = 1000,
++     recTime = 12
++   ),
++   J = list(
++     HR1 = 1,
++     T1 = 3,
++     HR2 = 0.693,
++     T2 = 1000,
++     recTime = 12
++   ),
++   K = list(
++     HR1 = 1,
++     T1 = 6,
++     HR2 = 0.62,
++     T2 = 1000,
++     recTime = 12
++   ),
++   L = list(
++     HR1 = 1.3,
++     T1 = 3,
++     HR2 = 0.628,
++     T2 = 1000,
++     recTime = 12
++   )
++ )
+> 
+> # HR1Vec <- c(0.75, 1, 1.3)
+> # T1Vec <- c(0, 3, 6, 9)
+> # HR2Vec <- c(0.75, 1, 1.3)
+> # recTimeVec <- seq(0, 40, by=10)
+> 
+> # 
+> # HR1Vec <- 1.2
+> # T1Vec <- 0
+> # HR2Vec <-  1.2
+> # recTimeVec <- 10
+> #recTimeVec <- seq(0, 30, by=5)
+> 
+> # count <- 1
+> # 
+> # n <- length(HR1Vec)*length(T1Vec)*length(HR2Vec)*length(recTimeVec)  # Number of elements you want in the list
+> # ScenarioList <- vector("list", length = n)
+> # 
+> # for (i in 1:length(HR1Vec)){
+> #   for (j in 1:length(T1Vec)){
+> #     for (k in 1:length(HR2Vec)){
+> #       for (l in 1:length(recTimeVec)){
+> #         ScenarioList[[count]]$HR1 = HR1Vec[i]
+> #         ScenarioList[[count]]$T1 = T1Vec[j]
+> #         ScenarioList[[count]]$HR2 = HR2Vec[k]
+> #         ScenarioList[[count]]$T2 = 1000
+> #         ScenarioList[[count]]$recTime = recTimeVec[l]
+> #         count <- count + 1
+> #       }
+> #     }
+> #   }
+> # }
+> 
+> propTime <- 1:5
+> propProp <- c(1/4, 1/3, 1/2, 2/3, 3/4)
+> 
+> count <- 1
+> 
+> n <- length(propTime)*length(propProp)  # Number of elements you want in the list
+> propList <- vector("list", length = n)
+> 
+> for (i in 1:length(propTime)){
++   for (j in 1:length(propProp)){
++     propList[[count]]$time = propTime[i]
++     propList[[count]]$prop = propProp[j]
++     count <- count + 1
++   }
++ }
+> 
+> 
+> paramsList <- list(
++   numPatients = 340,
++   lambdac = -log(0.5)/12,
++   numEventsRequired = 512,
++   NSims = 1e5
++ )
+> 
+> # Generate control and treatment data
+> generateData <- function(lambdac, HR1, T1, HR2, T2, numPatients, recTime) {
++   CP <- exp(-lambdac*HR1*T1)
++   u <- runif(numPatients)
++   controlData <- -log(u)/lambdac
++   u <- runif(numPatients)
++   treatmentData <- ifelse(u>CP, -log(u)/(lambdac*HR1), (1/(lambdac*HR2))*(lambdac*HR2*T1-log(u)-lambdac*HR1*T1))
++   dataCombined <- data.frame(time = c(controlData, treatmentData), group = c(rep("Control", numPatients), rep("Treatment", numPatients)))
++   dataCombined$recTime <- runif(numPatients*2, min = 0, max = recTime)
++   dataCombined$pseudo_time <- dataCombined$time + dataCombined$recTime
++   return(dataCombined)
++ }
+> 
+> # Function to perform censoring and analysis
+> censFunc <- function(dataset, numObs) {
++   # Sort pseudo times and determine censoring time
++   sortedPseudoTimes <- sort(dataset$pseudo_time)
++   censTime <- sortedPseudoTimes[numObs]
++   
++   # Censor the observations
++   dataset$status <- as.integer(dataset$pseudo_time <= censTime)
++   
++   # Only include patients enrolled by the censoring time
++   dataset <- dataset[dataset$recTime <= censTime, ]
++   
++   # Calculate survival time
++   dataset$survival_time <- ifelse(dataset$status == 1, dataset$time, censTime - dataset$recTime)
++   
++   sampleSize <- nrow(dataset)
++   
++   return(list(dataCombined = dataset, censTime = censTime, sampleSize = sampleSize))
++ }
+> 
+> NoIAFunc <- function(dataset){
++   NoIAOutcome <- censFunc(dataset, paramsList$numEventsRequired)
++   NoIA <- NoIAOutcome$dataCombined
++   NoIAcensTime <- NoIAOutcome$censTime
++   NoIASS <- NoIAOutcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = NoIA)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   NoIALRT <- survdiff(Surv(time, status) ~ group, data = NoIA)
++   NoIApower <- (NoIALRT$chisq > qchisq(0.95, 1) & deltad < 1)
++   return(list(NoIApower = NoIApower, NoIAcensTime = NoIAcensTime, NoIASS = NoIASS))
++ }
+> 
+> WieandFunc <- function(dataset){
++   WieandOutcome <- "Continue"
++   W1Outcome <- censFunc(dataset, paramsList$numEventsRequired * 0.5)
++   W1 <- W1Outcome$dataCombined
++   W1censTime <- W1Outcome$censTime
++   W1SS <- W1Outcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = W1)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   if (deltad > 1) WieandOutcome <- "Stop1"
++   
++   W2Outcome <- censFunc(dataCombined, paramsList$numEventsRequired * 0.75)
++   W2 <- W2Outcome$dataCombined
++   W2censTime <- W2Outcome$censTime
++   W2SS <- W2Outcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = W2)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   if (deltad > 1 & WieandOutcome=="Continue") WieandOutcome <- "Stop2"
++   
++   WFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
++   WFinal <- WFinalOutcome$dataCombined
++   WFinalcensTime <- WFinalOutcome$censTime
++   WFinalSS <- WFinalOutcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = WFinal)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   WLRT <- survdiff(Surv(time, status) ~ group, data = WFinal)
++   Wpower <- (WLRT$chisq > qchisq(0.95, 1) & deltad < 1 & WieandOutcome == "Continue")
++   WCensTime <- ifelse(WieandOutcome == "Stop1", W1censTime, ifelse(WieandOutcome == "Stop2", W2censTime, WFinalcensTime))
++   WSS <- ifelse(WieandOutcome == "Stop1", W1SS, ifelse(WieandOutcome == "Stop2", W2SS, WFinalSS))
++   return(list(Wpower = Wpower, WCensTime = WCensTime, WSS = WSS))
++ }
+> 
+> OBFFunc <- function(dataset){
++   OBFOutcome <- "Continue"
++   OBF1Outcome <- censFunc(dataset, ceiling(paramsList$numEventsRequired/3))
++   OBF1 <- OBF1Outcome$dataCombined
++   OBF1censTime <- OBF1Outcome$censTime
++   OBF1SS <- OBF1Outcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = OBF1)
++   sumcoxmodel <- summary(coxmodel)
++   zscore <- -sumcoxmodel$coefficients[4]
++   if (zscore < 0.011) OBFOutcome <- "Stop1"
++   
++   OBF2Outcome <- censFunc(dataCombined, ceiling(2*paramsList$numEventsRequired/3))
++   OBF2 <- OBF2Outcome$dataCombined
++   OBF2censTime <- OBF2Outcome$censTime
++   OBF2SS <- OBF2Outcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = OBF2)
++   sumcoxmodel <- summary(coxmodel)
++   zscore <- -sumcoxmodel$coefficients[4]
++   if (zscore < 0.864 & OBFOutcome=="Continue") OBFOutcome <- "Stop2"
++   
++   OBFFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
++   OBFFinal <- OBFFinalOutcome$dataCombined
++   OBFFinalcensTime <- OBFFinalOutcome$censTime
++   OBFFinalSS <- OBFFinalOutcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = OBFFinal)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   OBFLRT <- survdiff(Surv(time, status) ~ group, data = OBFFinal)
++   OBFpower <- (OBFLRT$chisq > qchisq(0.95, 1) & deltad < 1 & OBFOutcome == "Continue")
++   OBFCensTime <- ifelse(OBFOutcome == "Stop1", OBF1censTime, ifelse(OBFOutcome == "Stop2", OBF2censTime, OBFFinalcensTime))
++   OBFSS <- ifelse(OBFOutcome == "Stop1", OBF1SS, ifelse(OBFOutcome == "Stop2", OBF2SS, OBFFinalSS))
++   return(list(OBFpower = OBFpower, OBFCensTime = OBFCensTime, OBFSS = OBFSS))
++ }
+> 
+> PropFunc <- function(dataset, monthsDelay, propEvents){
++   
++   sortedPseudoTimes <- sort(dataset$pseudo_time)
++   propVec <- numeric(paramsList$numEventsRequired)
++   cutoff_index <- ceiling(paramsList$numEventsRequired/2)
++   
++   for (k in cutoff_index:paramsList$numEventsRequired){
++     censTime <- sortedPseudoTimes[k]
++     status <- as.integer(dataset$pseudo_time <= censTime)
++     filteredData <- dataset[dataset$recTime <= censTime, ]
++     survival_time <- ifelse(status == 1, filteredData$time, censTime - filteredData$recTime)
++     propVec[k] <- mean(survival_time[status==1]>monthsDelay)
++   }
++   
++   propVec[1:(cutoff_index-1)] <- 0
++   
++   Stop1 <- max(paramsList$numEventsRequired*0.5, which.min(propVec<propEvents))
++   Stop2 <- max(paramsList$numEventsRequired*0.75, which.min(propVec<propEvents))
++   
++   PropOutcome <- "Continue"
++   Prop1Outcome <- censFunc(dataset, Stop1)
++   Prop1 <- Prop1Outcome$dataCombined
++   Prop1censTime <- Prop1Outcome$censTime
++   Prop1SS <- Prop1Outcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop1)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   if (deltad > 1) PropOutcome <- "Stop1"
++   
++   Prop2Outcome <- censFunc(dataCombined, Stop2)
++   Prop2 <- Prop2Outcome$dataCombined
++   Prop2censTime <- Prop2Outcome$censTime
++   Prop2SS <- Prop2Outcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop2)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   if (deltad > 1 & PropOutcome=="Continue") PropOutcome <- "Stop2"
++   
++   PropFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
++   PropFinal <- PropFinalOutcome$dataCombined
++   PropFinalcensTime <- PropFinalOutcome$censTime
++   PropFinalSS <- PropFinalOutcome$sampleSize
++   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = PropFinal)
++   deltad <- as.numeric(exp(coef(coxmodel)))
++   PropLRT <- survdiff(Surv(time, status) ~ group, data = PropFinal)
++   Proppower <- (PropLRT$chisq > qchisq(0.95, 1) & deltad < 1 & PropOutcome == "Continue")
++   PropCensTime <- ifelse(PropOutcome == "Stop1", Prop1censTime, ifelse(PropOutcome == "Stop2", Prop2censTime, PropFinalcensTime))
++   PropSS <- ifelse(PropOutcome == "Stop1", Prop1SS, ifelse(PropOutcome == "Stop2", Prop2SS, PropFinalSS))
++   
++   return(list(Proppower = Proppower, PropCensTime = PropCensTime, PropSS = PropSS))
++   
++ }
+> 
+> for (i in 1:length(ScenarioList)){
++   
++   # Set the number of CPU cores you want to use
++   num_cores <- 64 # Change this to the number of cores you want to use
++   
++   # Register parallel backend
++   cl <- makeCluster(num_cores)
++   registerDoParallel(cl)
++   
++   results <- foreach(j = 1:paramsList$NSims, .packages = c("survival", "dplyr")) %dopar% {
++     
++     dataCombined <- generateData(paramsList$lambdac, ScenarioList[[i]]$HR1, 
++                                  ScenarioList[[i]]$T1, ScenarioList[[i]]$HR2, ScenarioList[[i]]$T2, paramsList$numPatients, ScenarioList[[i]]$recTime)
++     
++     # Do it with no interim analysis first
++     NoIAOutcome <- NoIAFunc(dataCombined)
++     NoIApower <-  NoIAOutcome$NoIApower
++     NoIAcensTime <- NoIAOutcome$NoIAcensTime
++     NoIASS <- NoIAOutcome$NoIASS
++      
++     # Wieand rule
++     WieandOutcome <- WieandFunc(dataCombined)
++     Wpower <-  WieandOutcome$Wpower
++     WCensTime <- WieandOutcome$WCensTime
++     WSS <- WieandOutcome$WSS
++ 
++     
++     #OBF rule
++     OBFOutcome <- OBFFunc(dataCombined)
++     OBFpower <-  OBFOutcome$OBFpower
++     OBFCensTime <- OBFOutcome$OBFCensTime
++     OBFSS <- OBFOutcome$OBFSS
++     
++     #Proposed rule
++     for (k in 1:length(propList)){
++     PropOutcome <- PropFunc(dataCombined, propList[[k]]$time, propList[[k]]$prop) 
++     propList[[k]]$power <- PropOutcome$Proppower
++     propList[[k]]$CensTime <- PropOutcome$PropCensTime
++     propList[[k]]$SS <- PropOutcome$PropSS
++     }
++     
++     # Return results
++     list(NoIApower = NoIApower, NoIAcensTime = NoIAcensTime, NoIASS = NoIASS, 
++          Wpower = Wpower, WCensTime = WCensTime, WSS = WSS, 
++          OBFpower = OBFpower, OBFCensTime = OBFCensTime, OBFSS = OBFSS,
++          propList = propList)
++   }
++   
++   # Extract results
++   mean_NoIApower <- mean(sapply(results, function(result) result$NoIApower))
++   mean_NoIAcensTime <- mean(sapply(results, function(result) result$NoIAcensTime))
++   mean_NoIASS <- mean(sapply(results, function(result) result$NoIASS))
++   mean_Wpower <- mean(sapply(results, function(result) result$Wpower))
++   mean_WCensTime <- mean(sapply(results, function(result) result$WCensTime))
++   mean_WSS <- mean(sapply(results, function(result) result$WSS))
++   mean_OBFpower <- mean(sapply(results, function(result) result$OBFpower))
++   mean_OBFCensTime <- mean(sapply(results, function(result) result$OBFCensTime))
++   mean_OBFSS <- mean(sapply(results, function(result) result$OBFSS))
++   
++   resultsList <- vector("list", length = length(propList))
++                      
++  for (k in 1:length(propList)){
++    resultsList[[k]]$time <- mean(sapply(results, function(x) x$propList[[k]]$time))
++    resultsList[[k]]$prop <- mean(sapply(results, function(x) x$propList[[k]]$prop))
++    resultsList[[k]]$power <- mean(sapply(results, function(x) x$propList[[k]]$power))
++    resultsList[[k]]$CensTime <- mean(sapply(results, function(x) x$propList[[k]]$CensTime))
++    resultsList[[k]]$SS <- mean(sapply(results, function(x) x$propList[[k]]$SS))
++  }   
++                     
++                                     
++   
++   # Clean up parallel resources
++   stopCluster(cl)
++   
++   
++   if (i==1){
++     
++     outcomeDF <- data.frame(NoIAPower = mean_NoIApower, NoIADuration = mean_NoIAcensTime, NoIASS = mean_NoIASS,
++                             WieandPower = mean_Wpower, WieandDuration = mean_WCensTime, WieandSS = mean_WSS,
++                             OBFPower = mean_OBFpower, OBFDuration = mean_OBFCensTime, OBFSS = mean_OBFSS)
++     
++     
++     for (k in 1:length(resultsList)){
++       outcomeDF <- cbind(outcomeDF, resultsList[[k]]$time)
++       outcomeDF <- cbind(outcomeDF, resultsList[[k]]$prop)
++       outcomeDF <- cbind(outcomeDF, resultsList[[k]]$power)
++       outcomeDF <- cbind(outcomeDF, resultsList[[k]]$CensTime)
++       outcomeDF <- cbind(outcomeDF, resultsList[[k]]$SS)
++     }
++     
++                             
++     
++     outcomeDFColNames <- c("No IA Power", "No IA Duration", "No IA SS", 
++                              "Wieand Power", "Wieand Duration", "Wieand SS",
++                              "OBF Power", "OBF Duration", "OBF SS")
++     
++     for (k in 1:length(resultsList)){
++       outcomeDFColNames <- c(outcomeDFColNames, paste0("Prop", k, "time"))
++       outcomeDFColNames <- c(outcomeDFColNames, paste0("Prop", k, "prop"))
++       outcomeDFColNames <- c(outcomeDFColNames, paste0("Prop", k, "power"))
++       outcomeDFColNames <- c(outcomeDFColNames, paste0("Prop", k, "CensTime"))
++       outcomeDFColNames <- c(outcomeDFColNames, paste0("Prop", k, "SS"))
++     }
++     
++     colnames(outcomeDF) <- outcomeDFColNames
++     
++   } else {
++     
++     tempVec <- c(mean_NoIApower, mean_NoIAcensTime, mean_NoIASS,
++                  mean_Wpower, mean_WCensTime, mean_WSS,
++                  mean_OBFpower, mean_OBFCensTime, mean_OBFSS)
++     
++     for (k in 1:length(resultsList)){
++       tempVec <- c(tempVec, resultsList[[k]]$time, resultsList[[k]]$prop, resultsList[[k]]$power, resultsList[[k]]$CensTime, resultsList[[k]]$SS)
++     }
++     
++     outcomeDF <- rbind(outcomeDF, tempVec)
++   }
++   
++ }
+> 
+> 
+> HR1Vec <- rep(NA, length(ScenarioList))
+> T1Vec <- rep(NA, length(ScenarioList))
+> HR2Vec <- rep(NA, length(ScenarioList))
+> recTimeVec <- rep(NA, length(ScenarioList))
+> 
+> 
+> 
+> for (i in 1:length(ScenarioList)){
++   HR1Vec[i] <- ScenarioList[[i]]$HR1
++   T1Vec[i] <- ScenarioList[[i]]$T1
++   HR2Vec[i] <- ScenarioList[[i]]$HR2
++   recTimeVec[i] <- ScenarioList[[i]]$recTime
++ }
+> 
+> outcomeDF <- cbind(outcomeDF, HR1Vec, T1Vec, HR2Vec, recTimeVec)
+> 
+> outcomeDF
+   No IA Power No IA Duration No IA SS Wieand Power Wieand Duration Wieand SS
+1      0.90338       47.37907      680      0.89928        47.13811  678.4959
+2      0.02556       43.86078      680      0.02455        34.13343  602.8253
+3      0.00000       41.31877      680      0.00000        25.19914  503.9925
+4      0.90155       47.80830      680      0.89167        47.30131  676.8361
+5      0.90478       48.31134      680      0.87865        47.22822  673.2118
+6      0.90192       48.34432      680      0.86979        47.04288  671.7833
+7      0.90009       34.31601      680      0.89745        34.10778  680.0000
+8      0.02530       30.51124      680      0.02495        21.49505  680.0000
+9      0.00000       27.66287      680      0.00000        13.65767  679.9993
+10     0.90246       34.81410      680      0.88313        33.91678  680.0000
+11     0.90580       35.38596      680      0.80357        32.14448  680.0000
+12     0.90117       35.41133      680      0.78093        31.65873  680.0000
+   OBF Power OBF Duration   OBF SS Prop1time Prop1prop Prop1power Prop1CensTime
+1    0.87657     46.21928 671.6629         1      0.25    0.89928      47.13811
+2    0.02095     28.18654 529.5043         1      0.25    0.02455      34.13343
+3    0.00000     19.94625 399.2695         1      0.25    0.00000      25.19914
+4    0.83962     45.43326 661.7433         1      0.25    0.89167      47.30131
+5    0.78040     43.91765 644.4044         1      0.25    0.87865      47.22822
+6    0.75742     43.28716 638.4466         1      0.25    0.86979      47.04288
+7    0.87781     33.27481 679.7057         1      0.25    0.89745      34.10778
+8    0.02237     16.92930 660.4550         1      0.25    0.02495      21.49505
+9    0.00000     10.93999 607.7877         1      0.25    0.00000      13.65767
+10   0.79429     31.17251 677.3158         1      0.25    0.88313      33.91678
+11   0.62708     27.14657 670.4666         1      0.25    0.80357      32.14448
+12   0.53353     24.67105 665.1226         1      0.25    0.78093      31.65873
+    Prop1SS Prop2time Prop2prop Prop2power Prop2CensTime  Prop2SS Prop3time
+1  678.4959         1 0.3333333    0.89928      47.13811 678.4959         1
+2  602.8253         1 0.3333333    0.02455      34.13343 602.8253         1
+3  503.9925         1 0.3333333    0.00000      25.19914 503.9925         1
+4  676.8361         1 0.3333333    0.89167      47.30131 676.8361         1
+5  673.2118         1 0.3333333    0.87865      47.22822 673.2118         1
+6  671.7833         1 0.3333333    0.86979      47.04288 671.7833         1
+7  680.0000         1 0.3333333    0.89745      34.10778 680.0000         1
+8  680.0000         1 0.3333333    0.02495      21.49505 680.0000         1
+9  679.9993         1 0.3333333    0.00000      13.65767 679.9993         1
+10 680.0000         1 0.3333333    0.88313      33.91678 680.0000         1
+11 680.0000         1 0.3333333    0.80357      32.14448 680.0000         1
+12 680.0000         1 0.3333333    0.78093      31.65873 680.0000         1
+   Prop3prop Prop3power Prop3CensTime  Prop3SS Prop4time Prop4prop Prop4power
+1        0.5    0.89928      47.13811 678.4959         1 0.6666667    0.89928
+2        0.5    0.02455      34.13343 602.8253         1 0.6666667    0.02455
+3        0.5    0.00000      25.19914 503.9925         1 0.6666667    0.00000
+4        0.5    0.89167      47.30131 676.8361         1 0.6666667    0.89167
+5        0.5    0.87865      47.22822 673.2118         1 0.6666667    0.87865
+6        0.5    0.86979      47.04288 671.7833         1 0.6666667    0.86979
+7        0.5    0.89745      34.10778 680.0000         1 0.6666667    0.89745
+8        0.5    0.02495      21.49505 680.0000         1 0.6666667    0.02495
+9        0.5    0.00000      13.65767 679.9993         1 0.6666667    0.00000
+10       0.5    0.88313      33.91678 680.0000         1 0.6666667    0.88313
+11       0.5    0.80357      32.14448 680.0000         1 0.6666667    0.80357
+12       0.5    0.78093      31.65873 680.0000         1 0.6666667    0.78093
+   Prop4CensTime  Prop4SS Prop5time Prop5prop Prop5power Prop5CensTime  Prop5SS
+1       47.13811 678.4959         1      0.75    0.89928      47.13811 678.4959
+2       34.13343 602.8253         1      0.75    0.02455      34.13343 602.8253
+3       25.19914 503.9925         1      0.75    0.00000      25.19914 503.9925
+4       47.30131 676.8361         1      0.75    0.89167      47.30131 676.8361
+5       47.22822 673.2118         1      0.75    0.87865      47.22822 673.2118
+6       47.04288 671.7833         1      0.75    0.86979      47.04288 671.7833
+7       34.10778 680.0000         1      0.75    0.89745      34.10778 680.0000
+8       21.49505 680.0000         1      0.75    0.02495      21.49505 680.0000
+9       13.65767 679.9993         1      0.75    0.00000      13.65787 679.9993
+10      33.91678 680.0000         1      0.75    0.88313      33.91678 680.0000
+11      32.14448 680.0000         1      0.75    0.80357      32.14449 680.0000
+12      31.65873 680.0000         1      0.75    0.78095      31.65917 680.0000
+   Prop6time Prop6prop Prop6power Prop6CensTime  Prop6SS Prop7time Prop7prop
+1          2      0.25    0.89928      47.13811 678.4959         2 0.3333333
+2          2      0.25    0.02455      34.13343 602.8253         2 0.3333333
+3          2      0.25    0.00000      25.19914 503.9925         2 0.3333333
+4          2      0.25    0.89167      47.30131 676.8361         2 0.3333333
+5          2      0.25    0.87865      47.22822 673.2118         2 0.3333333
+6          2      0.25    0.86979      47.04288 671.7833         2 0.3333333
+7          2      0.25    0.89745      34.10778 680.0000         2 0.3333333
+8          2      0.25    0.02495      21.49505 680.0000         2 0.3333333
+9          2      0.25    0.00000      13.65767 679.9993         2 0.3333333
+10         2      0.25    0.88313      33.91678 680.0000         2 0.3333333
+11         2      0.25    0.80357      32.14448 680.0000         2 0.3333333
+12         2      0.25    0.78093      31.65873 680.0000         2 0.3333333
+   Prop7power Prop7CensTime  Prop7SS Prop8time Prop8prop Prop8power
+1     0.89928      47.13811 678.4959         2       0.5    0.89928
+2     0.02455      34.13343 602.8253         2       0.5    0.02455
+3     0.00000      25.19914 503.9925         2       0.5    0.00000
+4     0.89167      47.30131 676.8361         2       0.5    0.89167
+5     0.87865      47.22822 673.2118         2       0.5    0.87865
+6     0.86979      47.04288 671.7833         2       0.5    0.86979
+7     0.89745      34.10778 680.0000         2       0.5    0.89745
+8     0.02495      21.49505 680.0000         2       0.5    0.02495
+9     0.00000      13.65767 679.9993         2       0.5    0.00000
+10    0.88313      33.91678 680.0000         2       0.5    0.88313
+11    0.80357      32.14448 680.0000         2       0.5    0.80357
+12    0.78093      31.65873 680.0000         2       0.5    0.78093
+   Prop8CensTime  Prop8SS Prop9time Prop9prop Prop9power Prop9CensTime  Prop9SS
+1       47.13811 678.4959         2 0.6666667    0.89928      47.13811 678.4959
+2       34.13343 602.8253         2 0.6666667    0.02455      34.13343 602.8253
+3       25.19914 503.9925         2 0.6666667    0.00000      25.19914 503.9925
+4       47.30131 676.8361         2 0.6666667    0.89167      47.30131 676.8361
+5       47.22822 673.2118         2 0.6666667    0.87865      47.22822 673.2118
+6       47.04288 671.7833         2 0.6666667    0.86979      47.04288 671.7833
+7       34.10778 680.0000         2 0.6666667    0.89745      34.10799 680.0000
+8       21.49505 680.0000         2 0.6666667    0.02496      21.52231 680.0000
+9       13.65767 679.9993         2 0.6666667    0.00000      13.97584 679.9993
+10      33.91678 680.0000         2 0.6666667    0.88371      33.93581 680.0000
+11      32.14448 680.0000         2 0.6666667    0.80516      32.19019 680.0000
+12      31.65873 680.0000         2 0.6666667    0.80489      32.32310 680.0000
+   Prop10time Prop10prop Prop10power Prop10CensTime Prop10SS Prop11time
+1           2       0.75     0.89928       47.13811 678.4959          3
+2           2       0.75     0.02455       34.13343 602.8253          3
+3           2       0.75     0.00000       25.19914 503.9925          3
+4           2       0.75     0.89167       47.30131 676.8361          3
+5           2       0.75     0.87865       47.22822 673.2118          3
+6           2       0.75     0.86979       47.04288 671.7833          3
+7           2       0.75     0.89814       34.14587 680.0000          3
+8           2       0.75     0.02513       22.64373 680.0000          3
+9           2       0.75     0.00000       16.93344 679.9993          3
+10          2       0.75     0.89554       34.38774 680.0000          3
+11          2       0.75     0.85920       33.72498 680.0000          3
+12          2       0.75     0.88908       34.79529 680.0000          3
+   Prop11prop Prop11power Prop11CensTime Prop11SS Prop12time Prop12prop
+1        0.25     0.89928       47.13811 678.4959          3  0.3333333
+2        0.25     0.02455       34.13343 602.8253          3  0.3333333
+3        0.25     0.00000       25.19914 503.9925          3  0.3333333
+4        0.25     0.89167       47.30131 676.8361          3  0.3333333
+5        0.25     0.87865       47.22822 673.2118          3  0.3333333
+6        0.25     0.86979       47.04288 671.7833          3  0.3333333
+7        0.25     0.89745       34.10778 680.0000          3  0.3333333
+8        0.25     0.02495       21.49505 680.0000          3  0.3333333
+9        0.25     0.00000       13.65767 679.9993          3  0.3333333
+10       0.25     0.88313       33.91678 680.0000          3  0.3333333
+11       0.25     0.80357       32.14448 680.0000          3  0.3333333
+12       0.25     0.78093       31.65873 680.0000          3  0.3333333
+   Prop12power Prop12CensTime Prop12SS Prop13time Prop13prop Prop13power
+1      0.89928       47.13811 678.4959          3        0.5     0.89928
+2      0.02455       34.13343 602.8253          3        0.5     0.02455
+3      0.00000       25.19914 503.9925          3        0.5     0.00000
+4      0.89167       47.30131 676.8361          3        0.5     0.89167
+5      0.87865       47.22822 673.2118          3        0.5     0.87865
+6      0.86979       47.04288 671.7833          3        0.5     0.86979
+7      0.89745       34.10778 680.0000          3        0.5     0.89745
+8      0.02495       21.49505 680.0000          3        0.5     0.02495
+9      0.00000       13.65767 679.9993          3        0.5     0.00000
+10     0.88313       33.91678 680.0000          3        0.5     0.88320
+11     0.80357       32.14448 680.0000          3        0.5     0.80367
+12     0.78093       31.65873 680.0000          3        0.5     0.79283
+   Prop13CensTime Prop13SS Prop14time Prop14prop Prop14power Prop14CensTime
+1        47.13811 678.4959          3  0.6666667     0.89928       47.13811
+2        34.13343 602.8253          3  0.6666667     0.02455       34.13343
+3        25.19914 503.9925          3  0.6666667     0.00000       25.19914
+4        47.30131 676.8361          3  0.6666667     0.89167       47.30131
+5        47.22822 673.2118          3  0.6666667     0.87865       47.22822
+6        47.04288 671.7833          3  0.6666667     0.86979       47.04288
+7        34.10778 680.0000          3  0.6666667     0.89883       34.17921
+8        21.49786 680.0000          3  0.6666667     0.02521       23.41918
+9        13.73171 679.9993          3  0.6666667     0.00000       18.31018
+10       33.91883 680.0000          3  0.6666667     0.89986       34.57322
+11       32.14826 680.0000          3  0.6666667     0.88460       34.45861
+12       31.98381 680.0000          3  0.6666667     0.89809       35.15909
+   Prop14SS Prop15time Prop15prop Prop15power Prop15CensTime Prop15SS
+1  678.4959          3       0.75     0.89928       47.13811 678.4959
+2  602.8253          3       0.75     0.02455       34.13345 602.8258
+3  503.9925          3       0.75     0.00000       25.19960 504.0019
+4  676.8361          3       0.75     0.89167       47.30131 676.8361
+5  673.2118          3       0.75     0.87865       47.22822 673.2118
+6  671.7833          3       0.75     0.86979       47.04313 671.7852
+7  680.0000          3       0.75     0.90000       34.27923 680.0000
+8  680.0000          3       0.75     0.02530       27.06265 680.0000
+9  679.9993          3       0.75     0.00000       21.51725 679.9994
+10 680.0000          3       0.75     0.90187       34.76512 680.0000
+11 680.0000          3       0.75     0.90317       35.25215 680.0000
+12 680.0000          3       0.75     0.85643       33.97045 680.0000
+   Prop16time Prop16prop Prop16power Prop16CensTime Prop16SS Prop17time
+1           4       0.25     0.89928       47.13811 678.4959          4
+2           4       0.25     0.02455       34.13343 602.8253          4
+3           4       0.25     0.00000       25.19914 503.9925          4
+4           4       0.25     0.89167       47.30131 676.8361          4
+5           4       0.25     0.87865       47.22822 673.2118          4
+6           4       0.25     0.86979       47.04288 671.7833          4
+7           4       0.25     0.89745       34.10778 680.0000          4
+8           4       0.25     0.02495       21.49505 680.0000          4
+9           4       0.25     0.00000       13.65767 679.9993          4
+10          4       0.25     0.88313       33.91678 680.0000          4
+11          4       0.25     0.80357       32.14448 680.0000          4
+12          4       0.25     0.78093       31.65873 680.0000          4
+   Prop17prop Prop17power Prop17CensTime Prop17SS Prop18time Prop18prop
+1   0.3333333     0.89928       47.13811 678.4959          4        0.5
+2   0.3333333     0.02455       34.13343 602.8253          4        0.5
+3   0.3333333     0.00000       25.19914 503.9925          4        0.5
+4   0.3333333     0.89167       47.30131 676.8361          4        0.5
+5   0.3333333     0.87865       47.22822 673.2118          4        0.5
+6   0.3333333     0.86979       47.04288 671.7833          4        0.5
+7   0.3333333     0.89745       34.10778 680.0000          4        0.5
+8   0.3333333     0.02495       21.49506 680.0000          4        0.5
+9   0.3333333     0.00000       13.65921 679.9993          4        0.5
+10  0.3333333     0.88313       33.91678 680.0000          4        0.5
+11  0.3333333     0.80360       32.14510 680.0000          4        0.5
+12  0.3333333     0.78106       31.66234 680.0000          4        0.5
+   Prop18power Prop18CensTime Prop18SS Prop19time Prop19prop Prop19power
+1      0.89928       47.13811 678.4959          4  0.6666667     0.89928
+2      0.02455       34.13343 602.8253          4  0.6666667     0.02455
+3      0.00000       25.19914 503.9925          4  0.6666667     0.00000
+4      0.89167       47.30131 676.8361          4  0.6666667     0.89167
+5      0.87865       47.22822 673.2118          4  0.6666667     0.87865
+6      0.86979       47.04288 671.7833          4  0.6666667     0.86979
+7      0.89777       34.12246 680.0000          4  0.6666667     0.90000
+8      0.02508       22.15258 680.0000          4  0.6666667     0.02529
+9      0.00000       15.92726 679.9993          4  0.6666667     0.00000
+10     0.89018       34.17327 680.0000          4  0.6666667     0.90238
+11     0.84313       33.24980 680.0000          4  0.6666667     0.90517
+12     0.86262       33.90552 680.0000          4  0.6666667     0.89689
+   Prop19CensTime Prop19SS Prop20time Prop20prop Prop20power Prop20CensTime
+1        47.13811 678.4959          4       0.75     0.89928       47.13829
+2        34.13343 602.8253          4       0.75     0.02454       34.13839
+3        25.19916 503.9928          4       0.75     0.00000       25.26233
+4        47.30131 676.8361          4       0.75     0.89169       47.30196
+5        47.22822 673.2118          4       0.75     0.87874       47.23139
+6        47.04288 671.7833          4       0.75     0.86998       47.05043
+7        34.27497 680.0000          4       0.75     0.89918       34.24398
+8        26.75059 680.0000          4       0.75     0.02499       22.56388
+9        22.71632 679.9994          4       0.75     0.00000       13.69451
+10       34.77141 680.0000          4       0.75     0.88710       34.09159
+11       35.31123 680.0000          4       0.75     0.81448       32.47089
+12       35.25310 680.0000          4       0.75     0.78286       31.71420
+   Prop20SS Prop21time Prop21prop Prop21power Prop21CensTime Prop21SS
+1  678.4969          5       0.25     0.89928       47.13811 678.4959
+2  602.9081          5       0.25     0.02455       34.13343 602.8253
+3  505.2516          5       0.25     0.00000       25.19914 503.9925
+4  676.8427          5       0.25     0.89167       47.30131 676.8361
+5  673.2390          5       0.25     0.87865       47.22822 673.2118
+6  671.8567          5       0.25     0.86979       47.04288 671.7833
+7  680.0000          5       0.25     0.89745       34.10778 680.0000
+8  680.0000          5       0.25     0.02495       21.49507 680.0000
+9  679.9993          5       0.25     0.00000       13.66176 679.9993
+10 680.0000          5       0.25     0.88313       33.91678 680.0000
+11 680.0000          5       0.25     0.80359       32.14497 680.0000
+12 680.0000          5       0.25     0.78100       31.66113 680.0000
+   Prop22time Prop22prop Prop22power Prop22CensTime Prop22SS Prop23time
+1           5  0.3333333     0.89928       47.13811 678.4959          5
+2           5  0.3333333     0.02455       34.13343 602.8253          5
+3           5  0.3333333     0.00000       25.19914 503.9925          5
+4           5  0.3333333     0.89167       47.30131 676.8361          5
+5           5  0.3333333     0.87865       47.22822 673.2118          5
+6           5  0.3333333     0.86979       47.04288 671.7833          5
+7           5  0.3333333     0.89747       34.10910 680.0000          5
+8           5  0.3333333     0.02494       21.55191 680.0000          5
+9           5  0.3333333     0.00000       14.24367 679.9993          5
+10          5  0.3333333     0.88365       33.93536 680.0000          5
+11          5  0.3333333     0.81066       32.34366 680.0000          5
+12          5  0.3333333     0.79953       32.16140 680.0000          5
+   Prop23prop Prop23power Prop23CensTime Prop23SS Prop24time Prop24prop
+1         0.5     0.89928       47.13811 678.4959          5  0.6666667
+2         0.5     0.02455       34.13343 602.8253          5  0.6666667
+3         0.5     0.00000       25.19914 503.9925          5  0.6666667
+4         0.5     0.89167       47.30131 676.8361          5  0.6666667
+5         0.5     0.87865       47.22822 673.2118          5  0.6666667
+6         0.5     0.86979       47.04288 671.7833          5  0.6666667
+7         0.5     0.89921       34.20349 680.0000          5  0.6666667
+8         0.5     0.02528       23.92423 680.0000          5  0.6666667
+9         0.5     0.00000       19.05225 679.9993          5  0.6666667
+10        0.5     0.90008       34.56994 680.0000          5  0.6666667
+11        0.5     0.89614       34.82601 680.0000          5  0.6666667
+12        0.5     0.89438       34.95594 680.0000          5  0.6666667
+   Prop24power Prop24CensTime Prop24SS Prop25time Prop25prop Prop25power
+1      0.89928       47.13811 678.4959          5       0.75     0.89939
+2      0.02455       34.13385 602.8329          5       0.75     0.02461
+3      0.00000       25.20388 504.0860          5       0.75     0.00000
+4      0.89167       47.30131 676.8361          5       0.75     0.89204
+5      0.87864       47.22818 673.2107          5       0.75     0.88031
+6      0.86980       47.04333 671.7870          5       0.75     0.87222
+7      0.90001       34.29994 680.0000          5       0.75     0.89750
+8      0.02509       25.39567 680.0000          5       0.75     0.02495
+9      0.00000       14.09392 679.9994          5       0.75     0.00000
+10     0.89768       34.56980 680.0000          5       0.75     0.88316
+11     0.85011       33.57274 680.0000          5       0.75     0.80357
+12     0.81988       32.85117 680.0000          5       0.75     0.78094
+   Prop25CensTime Prop25SS HR1Vec T1Vec HR2Vec recTimeVec
+1        47.14202 678.5254   0.75  1000  0.750         34
+2        34.31787 606.0471   1.00  1000  1.000         34
+3        25.83477 516.7142   1.30  1000  1.300         34
+4        47.31345 676.9521   1.00     3  0.693         34
+5        47.28413 673.7535   1.00     6  0.620         34
+6        47.12913 672.5855   1.30     3  0.628         34
+7        34.11120 680.0000   0.75  1000  0.750         12
+8        21.49571 680.0000   1.00  1000  1.000         12
+9        13.65767 679.9993   1.30  1000  1.300         12
+10       33.91776 680.0000   1.00     3  0.693         12
+11       32.14468 680.0000   1.00     6  0.620         12
+12       31.65891 680.0000   1.30     3  0.628         12
+> 
+> 
+> proc.time()
+     user    system   elapsed 
+ 1052.055   300.837 23682.403 

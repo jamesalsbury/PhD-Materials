@@ -159,7 +159,7 @@ paramsList <- list(
   numPatients = 340,
   lambdac = -log(0.5)/12,
   numEventsRequired = 512,
-  NSims = 5e2
+  NSims = 5e3
 )
 
 # Generate control and treatment data
@@ -370,7 +370,7 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = dataCombi
                                                             m=nrow(dataCombined)), quiet = T) 
 
 update(model, n.iter=100)
-output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 500)
+output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 250)
 
 #plot(output)
 
@@ -378,9 +378,9 @@ output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.it
 cPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Control") 
 tPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Treatment") 
 
-BPPVec <- rep(NA, 250)
+BPPVec <- rep(NA, 200)
 
-for (j in 1:250){
+for (j in 1:200){
   
   #Sampling the recruitment times for the unenrolled patients
   unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, BPPOutcome$censTime, recTime)
@@ -514,7 +514,7 @@ for (i in 1:length(ScenarioList)){
   
   
   # Set the number of CPU cores you want to use
-  num_cores <- 30 # Change this to the number of cores you want to use
+  num_cores <- 64 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
