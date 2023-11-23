@@ -13,6 +13,21 @@
 #                     of the Prior in Thall and Lee (2003)
 #***************************************************************************
 
+
+
+generateData <- function(lambdac, HR1, T1, HR2, T2, numPatients, recTime) {
+  CP <- exp(-lambdac*HR1*T1)
+  u <- runif(numPatients)
+  controlData <- -log(u)/lambdac
+  u <- runif(numPatients)
+  treatmentData <- ifelse(u>CP, -log(u)/(lambdac*HR1), (1/(lambdac*HR2))*(lambdac*HR2*T1-log(u)-lambdac*HR1*T1))
+  dataCombined <- data.frame(time = c(controlData, treatmentData), group = c(rep("Control", numPatients), rep("Treatment", numPatients)))
+  dataCombined$recTime <- runif(numPatients*2, min = 0, max = recTime)
+  dataCombined$pseudo_time <- dataCombined$time + dataCombined$recTime
+  return(dataCombined)
+}
+
+
 logistic <- function(M,d.ini,d.end)
 {
   # Let p(theta_) be the prior on the parameter vector theta_ =
@@ -36,6 +51,7 @@ logistic <- function(M,d.ini,d.end)
   T    <- 10000
   c    <- 10000
   DqYMrep.out <- numeric(Mrep)
+  trialTime <- 20
   
   # Set-ups for the study design of the example.
   d      <- 3  # d = dim(theta_)
@@ -82,18 +98,31 @@ logistic <- function(M,d.ini,d.end)
   for (t in 1:T) { # Simulate Monte Carlo samples
     DqYm.out <- numeric(M)
     DqY <- numeric(d)
+    
+    
+    #Need to do data generating mechanism here
+    #And then feed the events into the following loop
+    #Instead of m representing sample sizes, we have it representing events here
+    #We feed in the data set seem when we have 1 event, 2 events, ..., M events
+    
+    #We also need to make sure that we loop over the correct things here
+    #Compare with the logistic regression case
+    
     for (i in 1:M) {
-      Dx  <- sample(nDose,1,replace=TRUE) # Simulate covariates
-      x   <- log(100*Dx) - mlDose         # Simulate covariates
-      Pai <- exp(Etheta1 + Etheta2*x)/(1 + exp(Etheta1 + Etheta2*x))
-      # Specify the model employed
-      # in the example.
-      Dq.1 <- Pai - Pai^2                 # Specify Dq,j(m,theta_bar)
-      #for j=1,...,d.
-      Dq.2 <- x^2*(Pai - Pai^2)           # Specify Dq,j(m,theta_bar)
-      # for j=1,...,d.
-      Dq   <- c(Dq.1, Dq.2)               # Set Dq,j(m,theta_bar) for
-      # j=1,...,d, as a vector.
+      
+      
+      
+      
+      
+      #For i = 1, ..., n
+      Dq.1 <- (Yi-1)/Etheta1^2
+      
+      
+      
+      Dq.2 <- x^2*(Pai - Pai^2)          
+      
+      Dq   <- c(Dq.1, Dq.2)              
+      
       DqY  <- DqY + Dq
       Dqm.plus    <- sum(DqY[d.ini:d.end])
       DqYm.out[i] <- Dqm.plus + Dq0.plus
