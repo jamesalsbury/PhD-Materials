@@ -157,9 +157,9 @@ ScenarioList <- list(
 
 paramsList <- list(
   numPatients = 340,
-  lambdac = log(2)/6,
+  lambdac = log(2)/24,
   numEventsRequired = 512,
-  NSims = 1e5
+  NSims = 1e4
 )
 
 # Generate control and treatment data
@@ -326,7 +326,7 @@ for (i in 1:length(ScenarioList)){
   
   
   # Set the number of CPU cores you want to use
-  num_cores <- 64 # Change this to the number of cores you want to use
+  num_cores <- 32 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)

@@ -13,9 +13,10 @@
 #                     of the Prior in Thall and Lee (2003)
 #***************************************************************************
 
+library(purrr)
+library(dplyr)
 
-
-generateData <- function(lambdac, HR1, T1, HR2, T2, numPatients, recTime) {
+generateData <- function(lambdac, HR1, T1, HR2, numPatients, recTime) {
   CP <- exp(-lambdac*HR1*T1)
   u <- runif(numPatients)
   controlData <- -log(u)/lambdac
@@ -27,6 +28,26 @@ generateData <- function(lambdac, HR1, T1, HR2, T2, numPatients, recTime) {
   return(dataCombined)
 }
 
+
+# Function to perform censoring and analysis
+censFunc <- function(dataset, numObs) {
+  # Sort pseudo times and determine censoring time
+  sortedPseudoTimes <- sort(dataset$pseudo_time)
+  censTime <- sortedPseudoTimes[numObs]
+  
+  # Censor the observations
+  dataset$status <- as.integer(dataset$pseudo_time <= censTime)
+  
+  # Only include patients enrolled by the censoring time
+  dataset <- dataset[dataset$recTime <= censTime, ]
+  
+  # Calculate survival time
+  dataset$survival_time <- ifelse(dataset$status == 1, dataset$time, censTime - dataset$recTime)
+  
+  sampleSize <- nrow(dataset)
+  
+  return(list(dataCombined = dataset, censTime = censTime, sampleSize = sampleSize))
+}
 
 logistic <- function(M,d.ini,d.end)
 {
@@ -48,7 +69,7 @@ logistic <- function(M,d.ini,d.end)
   # theta_k.
   
   Mrep <- M+1
-  T    <- 10000
+  T    <- 100
   c    <- 10000
   DqYMrep.out <- numeric(Mrep)
   trialTime <- 20
@@ -100,10 +121,10 @@ logistic <- function(M,d.ini,d.end)
     DqY <- numeric(d)
     
     
-    #Need to do data generating mechanism here
-    #And then feed the events into the following loop
-    #Instead of m representing sample sizes, we have it representing events here
-    #We feed in the data set seem when we have 1 event, 2 events, ..., M events
+    dataCombined <- generateData(Etheta1, 1, Etheta3, Etheta2, 340, 12)
+    
+    dataCombined <- censFunc(dataCombined, 512)$dataCombined
+    
     
     #We also need to make sure that we loop over the correct things here
     #Compare with the logistic regression case
@@ -112,16 +133,17 @@ logistic <- function(M,d.ini,d.end)
       
       
       
+      Dq.1 <- -(dataCombined[i,]$status-1/Etheta1^2)
       
+      if (dataCombined[i,]$group=="Treatment"&dataCombined[i,]$survival_time>Etheta3){
+        Dq.2 <- -(dataCombined[i,]$status-1/Etheta2^2)
+      } else {
+        Dq.2 <- 0
+      }
       
-      #For i = 1, ..., n
-      Dq.1 <- (Yi-1)/Etheta1^2
+      Dq.3 <- 0
       
-      
-      
-      Dq.2 <- x^2*(Pai - Pai^2)          
-      
-      Dq   <- c(Dq.1, Dq.2)              
+      Dq   <- c(Dq.1, Dq.2, Dq.3)              
       
       DqY  <- DqY + Dq
       Dqm.plus    <- sum(DqY[d.ini:d.end])

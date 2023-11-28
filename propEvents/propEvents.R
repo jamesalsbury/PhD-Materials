@@ -1,10 +1,10 @@
 
-lambdac <- log(2)/6
-HR1 <- 1.3
-T1 <- 3
-HR2 <- 0.628
+lambdac <- log(2)/12
+HR1 <- 0.75
+T1 <- 0
+HR2 <- 0.75
 numPatients <- 340
-recTime <- 12
+recTime <- 34
 
 
 
@@ -40,7 +40,7 @@ censFunc <- function(dataset, censTime) {
 
 
 # Set parameters
-numSimulations <- 100
+numSimulations <- 50
 calTime <- seq(0, 100, by = 0.1)
 
 # Initialize an empty matrix for storing results
@@ -56,7 +56,7 @@ for (k in 1:numSimulations) {
 eventVec <- colMeans(eventMatrix)
 
 
-numSimulations <- 100
+numSimulations <- 50
 calTime <- seq(0, 100, by = 0.1)
 propMatrix <- matrix(NA, nrow = numSimulations, ncol = length(calTime))
 
@@ -90,19 +90,19 @@ eventProp <- colMeans(propMatrix)
 plot(eventVec, eventProp, type = "l", xlab = "Number of events", ylab = "Proportion of events > 3 months", ylim = c(0,1))
 
 
-abline(h = 2/3)
-abline(v = 512*0.5)
-abline(v = 512*0.75)
-abline(v = 512)
+ abline(h = 2/3, lty = 2)
+# abline(v = 512*0.5)
+# abline(v = 512*0.75)
+# abline(v = 512)
 
 
-plot(calTime, eventProp, type = "l", xlab = "Calendar time (months)", ylab = "Proportion of events > 3 months", ylim = c(0,1))
-abline(h = 2/3)
-abline(v = 10)
-abline(v = 20)
-abline(v = 30)
-abline(v = 40)
-abline(v = 50)
+#plot(calTime, eventProp, type = "l", xlab = "Calendar time (months)", ylab = "Proportion of events > 3 months", ylim = c(0,1))
+# abline(h = 2/3)
+# abline(v = 10)
+# abline(v = 20)
+# abline(v = 30)
+# abline(v = 40)
+# abline(v = 50)
 
 
 
