@@ -4,92 +4,138 @@ library(foreach)
 library(doParallel)
 library(rjags)
 
+
 ScenarioList <- list(
   A = list(
     HR1 = 0.75,
     T1 = 1000,
     HR2 = 0.75,
     T2 = 1000,
-    recTime = 34
+    recTime = 6
   ),
   B = list(
     HR1 = 1,
     T1 = 1000,
     HR2 = 1,
     T2 = 1000,
-    recTime = 34
+    recTime = 6
   ),
   C = list(
     HR1 = 1.3,
     T1 = 1000,
     HR2 = 1.3,
     T2 = 1000,
-    recTime = 34
+    recTime = 6
   ),
   D = list(
     HR1 = 1,
     T1 = 3,
     HR2 = 0.693,
     T2 = 1000,
-    recTime = 34
+    recTime = 6
   ),
   E = list(
     HR1 = 1,
     T1 = 6,
     HR2 = 0.62,
     T2 = 1000,
-    recTime = 34
-  ),
+    recTime = 6
+  ), 
   F = list(
     HR1 = 1.3,
     T1 = 3,
     HR2 = 0.628,
     T2 = 1000,
-    recTime = 34
-  ),
-  G = list(
-    HR1 = 0.75,
-    T1 = 1000,
-    HR2 = 0.75,
-    T2 = 1000,
-    recTime = 12
-  ),
-  H = list(
-    HR1 = 1,
-    T1 = 1000,
-    HR2 = 1,
-    T2 = 1000,
-    recTime = 12
-  ),
-  I = list(
-    HR1 = 1.3,
-    T1 = 1000,
-    HR2 = 1.3,
-    T2 = 1000,
-    recTime = 12
-  ),
-  J = list(
-    HR1 = 1,
-    T1 = 3,
-    HR2 = 0.693,
-    T2 = 1000,
-    recTime = 12
-  ),
-  K = list(
-    HR1 = 1,
-    T1 = 6,
-    HR2 = 0.62,
-    T2 = 1000,
-    recTime = 12
-  ),
-  L = list(
-    HR1 = 1.3,
-    T1 = 3,
-    HR2 = 0.628,
-    T2 = 1000,
-    recTime = 12
+    recTime = 6
   )
 )
+
+# ScenarioList <- list(
+#   A = list(
+#     HR1 = 0.75,
+#     T1 = 1000,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 34
+#   ),
+#   B = list(
+#     HR1 = 1,
+#     T1 = 1000,
+#     HR2 = 1,
+#     T2 = 1000,
+#     recTime = 34
+#   ),
+#   C = list(
+#     HR1 = 1.3,
+#     T1 = 1000,
+#     HR2 = 1.3,
+#     T2 = 1000,
+#     recTime = 34
+#   ),
+#   D = list(
+#     HR1 = 1,
+#     T1 = 3,
+#     HR2 = 0.693,
+#     T2 = 1000,
+#     recTime = 34
+#   ),
+#   E = list(
+#     HR1 = 1,
+#     T1 = 6,
+#     HR2 = 0.62,
+#     T2 = 1000,
+#     recTime = 34
+#   ),
+#   F = list(
+#     HR1 = 1.3,
+#     T1 = 3,
+#     HR2 = 0.628,
+#     T2 = 1000,
+#     recTime = 34
+#   ),
+#   G = list(
+#     HR1 = 0.75,
+#     T1 = 1000,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   H = list(
+#     HR1 = 1,
+#     T1 = 1000,
+#     HR2 = 1,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   I = list(
+#     HR1 = 1.3,
+#     T1 = 1000,
+#     HR2 = 1.3,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   J = list(
+#     HR1 = 1,
+#     T1 = 3,
+#     HR2 = 0.693,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   K = list(
+#     HR1 = 1,
+#     T1 = 6,
+#     HR2 = 0.62,
+#     T2 = 1000,
+#     recTime = 12
+#   ),
+#   L = list(
+#     HR1 = 1.3,
+#     T1 = 3,
+#     HR2 = 0.628,
+#     T2 = 1000,
+#     recTime = 12
+#   )
+# )
 
 # HR1Vec <- c(0.6, 0.75, 0.9, 1, 1.3)
 # T1Vec <- c(0, 3, 6, 9)
@@ -157,9 +203,9 @@ ScenarioList <- list(
 
 paramsList <- list(
   numPatients = 340,
-  lambdac = log(2)/24,
+  lambdac = log(2)/8,
   numEventsRequired = 512,
-  NSims = 1e4
+  NSims = 5e4
 )
 
 # Generate control and treatment data
@@ -326,7 +372,7 @@ for (i in 1:length(ScenarioList)){
   
   
   # Set the number of CPU cores you want to use
-  num_cores <- 32 # Change this to the number of cores you want to use
+  num_cores <- 64 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)

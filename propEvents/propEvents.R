@@ -1,10 +1,10 @@
 
-lambdac <- log(2)/12
+lambdac <- log(2)/8
 HR1 <- 0.75
-T1 <- 0
+T1 <- 9
 HR2 <- 0.75
 numPatients <- 340
-recTime <- 34
+#recTime <- 12
 
 
 
@@ -39,70 +39,85 @@ censFunc <- function(dataset, censTime) {
 }
 
 
-# Set parameters
-numSimulations <- 50
-calTime <- seq(0, 100, by = 0.1)
-
-# Initialize an empty matrix for storing results
-eventMatrix <- matrix(NA, nrow = numSimulations, ncol = length(calTime))
-
-# Simulate data and fill in the matrix
-for (k in 1:numSimulations) {
-  dataCombined <- generateData(lambdac, HR1, T1, HR2, numPatients, recTime)
-  eventMatrix[k,] <- sapply(calTime, function(t) sum(dataCombined$pseudo_time < t))
-}
-
-# Calculate mean for each column
-eventVec <- colMeans(eventMatrix)
-
-
-numSimulations <- 50
-calTime <- seq(0, 100, by = 0.1)
-propMatrix <- matrix(NA, nrow = numSimulations, ncol = length(calTime))
-
-for (k in 1:numSimulations){
+propEventFunc <- function(lambdac, HR1, T1, HR2, numPatients, recTime){
+  # Set parameters
+  numSimulations <- 100
+  calTime <- seq(0, 100, by = 0.25)
   
-  # Assuming dataCombined$pseudo_time is a vector of pseudo times
-  dataCombined <- generateData(lambdac, HR1, T1, HR2, numPatients, recTime)
+  # Initialize an empty matrix for storing results
+  eventMatrix <- matrix(NA, nrow = numSimulations, ncol = length(calTime))
   
-  # Create a function for the inner loop to avoid unnecessary copying
-  censFuncInner <- function(data, threshold) {
-    newDataCombined <- censFunc(data, threshold)$dataCombined
-    newDataCombined <- newDataCombined[newDataCombined$status == 1, ]
-    mean(newDataCombined$survival_time > 3)
+  # Simulate data and fill in the matrix
+  for (k in 1:numSimulations) {
+    dataCombined <- generateData(lambdac, HR1, T1, HR2, numPatients, recTime)
+    eventMatrix[k,] <- sapply(calTime, function(t) sum(dataCombined$pseudo_time < t))
   }
   
-  # Use sapply for vectorized calculations
-  propMatrix[k,] <- sapply(calTime, censFuncInner, data = dataCombined)
+  # Calculate mean for each column
+  eventVec <- colMeans(eventMatrix)
+  
+  
+  propMatrix <- matrix(NA, nrow = numSimulations, ncol = length(calTime))
+  
+  for (k in 1:numSimulations){
+    
+    # Assuming dataCombined$pseudo_time is a vector of pseudo times
+    dataCombined <- generateData(lambdac, HR1, T1, HR2, numPatients, recTime)
+    
+    # Create a function for the inner loop to avoid unnecessary copying
+    censFuncInner <- function(data, threshold) {
+      newDataCombined <- censFunc(data, threshold)$dataCombined
+      newDataCombined <- newDataCombined[newDataCombined$status == 1, ]
+      mean(newDataCombined$survival_time > 3)
+    }
+    
+    # Use sapply for vectorized calculations
+    propMatrix[k,] <- sapply(calTime, censFuncInner, data = dataCombined)
+    
+  }
+  
+  # Calculate mean for each column
+  eventProp <- colMeans(propMatrix)
+  
+  return(list(eventProp = eventProp, eventVec = eventVec, calTime = calTime))
   
 }
 
 
-# Calculate mean for each column
-eventProp <- colMeans(propMatrix)
+
+x1 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 0)
+x2 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 8)
+x3 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 34)
+x4 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 60)
+
+plot(x1$calTime, x1$eventVec, type = "l", xlab = "Calendar time", ylab = "Number of events")
+lines(x2$calTime, x2$eventVec, lty = 2, col = "blue")
+lines(x3$calTime, x3$eventVec, lty = 3, col = "red")
+lines(x4$calTime, x4$eventVec, lty = 4, col = "green")
+legend("bottomright", legend = c("R = 0", "R = 12", "R = 34", "R = 60"), col = c("black", "blue", "red", "green"), lty = 1:4)
+
+plot(x1$calTime, x1$eventProp, type = "l", xlab = "Calendar time", ylab = "Proportion of events > 3 months")
+lines(x2$calTime, x2$eventProp, lty = 2, col = "blue")
+lines(x3$calTime, x3$eventProp, lty = 3, col = "red")
+lines(x4$calTime, x4$eventProp, lty = 4, col = "green")
+legend("bottomright", legend = c("R = 0", "R = 12", "R = 34", "R = 60"), col = c("black", "blue", "red", "green"), lty = 1:4)
+abline(h = 2/3, lty = 2)
+
+
+plot(x1$eventVec, x1$eventProp, type = "l", ylim = c(0, 1), xlab = "Number of events", ylab = "Proportion of events > 3 months")
+lines(x2$eventVec, x2$eventProp, col = "blue", lty = 2)
+lines(x3$eventVec, x3$eventProp, col = "red", lty = 3)
+lines(x4$eventVec, x4$eventProp, col = "green", lty = 4)
+legend("bottomright", legend = c("R = 0", "R = 12", "R = 34", "R = 60"), col = c("black", "blue", "red", "green"), lty = 1:4)
+abline(h = 2/3, lty = 2)
+abline(v = 512*0.5)
+abline(v = 512*0.75)
 
 
 
 
 
 
-
-plot(eventVec, eventProp, type = "l", xlab = "Number of events", ylab = "Proportion of events > 3 months", ylim = c(0,1))
-
-
- abline(h = 2/3, lty = 2)
-# abline(v = 512*0.5)
-# abline(v = 512*0.75)
-# abline(v = 512)
-
-
-#plot(calTime, eventProp, type = "l", xlab = "Calendar time (months)", ylab = "Proportion of events > 3 months", ylim = c(0,1))
-# abline(h = 2/3)
-# abline(v = 10)
-# abline(v = 20)
-# abline(v = 30)
-# abline(v = 40)
-# abline(v = 50)
 
 
 

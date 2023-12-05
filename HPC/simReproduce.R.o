@@ -39,91 +39,137 @@ Loading required package: coda
 Linked to JAGS 4.3.1
 Loaded modules: basemod,bugs
 > 
+> # ScenarioList <- list(
+> #   A = list(
+> #     HR1 = 0.75,
+> #     T1 = 1000,
+> #     HR2 = 0.75,
+> #     T2 = 1000,
+> #     recTime = 34
+> # ),
+> #   B = list(
+> #     HR1 = 1,
+> #     T1 = 1000,
+> #     HR2 = 1,
+> #     T2 = 1000,
+> #     recTime = 34
+> # ),
+> #   C = list(
+> #     HR1 = 1.3,
+> #     T1 = 1000,
+> #     HR2 = 1.3,
+> #     T2 = 1000,
+> #     recTime = 34
+> # ),
+> #   D = list(
+> #     HR1 = 1,
+> #     T1 = 3,
+> #     HR2 = 0.693,
+> #     T2 = 1000,
+> #     recTime = 34
+> # ),
+> #   E = list(
+> #     HR1 = 1,
+> #     T1 = 6,
+> #     HR2 = 0.62,
+> #     T2 = 1000,
+> #     recTime = 34
+> # ),
+> #   F = list(
+> #     HR1 = 1.3,
+> #     T1 = 3,
+> #     HR2 = 0.628,
+> #     T2 = 1000,
+> #     recTime = 34
+> # ),
+> #   G = list(
+> #     HR1 = 0.75,
+> #     T1 = 1000,
+> #     HR2 = 0.75,
+> #     T2 = 1000,
+> #     recTime = 12
+> # ),
+> #   H = list(
+> #     HR1 = 1,
+> #     T1 = 1000,
+> #     HR2 = 1,
+> #    T2 = 1000,
+> #     recTime = 12
+> # ),
+> #   I = list(
+> #    HR1 = 1.3,
+> #   T1 = 1000,
+> #    HR2 = 1.3,
+> #    T2 = 1000,
+> #    recTime = 12
+> # ),
+> #   J = list(
+> #     HR1 = 1,
+> #     T1 = 3,
+> #     HR2 = 0.693,
+> #     T2 = 1000,
+> #     recTime = 12
+> # ),
+> #   K = list(
+> #     HR1 = 1,
+> #     T1 = 6,
+> #     HR2 = 0.62,
+> #     T2 = 1000,
+> #     recTime = 12
+> # ),
+> #   L = list(
+> #     HR1 = 1.3,
+> #     T1 = 3,
+> #     HR2 = 0.628,
+> #     T2 = 1000,
+> #     recTime = 12
+> # )
+> # )
+> 
+> 
 > ScenarioList <- list(
 +   A = list(
 +     HR1 = 0.75,
 +     T1 = 1000,
 +     HR2 = 0.75,
 +     T2 = 1000,
-+     recTime = 34
-+ ),
++     recTime = 8
++   ),
 +   B = list(
 +     HR1 = 1,
 +     T1 = 1000,
 +     HR2 = 1,
 +     T2 = 1000,
-+     recTime = 34
-+ ),
++     recTime = 8
++   ),
 +   C = list(
 +     HR1 = 1.3,
 +     T1 = 1000,
 +     HR2 = 1.3,
 +     T2 = 1000,
-+     recTime = 34
-+ ),
++     recTime = 8
++   ),
 +   D = list(
 +     HR1 = 1,
 +     T1 = 3,
 +     HR2 = 0.693,
 +     T2 = 1000,
-+     recTime = 34
-+ ),
++     recTime = 8
++   ),
 +   E = list(
 +     HR1 = 1,
 +     T1 = 6,
 +     HR2 = 0.62,
 +     T2 = 1000,
-+     recTime = 34
-+ ),
++     recTime = 8
++   ), 
 +   F = list(
 +     HR1 = 1.3,
-+     T1 = 3,
++      T1 = 3,
 +     HR2 = 0.628,
 +     T2 = 1000,
-+     recTime = 34
-+ ),
-+   G = list(
-+     HR1 = 0.75,
-+     T1 = 1000,
-+     HR2 = 0.75,
-+     T2 = 1000,
-+     recTime = 12
-+ ),
-+   H = list(
-+     HR1 = 1,
-+     T1 = 1000,
-+     HR2 = 1,
-+    T2 = 1000,
-+     recTime = 12
-+ ),
-+   I = list(
-+    HR1 = 1.3,
-+   T1 = 1000,
-+    HR2 = 1.3,
-+    T2 = 1000,
-+    recTime = 12
-+ ),
-+   J = list(
-+     HR1 = 1,
-+     T1 = 3,
-+     HR2 = 0.693,
-+     T2 = 1000,
-+     recTime = 12
-+ ),
-+   K = list(
-+     HR1 = 1,
-+     T1 = 6,
-+     HR2 = 0.62,
-+     T2 = 1000,
-+     recTime = 12
-+ ),
-+   L = list(
-+     HR1 = 1.3,
-+     T1 = 3,
-+     HR2 = 0.628,
-+     T2 = 1000,
-+     recTime = 12
-+ )
++     recTime = 8
++     )
 + )
 > 
 > # HR1Vec <- c(0.6, 0.75, 0.9, 1, 1.3)
@@ -192,9 +238,9 @@ Loaded modules: basemod,bugs
 > 
 > paramsList <- list(
 +   numPatients = 340,
-+   lambdac = -log(0.5)/12,
++   lambdac = log(2)/8,
 +   numEventsRequired = 512,
-+   NSims = 5e3
++   NSims = 5e1
 + )
 > 
 > # Generate control and treatment data
@@ -668,6 +714,84 @@ Loaded modules: basemod,bugs
 +   }
 +   
 + }
-Error in unserialize(socklist[[n]]) : error reading from connection
-Calls: %dopar% ... recvOneData -> recvOneData.SOCKcluster -> unserialize
-Execution halted
+> 
+> 
+> HR1Vec <- rep(NA, length(ScenarioList))
+> T1Vec <- rep(NA, length(ScenarioList))
+> HR2Vec <- rep(NA, length(ScenarioList))
+> recTimeVec <- rep(NA, length(ScenarioList))
+> # NoIAPowerRank <- rep(NA, length(ScenarioList))
+> # WieandPowerRank <- rep(NA, length(ScenarioList))
+> # OBFPowerRank <- rep(NA, length(ScenarioList))
+> # PropPowerRank <- rep(NA, length(ScenarioList))
+> # NoIADurationRank <- rep(NA, length(ScenarioList))
+> # WieandDurationRank <- rep(NA, length(ScenarioList))
+> # OBFDurationRank <- rep(NA, length(ScenarioList))
+> # PropDurationRank <- rep(NA, length(ScenarioList))
+> # NoIASSRank <- rep(NA, length(ScenarioList))
+> # WieandSSRank <- rep(NA, length(ScenarioList))
+> # OBFSSRank <- rep(NA, length(ScenarioList))
+> # PropSSRank <- rep(NA, length(ScenarioList))
+> 
+> 
+> for (i in 1:length(ScenarioList)){
++   HR1Vec[i] <- ScenarioList[[i]]$HR1
++   T1Vec[i] <- ScenarioList[[i]]$T1
++   HR2Vec[i] <- ScenarioList[[i]]$HR2
++   recTimeVec[i] <- ScenarioList[[i]]$recTime
++   
++   # PowerRank <- rank(-c(outcomeDF[i,]$`No IA Power`, outcomeDF[i,]$`Wieand Power`, outcomeDF[i,]$`OBF Power`, outcomeDF[i,]$`Prop Power`))
++   # NoIAPowerRank[i] <- PowerRank[1]
++   # WieandPowerRank[i] <- PowerRank[2]
++   # OBFPowerRank[i] <- PowerRank[3]
++   # PropPowerRank[i] <- PowerRank[4]
++   # 
++   # DurationRank <- rank(c(outcomeDF[i,]$`No IA Duration`, outcomeDF[i,]$`Wieand Duration`, outcomeDF[i,]$`OBF Duration`, outcomeDF[i,]$`Prop Duration`))
++   # NoIADurationRank[i] <- DurationRank[1]
++   # WieandDurationRank[i] <- DurationRank[2]
++   # OBFDurationRank[i] <- DurationRank[3]
++   # PropDurationRank[i] <- DurationRank[4]
++   # 
++   # SSRank <- rank(c(outcomeDF[i,]$`No IA SS`, outcomeDF[i,]$`Wieand SS`, outcomeDF[i,]$`OBF SS`, outcomeDF[i,]$`Prop SS`))
++   # NoIASSRank[i] <- SSRank[1]
++   # WieandSSRank[i] <- SSRank[2]
++   # OBFSSRank[i] <- SSRank[3]
++   # PropSSRank[i] <- SSRank[4]
++   
++ }
+> 
+> outcomeDF <- cbind(outcomeDF, HR1Vec, T1Vec, HR2Vec, recTimeVec)
+> # outcomeDF <- cbind(outcomeDF, NoIAPowerRank, WieandPowerRank, OBFPowerRank, PropPowerRank)
+> # outcomeDF <- cbind(outcomeDF, NoIADurationRank, WieandDurationRank, OBFDurationRank, PropDurationRank)
+> # outcomeDF <- cbind(outcomeDF, NoIASSRank, WieandSSRank, OBFSSRank, PropSSRank)
+> 
+> outcomeDF
+  No IA Power No IA Duration No IA SS Wieand Power Wieand Duration Wieand SS
+1        0.90       22.92328      680         0.90       22.923281       680
+2        0.08       20.33001      680         0.06       14.566369       680
+3        0.00       18.45870      680         0.00        9.061392       680
+4        0.86       23.40277      680         0.84       22.653926       680
+5        0.68       23.16428      680         0.54       18.090347       680
+6        0.64       23.01849      680         0.42       16.711847       680
+  OBF Power OBF Duration OBF SS Prop Power Prop Duration Prop SS BPP Power
+1      0.86    22.424946 679.88       0.90      22.92328     680      0.86
+2      0.06    10.926431 657.26       0.08      18.74255     680      0.04
+3      0.00     7.193942 608.52       0.00      12.64567     680      0.00
+4      0.72    20.240316 676.62       0.86      23.40277     680      0.80
+5      0.40    14.943867 658.66       0.68      22.63693     680      0.36
+6      0.32    13.260783 650.82       0.48      18.72608     680      0.62
+  BPP Duration BPP SS HR1Vec T1Vec HR2Vec recTimeVec
+1    21.462361    680   0.75  1000  0.750          8
+2    10.484715    680   1.00  1000  1.000          8
+3     9.131158    680   1.30  1000  1.300          8
+4    22.126017    680   1.00     3  0.693          8
+5    15.310600    680   1.00     6  0.620          8
+6    20.040775    680   1.30     3  0.628          8
+> 
+> 
+> 
+> 
+> 
+> proc.time()
+   user  system elapsed 
+  2.379   0.457  98.858 

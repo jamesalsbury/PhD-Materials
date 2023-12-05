@@ -69,7 +69,7 @@ logistic <- function(M,d.ini,d.end)
   # theta_k.
   
   Mrep <- M+1
-  T    <- 100
+  T    <- 1000
   c    <- 10000
   DqYMrep.out <- numeric(Mrep)
   trialTime <- 20
@@ -81,12 +81,12 @@ logistic <- function(M,d.ini,d.end)
   # STEP 1
   # 1-1. Specify the prior p(theta_)
   # theta.1 ~ N(a1,b1) for intercept, theta.2 ~ N(a2,b2) for dose effect
-  a1 <- 45.8
-  b1 <- 789
-  a2 <- 25.6
-  b2 <- 33.8
-  a3 <- 4.09
-  b3 <- 1.28
+  a1 <- 45.5
+  b1 <- 780
+  a2 <- 102
+  b2 <- 136
+  a3 <- 0.976
+  b3 <- 0.25
   
   # 1-2. Specify theta_bar, the prior mean under p(theta_)
   # Refer to suitable textbooks such as Gelman et al. (2004)
@@ -125,18 +125,18 @@ logistic <- function(M,d.ini,d.end)
     
     dataCombined <- censFunc(dataCombined, 512)$dataCombined
     
+    dataCombined <- dataCombined[sample(1:nrow(dataCombined)), ]
+    
     
     #We also need to make sure that we loop over the correct things here
     #Compare with the logistic regression case
     
     for (i in 1:M) {
       
-      
-      
-      Dq.1 <- -(dataCombined[i,]$status-1/Etheta1^2)
+      Dq.1 <- dataCombined[i,]$status/Etheta1^2
       
       if (dataCombined[i,]$group=="Treatment"&dataCombined[i,]$survival_time>Etheta3){
-        Dq.2 <- -(dataCombined[i,]$status-1/Etheta2^2)
+        Dq.2 <- dataCombined[i,]$status/Etheta2^2
       } else {
         Dq.2 <- 0
       }
@@ -181,8 +181,5 @@ logistic <- function(M,d.ini,d.end)
 }
 
 # For determining m
-logistic(10,1,2)
-# For determining m1
-logistic(10,1,1)
-# For determining m2
-logistic(10,2,2)
+logistic(200,1,3)
+
