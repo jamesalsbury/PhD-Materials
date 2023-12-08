@@ -1,7 +1,7 @@
 
-lambdac <- log(2)/8
-HR1 <- 0.75
-T1 <- 9
+lambdac <- log(2)/10
+HR1 <- 1
+T1 <- 6
 HR2 <- 0.75
 numPatients <- 340
 #recTime <- 12
@@ -86,7 +86,7 @@ propEventFunc <- function(lambdac, HR1, T1, HR2, numPatients, recTime){
 
 
 x1 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 0)
-x2 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 8)
+x2 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 12)
 x3 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 34)
 x4 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 60)
 

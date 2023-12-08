@@ -11,42 +11,42 @@ ScenarioList <- list(
     T1 = 1000,
     HR2 = 0.75,
     T2 = 1000,
-    recTime = 6
+    recTime = 60
   ),
   B = list(
     HR1 = 1,
     T1 = 1000,
     HR2 = 1,
     T2 = 1000,
-    recTime = 6
+    recTime = 60
   ),
   C = list(
     HR1 = 1.3,
     T1 = 1000,
     HR2 = 1.3,
     T2 = 1000,
-    recTime = 6
+    recTime = 60
   ),
   D = list(
     HR1 = 1,
     T1 = 3,
     HR2 = 0.693,
     T2 = 1000,
-    recTime = 6
+    recTime = 60
   ),
   E = list(
     HR1 = 1,
     T1 = 6,
     HR2 = 0.62,
     T2 = 1000,
-    recTime = 6
-  ), 
+    recTime = 60
+  ),
   F = list(
     HR1 = 1.3,
     T1 = 3,
     HR2 = 0.628,
     T2 = 1000,
-    recTime = 6
+    recTime = 60
   )
 )
 
@@ -203,9 +203,9 @@ ScenarioList <- list(
 
 paramsList <- list(
   numPatients = 340,
-  lambdac = log(2)/8,
+  lambdac = log(2)/10,
   numEventsRequired = 512,
-  NSims = 5e4
+  NSims = 1e3
 )
 
 # Generate control and treatment data
@@ -323,46 +323,70 @@ PropFunc <- function(dataset, monthsDelay, propEvents){
   propVec <- numeric(paramsList$numEventsRequired)
   cutoff_index <- ceiling(paramsList$numEventsRequired/2)
   
-  for (k in cutoff_index:paramsList$numEventsRequired){
+  for (k in 1:paramsList$numEventsRequired){
     censTime <- sortedPseudoTimes[k]
-    status <- as.integer(dataset$pseudo_time <= censTime)
-    filteredData <- dataset[dataset$recTime <= censTime, ]
-    survival_time <- ifelse(status == 1, filteredData$time, censTime - filteredData$recTime)
-    propVec[k] <- mean(survival_time[status==1]>monthsDelay)
+    
+    newDataset <- dataset
+    newDataset$status <- as.integer(newDataset$pseudo_time <= censTime)
+    newDataset <- newDataset[newDataset$recTime <= censTime, ]
+    newDataset$survival_time <- ifelse(newDataset$status == 1, newDataset$time, censTime - newDataset$recTime)
+    propVec[k] <- mean(newDataset[newDataset$status==1, ]$survival_time>monthsDelay)
+    
+    # status <- as.integer(dataset$pseudo_time <= censTime)
+    # filteredData <- dataset[dataset$recTime <= censTime, ]
+    # survival_time <- ifelse(status == 1, filteredData$time, censTime - filteredData$recTime)
+    #propVec[k] <- mean(survival_time[status==1]>monthsDelay)
   }
   
-  propVec[1:(cutoff_index-1)] <- 0
+  #propVec[1:(cutoff_index-1)] <- 0
   
-  Stop1 <- max(paramsList$numEventsRequired*0.5, which.min(propVec<propEvents))
-  Stop2 <- max(paramsList$numEventsRequired*0.75, which.min(propVec<propEvents))
+  if (sum(propVec>propEvents)==0){
+    PropOutcome <- "Continue"
+    PropFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
+    PropFinal <- PropFinalOutcome$dataCombined
+    PropFinalcensTime <- PropFinalOutcome$censTime
+    PropFinalSS <- PropFinalOutcome$sampleSize
+    coxmodel <- coxph(Surv(survival_time, status) ~ group, data = PropFinal)
+    deltad <- as.numeric(exp(coef(coxmodel)))
+    PropLRT <- survdiff(Surv(time, status) ~ group, data = PropFinal)
+    Proppower <- (PropLRT$chisq > qchisq(0.95, 1) & deltad < 1 & PropOutcome == "Continue")
+    PropCensTime <- ifelse(PropOutcome == "Stop1", Prop1censTime, ifelse(PropOutcome == "Stop2", Prop2censTime, PropFinalcensTime))
+    PropSS <- ifelse(PropOutcome == "Stop1", Prop1SS, ifelse(PropOutcome == "Stop2", Prop2SS, PropFinalSS))
+  } else{
+    
+    Stop1 <- max(paramsList$numEventsRequired*0.5, which(propVec>propEvents)[1])
+    Stop2 <- max(paramsList$numEventsRequired*0.75, which(propVec>propEvents)[1])
+    
+    PropOutcome <- "Continue"
+    Prop1Outcome <- censFunc(dataset, Stop1)
+    Prop1 <- Prop1Outcome$dataCombined
+    Prop1censTime <- Prop1Outcome$censTime
+    Prop1SS <- Prop1Outcome$sampleSize
+    coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop1)
+    deltad <- as.numeric(exp(coef(coxmodel)))
+    if (deltad > 1) PropOutcome <- "Stop1"
+    
+    Prop2Outcome <- censFunc(dataCombined, Stop2)
+    Prop2 <- Prop2Outcome$dataCombined
+    Prop2censTime <- Prop2Outcome$censTime
+    Prop2SS <- Prop2Outcome$sampleSize
+    coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop2)
+    deltad <- as.numeric(exp(coef(coxmodel)))
+    if (deltad > 1 & PropOutcome=="Continue") PropOutcome <- "Stop2"
+    
+    PropFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
+    PropFinal <- PropFinalOutcome$dataCombined
+    PropFinalcensTime <- PropFinalOutcome$censTime
+    PropFinalSS <- PropFinalOutcome$sampleSize
+    coxmodel <- coxph(Surv(survival_time, status) ~ group, data = PropFinal)
+    deltad <- as.numeric(exp(coef(coxmodel)))
+    PropLRT <- survdiff(Surv(time, status) ~ group, data = PropFinal)
+    Proppower <- (PropLRT$chisq > qchisq(0.95, 1) & deltad < 1 & PropOutcome == "Continue")
+    PropCensTime <- ifelse(PropOutcome == "Stop1", Prop1censTime, ifelse(PropOutcome == "Stop2", Prop2censTime, PropFinalcensTime))
+    PropSS <- ifelse(PropOutcome == "Stop1", Prop1SS, ifelse(PropOutcome == "Stop2", Prop2SS, PropFinalSS))
+    
+  }
   
-  PropOutcome <- "Continue"
-  Prop1Outcome <- censFunc(dataset, Stop1)
-  Prop1 <- Prop1Outcome$dataCombined
-  Prop1censTime <- Prop1Outcome$censTime
-  Prop1SS <- Prop1Outcome$sampleSize
-  coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop1)
-  deltad <- as.numeric(exp(coef(coxmodel)))
-  if (deltad > 1) PropOutcome <- "Stop1"
-  
-  Prop2Outcome <- censFunc(dataCombined, Stop2)
-  Prop2 <- Prop2Outcome$dataCombined
-  Prop2censTime <- Prop2Outcome$censTime
-  Prop2SS <- Prop2Outcome$sampleSize
-  coxmodel <- coxph(Surv(survival_time, status) ~ group, data = Prop2)
-  deltad <- as.numeric(exp(coef(coxmodel)))
-  if (deltad > 1 & PropOutcome=="Continue") PropOutcome <- "Stop2"
-  
-  PropFinalOutcome <- censFunc(dataCombined, paramsList$numEventsRequired)
-  PropFinal <- PropFinalOutcome$dataCombined
-  PropFinalcensTime <- PropFinalOutcome$censTime
-  PropFinalSS <- PropFinalOutcome$sampleSize
-  coxmodel <- coxph(Surv(survival_time, status) ~ group, data = PropFinal)
-  deltad <- as.numeric(exp(coef(coxmodel)))
-  PropLRT <- survdiff(Surv(time, status) ~ group, data = PropFinal)
-  Proppower <- (PropLRT$chisq > qchisq(0.95, 1) & deltad < 1 & PropOutcome == "Continue")
-  PropCensTime <- ifelse(PropOutcome == "Stop1", Prop1censTime, ifelse(PropOutcome == "Stop2", Prop2censTime, PropFinalcensTime))
-  PropSS <- ifelse(PropOutcome == "Stop1", Prop1SS, ifelse(PropOutcome == "Stop2", Prop2SS, PropFinalSS))
   
   return(list(Proppower = Proppower, PropCensTime = PropCensTime, PropSS = PropSS))
   
@@ -372,7 +396,7 @@ for (i in 1:length(ScenarioList)){
   
   
   # Set the number of CPU cores you want to use
-  num_cores <- 64 # Change this to the number of cores you want to use
+  num_cores <- 32 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
