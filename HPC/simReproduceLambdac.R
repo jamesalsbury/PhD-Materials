@@ -7,48 +7,58 @@ library(rjags)
 
 ScenarioList <- list(
   A = list(
-    HR1 = 0.75,
-    T1 = 1000,
-    HR2 = 0.75,
-    T2 = 1000,
-    recTime = 60
-  ),
-  B = list(
-    HR1 = 1,
-    T1 = 1000,
-    HR2 = 1,
-    T2 = 1000,
-    recTime = 60
-  ),
-  C = list(
-    HR1 = 1.3,
-    T1 = 1000,
-    HR2 = 1.3,
-    T2 = 1000,
-    recTime = 60
-  ),
-  D = list(
-    HR1 = 1,
-    T1 = 3,
-    HR2 = 0.693,
-    T2 = 1000,
-    recTime = 60
-  ),
-  E = list(
     HR1 = 1,
     T1 = 6,
-    HR2 = 0.62,
+    HR2 = 0.75,
     T2 = 1000,
-    recTime = 60
-  ),
-  F = list(
-    HR1 = 1.3,
-    T1 = 3,
-    HR2 = 0.628,
-    T2 = 1000,
-    recTime = 60
+    recTime = 6
   )
 )
+
+# ScenarioList <- list(
+#   A = list(
+#     HR1 = 0.75,
+#     T1 = 1000,
+#     HR2 = 0.75,
+#     T2 = 1000,
+#     recTime = 60
+#   ),
+#   B = list(
+#     HR1 = 1,
+#     T1 = 1000,
+#     HR2 = 1,
+#     T2 = 1000,
+#     recTime = 60
+#   ),
+#   C = list(
+#     HR1 = 1.3,
+#     T1 = 1000,
+#     HR2 = 1.3,
+#     T2 = 1000,
+#     recTime = 60
+#   ),
+#   D = list(
+#     HR1 = 1,
+#     T1 = 3,
+#     HR2 = 0.693,
+#     T2 = 1000,
+#     recTime = 60
+#   ),
+#   E = list(
+#     HR1 = 1,
+#     T1 = 6,
+#     HR2 = 0.62,
+#     T2 = 1000,
+#     recTime = 60
+#   ),
+#   F = list(
+#     HR1 = 1.3,
+#     T1 = 3,
+#     HR2 = 0.628,
+#     T2 = 1000,
+#     recTime = 60
+#   )
+# )
 
 # ScenarioList <- list(
 #   A = list(
@@ -203,9 +213,9 @@ ScenarioList <- list(
 
 paramsList <- list(
   numPatients = 340,
-  lambdac = log(2)/10,
+  lambdac = log(2)/3,
   numEventsRequired = 512,
-  NSims = 1e3
+  NSims = 1e5
 )
 
 # Generate control and treatment data

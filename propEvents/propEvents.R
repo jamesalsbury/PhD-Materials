@@ -1,10 +1,10 @@
 
-lambdac <- log(2)/10
+lambdac <- log(2)/3
 HR1 <- 1
 T1 <- 6
 HR2 <- 0.75
 numPatients <- 340
-#recTime <- 12
+recTime <- 6
 
 
 
@@ -84,6 +84,18 @@ propEventFunc <- function(lambdac, HR1, T1, HR2, numPatients, recTime){
 }
 
 
+x1 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, recTime)
+plot(x1$eventVec, x1$eventProp, type = "l", ylim = c(0, 1), xlab = "Number of events", 
+     ylab = "Proportion of events > 3 months", col = "red")
+abline(h = 2/3, lty = 2)
+abline(v = 512*0.5, lty = 3)
+abline(v = 512*0.75, lty = 3)
+abline(v = 512, lty = 3)
+
+
+abline(h = 256)
+abline(v = 6)
+
 
 x1 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 0)
 x2 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 12)
@@ -110,8 +122,10 @@ lines(x3$eventVec, x3$eventProp, col = "red", lty = 3)
 lines(x4$eventVec, x4$eventProp, col = "green", lty = 4)
 legend("bottomright", legend = c("R = 0", "R = 12", "R = 34", "R = 60"), col = c("black", "blue", "red", "green"), lty = 1:4)
 abline(h = 2/3, lty = 2)
-abline(v = 512*0.5)
-abline(v = 512*0.75)
+abline(v = 512*0.5, lty = 3)
+abline(v = 512*0.75, lty = 3)
+abline(v = 512, lty = 3)
+
 
 
 
