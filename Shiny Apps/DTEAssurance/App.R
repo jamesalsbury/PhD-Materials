@@ -86,7 +86,7 @@ ui <- fluidPage(
                  )
                  ),
                  column(4,
-                        numericInput("massT0", label = h5("Pr(T=0)"), value = 0.05, min = 0, max = 1)
+                        numericInput("P_DTE", label = h5("Pr(treatment subject to DTE|treatment is effective)"), value = 0.05, min = 0, max = 1)
                  )
                  
                ),
@@ -136,7 +136,7 @@ ui <- fluidPage(
                         )
                  ),
                  column(4,
-                        numericInput("massHR1", label = h5("Pr(HR=1)"), value = 0, min = 0, max = 1)
+                        numericInput("P_E", label = h5("Pr(treatment is effective)"), value = 0, min = 0, max = 1)
                  )
                  
                ),
@@ -418,7 +418,7 @@ server = function(input, output, session) {
   
   output$distPlot1 <- renderPlot({
     
-    mySample <- drawsamples()$mySample
+    mySample <- drawsamplesElicit()$mySample
     Tsamples <- data.frame(time = mySample[,1])
     d <- input$dist1
     if(d == "best"){
@@ -454,9 +454,9 @@ server = function(input, output, session) {
     }
     
     
-    if (input$massT0>0){
-      dist.title <- paste(input$massT0, "⋅ 0 +", 1-input$massT0, "⋅", dist.title)
-    }
+    # if (input$massT0>0){
+    #   dist.title <- paste(input$massT0, "⋅ 0 +", 1-input$massT0, "⋅", dist.title)
+    # }
     
     
     p1 <- ggplot(data=Tsamples, aes(x=time)) + geom_histogram(aes(y = after_stat(density))) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
@@ -465,22 +465,22 @@ server = function(input, output, session) {
     
   })
   
-  output$delayFeedbackText <- renderUI({
-    if (input$massT0>0){
-      str1 <- paste0("As you have given some weight to the treatment being subject to no delay, ", 
-                     input$massT0*100, "% of the samples are set to be 0, with the remaining ", 100*(1-input$massT0), 
-                     "% of samples coming from your elicited distribution - ", input$dist1)
-      HTML(paste(str1, sep = '<br/>'))
-    } 
-    
-  })
+  # output$delayFeedbackText <- renderUI({
+  #   if (input$massT0>0){
+  #     str1 <- paste0("As you have given some weight to the treatment being subject to no delay, ", 
+  #                    input$massT0*100, "% of the samples are set to be 0, with the remaining ", 100*(1-input$massT0), 
+  #                    "% of samples coming from your elicited distribution - ", input$dist1)
+  #     HTML(paste(str1, sep = '<br/>'))
+  #   } 
+  #   
+  # })
   
   # Functions for the post-delay HR tab ---------------------------------
   
   output$distPlot2 <- renderPlot({
     
     
-    mySample <- drawsamples()$mySample
+    mySample <- drawsamplesElicit()$mySample
     HRsamples <- data.frame(HR = mySample[,2])
     
     d <- input$dist2
@@ -582,24 +582,36 @@ server = function(input, output, session) {
       
     }	
     
-    if (input$massHR1>0){
-      dist.title <- paste(input$massHR1, "⋅ 1 +", 1-input$massHR1, "⋅", dist.title)
-    }
+    # if (input$massHR1>0){
+    #   dist.title <- paste(input$massHR1, "⋅ 1 +", 1-input$massHR1, "⋅", dist.title)
+    # }
     
     p1 <- ggplot(data=HRsamples, aes(x=HR)) + geom_histogram(aes(y = after_stat(density))) + labs(title = dist.title) +  theme(plot.title = element_text(hjust = 0.5))
     
     print(p1) 
   })
   
-  output$HRFeedbackText <- renderUI({
-    if (input$massHR1>0){
-      str1 <- paste0("As you have given some weight to the treatment having no effect compared to control, ", 
-                     input$massHR1*100, "% of the samples are set to be 1, with the remaining ", 100*(1-input$massHR1), 
-                     "% of samples coming from your elicited distribution - ", input$dist2)
-      HTML(paste(str1, sep = '<br/>'))
-    } 
+  drawsamplesElicit <- reactive({
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    nsamples <- 10000
     
+    mySample <- data.frame(
+      copulaSample(myfit1(), myfit2(), cp = conc.probs, n = nsamples, d = c(input$dist1, input$dist2))
+    )
+    
+    return(list(mySample = mySample, nsamples = nsamples))
   })
+  
+  # output$HRFeedbackText <- renderUI({
+  #   if (input$massHR1>0){
+  #     str1 <- paste0("As you have given some weight to the treatment having no effect compared to control, ", 
+  #                    input$massHR1*100, "% of the samples are set to be 1, with the remaining ", 100*(1-input$massHR1), 
+  #                    "% of samples coming from your elicited distribution - ", input$dist2)
+  #     HTML(paste(str1, sep = '<br/>'))
+  #   } 
+  #   
+  # })
   
   
   
@@ -611,14 +623,28 @@ server = function(input, output, session) {
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     nsamples <- 10000
-    u <- runif(nsamples, 0, 1)
+    #u <- runif(nsamples, 0, 1)
     
     mySample <- data.frame(
       copulaSample(myfit1(), myfit2(), cp = conc.probs, n = nsamples, d = c(input$dist1, input$dist2))
     )
     
-    mySample[u < input$massT0, 1] <- 0
-    mySample[u < input$massHR1, 2] <- 1
+    for (i in 1:nsamples){
+      u <- runif(1)
+      if (u>input$P_E){
+        mySample[i, 2] <- 1
+      } else {
+        u <- runif(1)
+        if (u>input$P_DTE){
+          mySample[i, 1] <- 0
+        }
+      }
+    }
+    
+    x <<- mySample
+    
+    # mySample[u < input$massT0, 1] <- 0
+    # mySample[u < input$massHR1, 2] <- 1
     
     return(list(mySample = mySample, nsamples = nsamples))
   })
