@@ -9,6 +9,7 @@ library(ggfortify)
 library(pbapply)
 library(shinyjs)
 library(dplyr)
+library(nph)
 #library(survminer)
 #library(xlsx)
 
@@ -16,6 +17,7 @@ source("functions.R")
 
 ui <- fluidPage(
   withMathJax(),
+  shinyjs::useShinyjs(),
   
   # Application title
   titlePanel("Assurance: Delayed Treatment Effects"),
@@ -53,6 +55,21 @@ ui <- fluidPage(
       ),
       
       # Length of delay UI ---------------------------------
+      tabPanel("Conditional probabilities",
+               fluidRow(
+                 column(6, 
+                        numericInput("P_E", label = h5("Pr(treatment is effective)"), value = 0.9, min = 0, max = 1)
+                        
+                 ),
+                 column(6,
+                        numericInput("P_DTE", label = h5("Pr(treatment subject to DTE|treatment is effective)"), value = 0.6, min = 0, max = 1)
+                        
+                 )
+               )
+               
+            
+      ),
+      # Length of delay UI ---------------------------------
       tabPanel("Eliciting the length of delay",
                fluidRow(
                  column(4, 
@@ -84,11 +101,7 @@ ui <- fluidPage(
                    numericInput("tdf1", label = h5("Student-t degrees of freedom"),
                                 value = 3)
                  )
-                 ),
-                 column(4,
-                        numericInput("P_DTE", label = h5("Pr(treatment subject to DTE|treatment is effective)"), value = 0.05, min = 0, max = 1)
                  )
-                 
                ),
                plotOutput("distPlot1"),
                uiOutput("delayFeedbackText")
@@ -134,11 +147,7 @@ ui <- fluidPage(
                           
                           
                         )
-                 ),
-                 column(4,
-                        numericInput("P_E", label = h5("Pr(treatment is effective)"), value = 0, min = 0, max = 1)
                  )
-                 
                ),
                
                plotOutput("distPlot2"),
@@ -167,9 +176,20 @@ ui <- fluidPage(
       tabPanel("Calculating assurance",
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
-                   shinyjs::useShinyjs(),
                    numericInput("numofpatients", "Maximum number of patients in the trial", value=1000),
-                   numericInput("rectime", "Recruitment length", value=6),
+                   selectInput("recMethod", label = "Recruitment method", choices = c("Power" = "power", "Piecewise constant" = "PWC"), selected = "power"),
+                   
+                   splitLayout(
+                     numericInput("rec_power", "Power", value=1, min=1),
+                     numericInput("rec_period", "Period", value=12, min=1)
+                     
+                   ),
+                   
+                   splitLayout(
+                     hidden(numericInput("rec_rate", "Rate", value=1, min=1)),
+                     hidden(numericInput("rec_duration", "Duration", value=1, min=1))
+                            
+                     ),
                    
                    
                    splitLayout(
@@ -178,6 +198,17 @@ ui <- fluidPage(
                      
                    ),
                    numericInput("chosenLength", "Maximum trial duration (including recruitment time)", value=30),
+                   selectInput("analysisType", label = "Analysis method", choices = c("Logrank test" = "LRT", "Fleming-Harrington test" = "FHT"), selected = "LRT"),
+                   splitLayout(
+                     hidden(numericInput("t_star", ' \\( t^* \\)', value=3, min=0)),
+                     hidden(numericInput("s_star", ' \\( \\hat{S}(t^*) \\)', value=NA, min=0, max = 1))
+                     
+                   ),
+                   splitLayout(
+                     hidden(numericInput("rho", ' \\( \\rho \\)', value=0, min=0, max = 1)),
+                     hidden(numericInput("gamma", " \\( \\gamma \\)", value=0, min=0, max = 1))
+                     
+                   ),
                    actionButton("drawAssurance", "Produce plot")
                  ), 
                  mainPanel = mainPanel(
@@ -641,10 +672,7 @@ server = function(input, output, session) {
       }
     }
     
-    x <<- mySample
-    
-    # mySample[u < input$massT0, 1] <- 0
-    # mySample[u < input$massHR1, 2] <- 1
+
     
     return(list(mySample = mySample, nsamples = nsamples))
   })
@@ -880,6 +908,48 @@ server = function(input, output, session) {
   
   # Functions for the Assurance tab ---------------------------------
   
+  
+  # observe({
+  #   if (input$analysisType=="MWLRT"){
+  #     shinyjs::show("t_star")
+  #     shinyjs::show("s_star")
+  #   } else{
+  #     shinyjs::hide("t_star")
+  #     shinyjs::hide("s_star")
+  #   }
+  # })
+  
+  observe({
+    if (input$recMethod=="power"){
+      shinyjs::show("rec_power")
+      shinyjs::show("rec_period")
+    } else{
+      shinyjs::hide("rec_power")
+      shinyjs::hide("rec_period")
+    }
+  })
+  
+  observe({
+    if (input$recMethod=="PWC"){
+      shinyjs::show("rec_rate")
+      shinyjs::show("rec_duration")
+    } else{
+      shinyjs::hide("rec_rate")
+      shinyjs::hide("rec_duration")
+    }
+  })
+  
+  observe({
+    if (input$analysisType=="FHT"){
+      shinyjs::show("rho")
+      shinyjs::show("gamma")
+    } else{
+      shinyjs::hide("rho")
+      shinyjs::hide("gamma")
+    }
+  })
+  
+  
   #This function calculates the normal assurance given the elicited distributions and other simple questions about the trial
   calculateNormalAssurance <- eventReactive(input$drawAssurance, {
     
@@ -890,7 +960,7 @@ server = function(input, output, session) {
     assFunc <- function(n1, n2){
       
       
-      #Simulate 4500 observations for T and HR given the elicited distributions
+      #Simulate 500 observations for T and HR given the elicited distributions
       #For each n1, n2, simulate 500 trials
       assnum <- 500
       assvec <- rep(NA, assnum)
@@ -898,13 +968,13 @@ server = function(input, output, session) {
       LBAHRvec <- rep(NA, assnum)
       UBAHRvec <- rep(NA, assnum)
       eventsvec <- rep(NA, assnum)
-      mySample <- data.frame(copulaSample(myfit1(), myfit2(), cp = conc.probs, n = assnum, d = c(input$dist1, input$dist2)))
+      mySample <- drawsamples()$mySample
     
       
       for (i in 1:assnum){
         
-        bigT <- ifelse(runif(1)>input$massT0, mySample[i,1], 0)
-        HR <- ifelse(runif(1)>input$massHR1, mySample[i,2], 1)
+        bigT <- mySample[i, 1]
+        HR <- mySample[i, 2]
    
         
         if (is.null(v$upload)){
@@ -935,10 +1005,20 @@ server = function(input, output, session) {
         
         UBAHRvec[i] <- CI[2]
         
-        #Performs a log rank test on the data
-        test <- survdiff(Surv(survival_time, status)~group, data = dataCombined)
+        #Performs a test on the data
+        
+        if (input$analysisType=="LRT"){
+          test <- survdiff(Surv(survival_time, status)~group, data = dataCombined)
+          assvec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        } else if (input$analysisType=="FHT"){
+          test <- logrank.test(dataCombined$survival_time, dataCombined$status, dataCombined$group, rho = input$rho, gamma = input$gamma)
+          assvec[i] <- (test$test$Chisq > qchisq(0.95, 1) & deltad<1)
+        }
+        
+        
+        #test <- survdiff(Surv(survival_time, status)~group, data = dataCombined)
         #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
-        assvec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        
         
         #Counts how many events have been seen up until the total trial length time
         eventsvec[i] <-  sum(dataCombined$time<input$chosenLength)
