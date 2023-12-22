@@ -10,6 +10,7 @@ library(pbapply)
 library(shinyjs)
 library(dplyr)
 library(nph)
+library(nleqslv)
 #library(survminer)
 #library(xlsx)
 
@@ -186,8 +187,8 @@ ui <- fluidPage(
                    ),
                    
                    splitLayout(
-                     hidden(numericInput("rec_rate", "Rate", value=1, min=1)),
-                     hidden(numericInput("rec_duration", "Duration", value=1, min=1))
+                     hidden(textInput("rec_rate", "Rate", value="30, 50")),
+                     hidden(textInput("rec_duration", "Duration", value="10, 5"))
                             
                      ),
                    
@@ -212,6 +213,16 @@ ui <- fluidPage(
                    actionButton("drawAssurance", "Produce plot")
                  ), 
                  mainPanel = mainPanel(
+                   fluidRow(
+                     column(6, 
+                            plotOutput("pdfRec")
+                     ),
+                     column(6,
+                            plotOutput("cdfRec")
+                     )
+                   ),
+                   
+                   
                    plotOutput("assurancePlot"),
                    htmlOutput("assuranceText"),
                    plotOutput("AHRPlot"),
@@ -987,10 +998,21 @@ server = function(input, output, session) {
         
         gammat <- gammac
         
+        u <- runif(1)
+        if (u < input$P_E){
+          v <- runif(1)
+          if (v > input$P_DTE){
+            bigT <- 0
+          }
+        } else {
+          HR <- 1
+          bigT <- 0
+        }
+        
         lambdat <- lambdac*HR^(1/gammac)
   
         
-        dataCombined <- SimDTEDataSet(n1, n2, gammat, gammac, lambdat, lambdac, bigT, input$rectime, input$chosenLength)
+        dataCombined <- SimDTEDataSet(n1, n2, gammat, gammac, lambdat, lambdac, bigT, input$recMethod, input$chosenLength)
         
         
         coxmodel <- coxph(Surv(survival_time, status)~group, data = dataCombined)
@@ -1082,6 +1104,81 @@ server = function(input, output, session) {
                 LBasssmooth = LBasssmooth, UBasssmooth = UBasssmooth))
     
   })    
+  
+  
+  output$pdfRec <- renderPlot({
+    
+    x <- 1:10
+    
+    if (input$recMethod=="power"){
+      
+      # Calculate the correct PDF values
+      x_values <- seq(0, input$rec_period, length.out = 1000)
+      pdf_values <- (input$rec_power / input$rec_period) * (x_values/input$rec_period)^(input$rec_power - 1)
+      
+      # Overlay correct PDF on the histogram
+      plot(x_values, pdf_values, col = "red", type = "l", xlab = "Recruitment time", ylab = "Density")
+    } else if (input$recMethod == "PWC"){
+      
+      rec_rate <- as.numeric(unlist(strsplit(input$rec_rate,",")))
+      rec_duration <- as.numeric(unlist(strsplit(input$rec_duration,",")))
+      
+      n <- length(rec_rate)
+      
+      # Define a function that returns the residuals
+      equations <- function(vars) {
+        x <- vars[1:n]
+        eq1 <- sum(x * rec_duration) - 1
+        eq_rest <- sapply(2:n, function(i) x[1] / x[i] - rec_rate[1] / rec_rate[i])
+        return(c(eq1, eq_rest))
+      }
+      
+      # Initial guess
+      initial_guess <- rep(0.1, n)
+      
+      # Solve the nonlinear system of equations
+      solution <- nleqslv(initial_guess, equations)
+      
+      plot(c(0, rec_duration[1]), c(solution$x[1], solution$x[1]), type= "l", col = "red", 
+           xlim = c(0, sum(rec_duration)), ylim = c(0, max(solution$x)), xlab = "Recruitment time", ylab = "Density")
+      
+      for (i in 1:(n-1)){
+        lines(c(sum(rec_duration[1:i]), sum(rec_duration[1:i])), c(solution$x[i], solution$x[i+1]), col = "red")
+        lines(c(sum(rec_duration[1:i]), sum(rec_duration[1:(i+1)])), c(solution$x[i+1], solution$x[i+1]), col = "red")
+      }
+      
+    }
+  })
+  
+  output$cdfRec <- renderPlot({
+    
+    x <- 1:10
+    
+    if (input$recMethod=="power"){
+      
+      # Calculate the correct CDF values
+      x_values <- seq(0, input$rec_period, length.out = 1000)
+      cdf_values <- (x_values/input$rec_period)^(input$rec_power)*input$numofpatients
+      
+      
+      plot(x_values, cdf_values, col = "red", type = "l", xlab = "Recruitment time", ylab = "Number of patients")
+      
+    } else if (input$recMethod == "PWC"){
+      
+      rec_rate <- as.numeric(unlist(strsplit(input$rec_rate,",")))
+      rec_duration <- as.numeric(unlist(strsplit(input$rec_duration,",")))
+      
+      # Calculate cumulative resource allocation over time
+      cumulative_allocation <- cumsum(rec_rate * rec_duration)
+      
+      # Create x-axis and y-axis data for step function
+      xaxis <- c(0, cumsum(rec_duration))
+      yaxis <- c(0, cumulative_allocation)
+      
+      # Plotting
+      plot(xaxis, yaxis, type = "l", xlab = "Recruitment time", ylab = "Number of patients", col = "red")
+    }
+  })
   
   
   output$assurancePlot <- renderPlot({

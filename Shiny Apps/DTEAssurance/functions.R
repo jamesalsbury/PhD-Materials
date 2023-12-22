@@ -1,4 +1,4 @@
-SimDTEDataSet <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, censTime) {
+SimDTEDataSet <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recMethod, censTime, ...) {
   #Simulates the treatment data
   CP <- exp(-(lambdac*bigT)^gammac)
   u <- runif(n2)
@@ -8,8 +8,18 @@ SimDTEDataSet <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTim
   dataCombined <- data.frame(time = c(rweibull(n1, gammac, 1/lambdac), treatmenttime),
                              group = c(rep("Control", n1), rep("Treatment", n2)))
   
-  #Samples a recruitment time for each patient, from a Uniform distribution
-  dataCombined$recTime <- runif(n1+n2, min = 0, max = recTime)
+  if (recMethod == "power"){
+    n <- n1+n2
+    
+    dataCombined$recTime <- rec_period * stats::runif(n)^(1/rec_power)
+    
+  } else if (recMethod=="PWC"){
+    
+    
+    
+    
+    
+  }
   
   dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
   
@@ -23,26 +33,6 @@ SimDTEDataSet <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTim
   
   return(dataCombined)
 }
-
-
-# out <- SimDTEDataSet(100, 100, 1, 1, 0.1, 0.15, 3, 6, 0.8)
-# 
-# weibfit <- survreg(Surv(time, status)~1, data = out, dist = "weibull")
-# plot(weibfit)
-# gammac <- as.numeric(exp(-weibfit$icoef[2]))
-# lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
-# 
-# 
-# n1 <- 10
-# n2 <- 10
-# gammat <- 1
-# gammac <- 1
-# lambdat <- 0.8
-# lambdac <- 0.4
-# bigT <- 3
-# recTime <- 6
-# censTime <- 60
-
 
 
 normal.error <-
