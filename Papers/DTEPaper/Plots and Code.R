@@ -422,8 +422,6 @@ fixedlambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
 
 # Power/assurance figure for the example ----------------------------------------------------------------
 
-png("PowerAss.png", units="in", width=8, height=5, res=700)
-
 
 simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, recTime, eventRate){
   #Simulates the treatment data
@@ -482,7 +480,7 @@ massHR1 <- 0.1
   }
 
 powerassFunc <- function(type, n){
-  recTime <- 6
+  recTime <- 12
   N <- 500
   
   #Setting up the assurance vector
