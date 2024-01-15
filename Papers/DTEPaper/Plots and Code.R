@@ -3,6 +3,7 @@
 library(truncnorm)
 library(survival)
 library(rjags)
+library(nph)
 
 # An example of DTE in a KM plot ----------------------------------------------------------------
 
@@ -460,8 +461,8 @@ simulateDTEWeibullData <- function(n1, n2, gammat, gammac, lambdat, lambdac, big
   return(list(dataCombined = dataCombined, censTime = censTime))
 }
 
-massT0 <- 0.05
-massHR1 <- 0.1
+P_E <- 0.9
+P_DTE <- 0.7
 #Doing the simMatrix (if performing the more flexible assurance)
   LMax <- 100
   trialtime <- seq(0, LMax, by=0.01) 
@@ -470,8 +471,14 @@ massHR1 <- 0.1
     gammac <- sample(gamma2sample, 1)
     lambdac <- sample(lambda2sample, 1)
     
-    bigT <- ifelse(runif(1)>massT0,  rgamma(1, 7.29, 1.76), 0)
-    HR <- ifelse(runif(1)>massHR1,  rgamma(1, 29.6, 47.8), 1)
+    u <- runif(1)
+    if (u>P_E){
+      bigT <- 0
+      HR <- 1
+    } else {
+      HR <- rgamma(1, 29.6, 47.8)
+      bigT <- ifelse(runif(1)>P_DTE,  0, rgamma(1, 7.29, 1.76))
+    }
     
     lambdat <- lambdac*HR^(1/gammac)
     gammat <- gammac
@@ -494,8 +501,14 @@ powerassFunc <- function(type, n){
       #Making the simplification
       gammat <- gammac
       #Sampling the elicited parameters (T and HR)
-      bigT <- ifelse(runif(1)>massT0,  rgamma(1, 7.29, 1.76), 0)
-      HR <- ifelse(runif(1)>massHR1,  rgamma(1, 29.6, 47.8), 1)
+      u <- runif(1)
+      if (u>P_E){
+        bigT <- 0
+        HR <- 1
+      } else {
+        HR <- rgamma(1, 29.6, 47.8)
+        bigT <- ifelse(runif(1)>P_DTE,  0, rgamma(1, 7.29, 1.76))
+      }
       lambdat <- lambdac*HR^(1/gammac)
       
     } else if (type=="power"){
@@ -528,12 +541,8 @@ powerassFunc <- function(type, n){
       while (s2>s1){ 
         s2 <- sample(SimMatrix[,which.min(abs(trialtime-0.55*trialend))], 1)
       }
-      u <- runif(1)
-      if (u < massT0){
-        bigT <- 0
-      } else {
-        bigT <- rgamma(1, 7.29, 1.76)
-      }
+      
+      bigT <- ifelse(runif(1)>P_DTE,  0, rgamma(1, 7.29, 1.76))
       
       estWeib <- function(par){
         t1 <- exp(-(lambdac*bigT)^gammac-par[1]^par[2]*(time1^par[2]-bigT^par[2])) - s1
@@ -558,21 +567,21 @@ powerassFunc <- function(type, n){
     censvec[i] <- output$censTime
     
     #Performing a log-rank test on the combined data set
-    test <- survdiff(Surv(survival_time, status)~group, data = combinedData)
+    test <- logrank.test(combinedData$survival_time, combinedData$status, combinedData$group, rho = 0, gamma = 1)
     
     #Making sure that the HR is less than 1
     coxmodel <- coxph(Surv(survival_time, status)~group, data = combinedData)
     deltad <- as.numeric(exp(coef(coxmodel)))
     
     #Include HR < 1 here
-    vec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+    vec[i] <- (test$test$Chisq > qchisq(0.95, 1) & deltad<1)
   }
   return(list(ass=mean(vec), cens = mean(censvec)))
 }
 
 
 calcAssPowerFunc <- function(type){
-  nvec <- seq(20, 500, by=10)
+  nvec <- ceiling(seq(20, 500, by=10))
   output <- sapply(X = nvec, FUN = powerassFunc, type = type)
   smoothedout <- loess(unlist(output[1,])~nvec)
   return(list(smoothedout = smoothedout, nvec = nvec, cens = output$cens))
