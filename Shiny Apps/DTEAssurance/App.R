@@ -986,7 +986,7 @@ server = function(input, output, session) {
         
         bigT <- mySample[i, 1]
         HR <- mySample[i, 2]
-   
+        
         
         if (is.null(v$upload)){
           lambdac <- input$lambdacmean
@@ -997,11 +997,13 @@ server = function(input, output, session) {
         }
         
         gammat <- gammac
+
+        
         
         u <- runif(1)
         if (u < input$P_E){
-          v <- runif(1)
-          if (v > input$P_DTE){
+          w <- runif(1)
+          if (w > input$P_DTE){
             bigT <- 0
           }
         } else {
@@ -1010,9 +1012,15 @@ server = function(input, output, session) {
         }
         
         lambdat <- lambdac*HR^(1/gammac)
-  
         
-        dataCombined <- SimDTEDataSet(n1, n2, gammat, gammac, lambdat, lambdac, bigT, input$recMethod, input$chosenLength)
+        
+        if (input$recMethod == "power"){
+          dataCombined <- SimDTEDataSetPower(n1, n2, gammat, gammac, lambdat, lambdac, bigT, 
+                                        input$chosenLength, input$rec_period, input$rec_power)
+        } else {
+          dataCombined <- SimDTEDataSetPWC(n1, n2, gammat, gammac, lambdat, lambdac, bigT, 
+                                        input$chosenLength, input$rec_rate, input$rec_duration)
+        }
         
         
         coxmodel <- coxph(Surv(survival_time, status)~group, data = dataCombined)
@@ -1026,6 +1034,7 @@ server = function(input, output, session) {
         LBAHRvec[i] <- CI[1]
         
         UBAHRvec[i] <- CI[2]
+      
         
         #Performs a test on the data
         
@@ -1044,6 +1053,8 @@ server = function(input, output, session) {
         
         #Counts how many events have been seen up until the total trial length time
         eventsvec[i] <-  sum(dataCombined$time<input$chosenLength)
+        
+  
         
       }
       
