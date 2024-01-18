@@ -1,9 +1,9 @@
 lambdac <- log(2)/24
 T1 <- 3
 HR1 <- 5
-T2 <- 6
+T2 <- 7
 HR2 <- 2.5
-recTime <- 6
+recTime <- 0
 
 numPatients <- 340
 
@@ -33,6 +33,7 @@ lines(treatmentTime2, treatmentSurv2, col = "red", lty = 2)
 lines(treatmentTime3, treatmentSurv3, col = "red", lty  = 2)
 legend("topright", legend = c("Control", "Treatment"), lty = 1:2, col = c("blue", "red"))
 
+abline(v = 7)
 
 
 # 

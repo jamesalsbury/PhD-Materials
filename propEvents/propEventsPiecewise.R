@@ -9,9 +9,9 @@
 lambdac <- log(2)/24
 T1 <- 3
 HR1 <- 5
-T2 <- 6
+T2 <- 7
 HR2 <- 2.5
-recTime <- 3
+recTime <- 0
 
 numPatients <- 340
 
@@ -115,7 +115,7 @@ abline(v = 512*0.75, lty = 3)
 abline(v = 512, lty = 3)
 
 plot(x1$calTime, x1$eventVec, type = "l")
-abline(v = 7)
+abline(v = 6)
 abline(h = 256)
 
 # x1 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, 0)
