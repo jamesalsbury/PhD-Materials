@@ -10,12 +10,11 @@ ScenarioList <- list(
     lambdac = log(2)/24,
     T1 = 3,
     HR1 = 5,
-    T2 = 6,
+    T2 = 7,
     HR2 = 2.5,
-    recTime = 3
+    recTime = 0
   )
 )
-
 
 # ScenarioList <- list(
 #   A = list(
@@ -408,7 +407,7 @@ for (i in 1:length(ScenarioList)){
   
   
   # Set the number of CPU cores you want to use
-  num_cores <- 8 # Change this to the number of cores you want to use
+  num_cores <- 24 # Change this to the number of cores you want to use
   
   # Register parallel backend
   cl <- makeCluster(num_cores)
