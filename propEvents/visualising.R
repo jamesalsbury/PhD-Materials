@@ -33,7 +33,7 @@ lines(treatmentTime2, treatmentSurv2, col = "red", lty = 2)
 lines(treatmentTime3, treatmentSurv3, col = "red", lty  = 2)
 legend("topright", legend = c("Control", "Treatment"), lty = 1:2, col = c("blue", "red"))
 
-abline(v = 7)
+#abline(v = 7)
 
 
 # 

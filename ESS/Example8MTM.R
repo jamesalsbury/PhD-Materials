@@ -78,7 +78,7 @@ logistic <- function(M,d.ini,d.end)
   # theta_k.
   
   Mrep <- M+1
-  T    <- 10000
+  T    <- 100
   c    <- 10000
   DqYMrep.out <- numeric(Mrep)
   d <- 6
@@ -217,8 +217,8 @@ logistic <- function(M,d.ini,d.end)
 }
 
 # For determining m
-logistic(600,1,2)
-# For determining m1
-logistic(10,1,1)
+logistic(1000,3,4)
+  # For determining m1
+#logistic(10,1,1)
 # For determining m2
-logistic(10,2,2)
+#logistic(10,2,2)
