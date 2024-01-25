@@ -1,30 +1,4 @@
-#***************************************************************************
-#     Determining the Effective Sample Size of a Parametric Prior
-#                                 by
-#      Satoshi Morita(1), Peter F. Thall(2), and Peter Muller(2)
-#       (1) Department of Epidemiology and Health Care Research,
-#           Kyoto University Graduate School of Medicine, Kyoto, Japan
-#       (2) Department of Biostatistics and Applied Mathematics,
-#           University of Texas, M.D. Anderson Cancer Center,
-#           1515 Holcombe Boulevard, Houston, Texas 77030, U.S.A.
-#                              March XX, 2007
-#***************************************************************************
-#        R Program for Detemining the Effective Sample Sizes (ESSs)
-#                     of the Prior in Thall and Lee (2003)
-#***************************************************************************
-
-
-Etheta1 <- runif(1)
-Etheta2 <- runif(1)
-Etheta3 <- runif(1)
-Etheta4 <- runif(1)
-Etheta5 <- runif(1)
-Etheta6 <- runif(1)
-X1 <- 0
-X2 <- runif(1)
-Y <- runif(1)
-
-Etheta1FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
+Etheta1Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
   
     # Calculate the expression
     result <- (X1^(2*Etheta2)) / ((X1^(Etheta2)*Etheta1 + (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + 1)^2) - (X1^(2*Etheta2)*Y) / ((X1^(Etheta2)*Etheta1 + (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3)^2)
@@ -35,8 +9,7 @@ Etheta1FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6,
 }
 
 
-
-Etheta2FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
+Etheta2Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
     # Calculate the expression
     result <- ((log(X1)*(X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5*Etheta6 + X1^(Etheta2)*log(X1)*Etheta1)^2) /
     (( (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1 + 1)^2) -
@@ -53,7 +26,7 @@ Etheta2FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6,
 }
 
 
-Etheta3FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
+Etheta3Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
   # Calculate the expression
   result <- (X2^(2*Etheta4)) / ((X2^(Etheta4)*Etheta3 + (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X1^(Etheta2)*Etheta1 + 1)^2) -
     (X2^(2*Etheta4)*Y) / ((X2^(Etheta4)*Etheta3 + (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X1^(Etheta2)*Etheta1)^2)
@@ -63,10 +36,8 @@ Etheta3FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6,
   
 }
 
-
-Etheta4FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
+Etheta4Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
   
-    
     # Calculate the expression
     result <- ((log(X2)*(X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5*Etheta6 + X2^(Etheta4)*log(X2)*Etheta3)^2) /
     (( (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1 + 1)^2) -
@@ -77,13 +48,12 @@ Etheta4FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6,
     (Y * (log(X2)^2*(X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5*Etheta6^2 + X2^(Etheta4)*log(X2)^2*Etheta3) /
        ((X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1))
   
-  
   # Print the result
     return(-result)
   
 }
 
-Etheta5FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
+Etheta5Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
   
     # Calculate the expression
     result <- ((X1^(Etheta2)*X2^(Etheta4))^(2*Etheta6)) /
@@ -91,97 +61,24 @@ Etheta5FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6,
     (((X1^(Etheta2)*X2^(Etheta4))^(2*Etheta6))*Y) /
     (( (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1)^2)
   
-  
   # Print the result
     return(-result)
   
 }
 
-Etheta6FuncNew <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
-  
-    
-    # Calculate the expression
-    result <- (log(X1^(Etheta2)*X2^(Etheta4))^2 * (X1^(Etheta2)*X2^(Etheta4))^(Etheta6)*Etheta5) /
-    (( (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1 + 1)) +
-    (log(X1^(Etheta2)*X2^(Etheta4))^2 * (X1^(Etheta2)*X2^(Etheta4))^(2*Etheta6)*Etheta5^2) /
-    (( (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1 + 1)^2) +
-    (log(X1^(Etheta2)*X2^(Etheta4))^2 * (X1^(Etheta2)*X2^(Etheta4))^(Etheta6)*Y*Etheta5) /
-    (( (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1)) -
-    (log(X1^(Etheta2)*X2^(Etheta4))^2 * (X1^(Etheta2)*X2^(Etheta4))^(2*Etheta6)*Y*Etheta5^2) /
-    (( (X1^(Etheta2)*X2^(Etheta4))^Etheta6*Etheta5 + X2^(Etheta4)*Etheta3 + X1^(Etheta2)*Etheta1)^2)
- 
-  
-  # Print the result
-    return(-result)
-  
-}
-
-
-
-
-
-#Etheta1
-# Etheta1Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
-#   result <- -(X1^(2*Etheta2)*((X1^(2*Etheta2)*Y-X1^(2*Etheta2))*Etheta1^2+((2*X1^Etheta2*(X1^Etheta2*X2^Etheta4)^Etheta6*Y-2*X1^Etheta2*(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(2*X1^Etheta2*X2^Etheta4*Y-2*X1^Etheta2*X2^Etheta4)*Etheta3+2*X1^Etheta2*Y)*Etheta1+((X1^Etheta2*X2^Etheta4)^(2*Etheta6)*Y-(X1^Etheta2*X2^Etheta4)^(2*Etheta6))*Etheta5^2+((2*X2^Etheta4*(X1^Etheta2*X2^Etheta4)^Etheta6*Y-2*X2^Etheta4*(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta3+2*(X1^Etheta2*X2^Etheta4)^Etheta6*Y)*Etheta5+(X2^(2*Etheta4)*Y-X2^(2*Etheta4))*Etheta3^2+2*X2^Etheta4*Y*Etheta3+Y))/((X1^Etheta2*Etheta1+(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3)^2*(X1^Etheta2*Etheta1+(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+1)^2)
-#   return(-result)
-# }
-# 
-# 
-# 
-# #Etheta2
-# Etheta2Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
-#   result <- (log(X1)*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y)*(log(X1)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6^2+X1^Etheta2*log(X1)*Etheta1))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))+(log(X1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X1^Etheta2*Etheta1)*(Etheta5*(log(X1)*(X1^Etheta2*X2^Etheta4)^Etheta6*Y*Etheta6-log(X1)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta6)+(X1^Etheta2*log(X1)*Y-X1^Etheta2*log(X1))*Etheta1))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))-(log(X1)*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X1^Etheta2*Etheta1)*(log(X1)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X1^Etheta2*log(X1)*Etheta1))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)^2*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))-(log(X1)*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X1^Etheta2*Etheta1)*(log(X1)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X1^Etheta2*log(X1)*Etheta1))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1)^2)
-#   return(-result)
-# }
-# 
-# 
-# #Etheta3
-# Etheta3Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
-#   result <- -(X2^(2*Etheta4)*((X2^(2*Etheta4)*Y-X2^(2*Etheta4))*Etheta3^2+((2*X2^Etheta4*(X1^Etheta2*X2^Etheta4)^Etheta6*Y-2*X2^Etheta4*(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(2*X1^Etheta2*X2^Etheta4*Y-2*X1^Etheta2*X2^Etheta4)*Etheta1+2*X2^Etheta4*Y)*Etheta3+((X1^Etheta2*X2^Etheta4)^(2*Etheta6)*Y-(X1^Etheta2*X2^Etheta4)^(2*Etheta6))*Etheta5^2+((2*X1^Etheta2*(X1^Etheta2*X2^Etheta4)^Etheta6*Y-2*X1^Etheta2*(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta1+2*(X1^Etheta2*X2^Etheta4)^Etheta6*Y)*Etheta5+(X1^(2*Etheta2)*Y-X1^(2*Etheta2))*Etheta1^2+2*X1^Etheta2*Y*Etheta1+Y))/((X2^Etheta4*Etheta3+(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X1^Etheta2*Etheta1)^2*(X2^Etheta4*Etheta3+(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X1^Etheta2*Etheta1+1)^2)
-#   return(-result)
-# }
-# 
-# 
-# #Etheta4
-# Etheta4Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
-#   result <- (log(X2)*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y)*(log(X2)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6^2+X2^Etheta4*log(X2)*Etheta3))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))+(log(X2)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X2^Etheta4*Etheta3)*(Etheta5*(log(X2)*(X1^Etheta2*X2^Etheta4)^Etheta6*Y*Etheta6-log(X2)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta6)+(X2^Etheta4*log(X2)*Y-X2^Etheta4*log(X2))*Etheta3))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))-(log(X2)*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X2^Etheta4*Etheta3)*(log(X2)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X2^Etheta4*log(X2)*Etheta3))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)^2*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))-(log(X2)*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X2^Etheta4*Etheta3)*(log(X2)*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*Etheta6+X2^Etheta4*log(X2)*Etheta3))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1)^2)
-#   return(-result)
-# }
-# 
-# 
-# #Etheta5
-# Etheta5Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
-#   result <- -((X1^Etheta2*X2^Etheta4)^(2*Etheta6)*(((X1^Etheta2*X2^Etheta4)^(2*Etheta6)*Y-(X1^Etheta2*X2^Etheta4)^(2*Etheta6))*Etheta5^2+((2*X2^Etheta4*(X1^Etheta2*X2^Etheta4)^Etheta6*Y-2*X2^Etheta4*(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta3+(2*X1^Etheta2*(X1^Etheta2*X2^Etheta4)^Etheta6*Y-2*X1^Etheta2*(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta1+2*(X1^Etheta2*X2^Etheta4)^Etheta6*Y)*Etheta5+(X2^(2*Etheta4)*Y-X2^(2*Etheta4))*Etheta3^2+((2*X1^Etheta2*X2^Etheta4*Y-2*X1^Etheta2*X2^Etheta4)*Etheta1+2*X2^Etheta4*Y)*Etheta3+(X1^(2*Etheta2)*Y-X1^(2*Etheta2))*Etheta1^2+2*X1^Etheta2*Y*Etheta1+Y))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)^2*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1)^2)
-#   return(-result)
-# }
-# 
-# 
-# #Etheta6
 Etheta6Func <- function(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y){
-result <- (log(X1^Etheta2*X2^Etheta4)*(X1^Etheta2*X2^Etheta4)^Etheta6*(log(X1^Etheta2*X2^Etheta4)*(X1^Etheta2*X2^Etheta4)^Etheta6*Y-log(X1^Etheta2*X2^Etheta4)*(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5^2)/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))+(log(X1^Etheta2*X2^Etheta4)^2*(X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))-(log(X1^Etheta2*X2^Etheta4)^2*(X1^Etheta2*X2^Etheta4)^(2*Etheta6)*Etheta5^2*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)^2*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1))-(log(X1^Etheta2*X2^Etheta4)^2*(X1^Etheta2*X2^Etheta4)^(2*Etheta6)*Etheta5^2*(((X1^Etheta2*X2^Etheta4)^Etheta6*Y-(X1^Etheta2*X2^Etheta4)^Etheta6)*Etheta5+(X2^Etheta4*Y-X2^Etheta4)*Etheta3+(X1^Etheta2*Y-X1^Etheta2)*Etheta1+Y))/(((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1)*((X1^Etheta2*X2^Etheta4)^Etheta6*Etheta5+X2^Etheta4*Etheta3+X1^Etheta2*Etheta1+1)^2)
-return(-result)
-}
+  
+    result <- -log(X1^Etheta2 * X2^Etheta4)^2 * (X1^Etheta2 * X2^Etheta4)^(Etheta6) * Etheta5 / ((X1^Etheta2 * X2^Etheta4)^(Etheta6) * Etheta5 + X2^Etheta4 * Etheta3 + X1^Etheta2 * Etheta1 + 1) +
+      log(X1^Etheta2 * X2^Etheta4)^2 * (X1^Etheta2 * X2^Etheta4)^(2 * Etheta6) * Etheta5^2 / ((X1^Etheta2 * X2^Etheta4)^(Etheta6) * Etheta5 + X2^Etheta4 * Etheta3 + X1^Etheta2 * Etheta1 + 1)^2 +
+      log(X1^Etheta2 * X2^Etheta4)^2 * (X1^Etheta2 * X2^Etheta4)^(Etheta6) * Y * Etheta5 / ((X1^Etheta2 * X2^Etheta4)^(Etheta6) * Etheta5 + X2^Etheta4 * Etheta3 + X1^Etheta2 * Etheta1) -
+      log(X1^Etheta2 * X2^Etheta4)^2 * (X1^Etheta2 * X2^Etheta4)^(2 * Etheta6) * Y * Etheta5^2 / ((X1^Etheta2 * X2^Etheta4)^(Etheta6) * Etheta5 + X2^Etheta4 * Etheta3 + X1^Etheta2 * Etheta1)^2
+    
+    return(-result)
+  }
+  
 
-#Comparing
-#Etheta1Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-#Etheta1FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# 
-# Etheta2Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# Etheta2FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# 
-# Etheta3Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# Etheta3FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# 
-# Etheta4Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# Etheta4FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# 
-# Etheta5Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# Etheta5FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# 
-# Etheta6Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
-# Etheta6FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)
 
-logistic <- function(M,d.ini,d.end)
+DoseResponse <- function(M,d.ini,d.end)
 {
   # Let p(theta_) be the prior on the parameter vector theta_ =
   #(theta.1,...,theta.d), where d denotes dim(theta_).
@@ -201,7 +98,7 @@ logistic <- function(M,d.ini,d.end)
   # theta_k.
   
   Mrep <- M+1
-  T    <- 100
+  T    <- 1000
   c    <- 10000
   DqYMrep.out <- numeric(Mrep)
   d <- 6
@@ -266,21 +163,8 @@ logistic <- function(M,d.ini,d.end)
     DqYm.out <- numeric(M)
     DqY <- numeric(d)
     for (i in 1:M) {
-      # u <- runif(1)
-      # if (u < 1/3){
-      #   X1 <- 0.001
-      #   X2 <- runif(1, 0, 2)
-      # } else if (u > 2/3){
-      #   X1 <- runif(1, 0, 2)
-      #   X2 <- 0.001
-      # } else {
-      #   X1 <- runif(1, 0, 2)
-      #   X2 <- runif(1, 0, 2)
-      # }
-      
-      X1 <- runif(1, 0, 2)
-      X2 <- runif(1, 0, 2)
-      
+      X1 <- runif(1, 0, 1)
+      X2 <- runif(1, 0, 1)
       
       probY <- (Etheta1*X1^Etheta2+Etheta3*X2^Etheta4+Etheta5*(X1^Etheta2*X2^Etheta4)^Etheta6)/
         (1+Etheta1*X1^Etheta2+Etheta3*X2^Etheta4+Etheta5*(X1^Etheta2*X2^Etheta4)^Etheta6)
@@ -291,17 +175,17 @@ logistic <- function(M,d.ini,d.end)
       # in the example.
       
       
-      Dq.1 <- Etheta1FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
+      Dq.1 <- Etheta1Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
       
-      Dq.2 <- Etheta2FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
+      Dq.2 <- Etheta2Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
       
-      Dq.3 <- Etheta3FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
+      Dq.3 <- Etheta3Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
       
-      Dq.4 <- Etheta4FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
+      Dq.4 <- Etheta4Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
       
-      Dq.5 <- Etheta5FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)  
+      Dq.5 <- Etheta5Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)  
       
-      Dq.6 <- Etheta6FuncNew(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
+      Dq.6 <- Etheta6Func(Etheta1, Etheta2, Etheta3, Etheta4, Etheta5, Etheta6, X1, X2, Y)          
       
       
       # for j=1,...,d.
@@ -343,8 +227,16 @@ logistic <- function(M,d.ini,d.end)
 }
 
 # For determining m
-logistic(1000,3,4)
-# For determining m1
-#logistic(10,1,1)
-# For determining m2
-#logistic(10,2,2)
+DoseResponse(100,1,6)
+
+#For determining m1
+DoseResponse(1000, 1, 2)
+
+#For determining m2
+DoseResponse(1000, 3, 4)
+
+#For determining m3
+DoseResponse(100, 5, 6)
+
+
+
