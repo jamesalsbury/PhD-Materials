@@ -13,8 +13,8 @@
 #                     of the Prior in Thall and Lee (2003)
 #***************************************************************************
 
-linearRegression <- function(M,d.ini,d.end)
-{
+linearRegression <- function(M,d.ini,d.end, a1, b1, a2, b2, a3, b3){
+  
   # Let p(theta_) be the prior on the parameter vector theta_ =
   #(theta.1,...,theta.d), where d denotes dim(theta_).
   # Set M being a positive integer chosen so that, initially, it is reasonable
@@ -33,7 +33,7 @@ linearRegression <- function(M,d.ini,d.end)
   # theta_k.
   
   Mrep <- M+1
-  T    <- 1000
+  T    <- 10000
   c    <- 10000
   DqYMrep.out <- numeric(Mrep)
   
@@ -49,12 +49,12 @@ linearRegression <- function(M,d.ini,d.end)
   # theta.2 ~ N(a2,b2) 
   # theta.3 ~ Ga(a3, b3)
   
-  a1 <- 0
-  b1 <- 100
-  a2 <- 0
-  b2 <- 10
-  a3 <- 1
-  b3 <- 1
+  a1 <- a1
+  b1 <- b1
+  a2 <- a2
+  b2 <- b2
+  a3 <- a3
+  b3 <- b3
   # 1-2. Specify theta_bar, the prior mean under p(theta_)
   # Refer to suitable textbooks such as Gelman et al. (2004)
   Etheta1 <- a1
@@ -79,41 +79,33 @@ linearRegression <- function(M,d.ini,d.end)
   #log {q0(theta_)}
   # regarding theta.j for j=1,...,d..
   Dq0.plus <- sum(Dq0[d.ini:d.end])
+  #DqYMrep.out <- matrix(Dq0.plus, nrow = 1, ncol = M)  # replace M with the desired number of columns
   for (t in 1:T) { # Simulate Monte Carlo samples
     DqYm.out <- numeric(M)
     DqY <- numeric(d)
     
+    Mvec <- 1:M
+    Dq.1 <- 1/(c*b1)+Etheta3*Mvec
+    Dq.3 <- ((a3/c)-1)/Etheta3^2+Mvec/(2*Etheta3^2)
     
+    xVec <- rnorm(M)
+    XVecSquared <- xVec^2
     
-    Dq.3 <- ((a3/c)-1)/Etheta3^2
+    Dq.2 <- 1 / (c * b2) + Etheta3 * cumsum(XVecSquared)
     
-    
-    for (i in 1:M) {
-      x <- rnorm(1)
-     
-      # Specify the model employed
-      # in the example.
-      Dq.1 <- 1/(c*b1)+Etheta3*i              # Specify Dq,j(m,theta_bar)
-      #for j=1,...,d.
-      Dq.2 <- 1/(c*b2)+Etheta3*x^2            # Specify Dq,j(m,theta_bar)
-      # for j=1,...,d.
-      Dq.3 <- i/(2*Etheta3^2)        # Specify Dq,j(m,theta_bar)
-      # for j=1,...,d.
-      
-   # print(Dq.3)
-      
-      Dq   <- c(Dq.1, Dq.2, Dq.3)               # Set Dq,j(m,theta_bar) for
+    for (i in 1:M){
+      DqY   <- c(Dq.1[i], Dq.2[i], Dq.3[i])               # Set Dq,j(m,theta_bar) for
       # j=1,...,d, as a vector.
-      DqY  <- DqY + Dq
-      
-     # print(DqY)
       Dqm.plus    <- sum(DqY[d.ini:d.end])
+      DqYm.out[i] <- Dqm.plus 
       
-      #print(Dqm.plus)
-      DqYm.out[i] <- Dqm.plus + Dq0.plus
     }
+    
     DqYm.out    <- c(Dq0.plus, DqYm.out)
     DqYMrep.out <- rbind(DqYMrep.out,DqYm.out)
+    
+    
+    
   }
   T1  <- T+1
   DqYMrep.out <- DqYMrep.out[c(2:T1),]
@@ -143,9 +135,58 @@ linearRegression <- function(M,d.ini,d.end)
   ESS
 }
 
+#p(theta)
 # For determining m1
-linearRegression(10,1,2)
+linearRegression(10,1,2, 0, 1000, 0, 1000, 0.001, 0.001)
 
+# For determining m2
+linearRegression(10,3,3, 0, 1000, 0, 1000, 0.001, 0.001)
+
+#p'(theta)
 # For determining m1
-linearRegression(10,3,3)
+linearRegression(10,1,2, 0, 100, 0, 10, 1, 1)
+
+# For determining m2
+linearRegression(10,3,3, 0, 100, 0, 10, 1, 1)
+
+#p''(theta)
+# For determining m1
+linearRegression(10,1,2, 0, 1, 0, 1, 2, 2)
+
+# For determining m2
+linearRegression(10,3,3, 0, 1, 0, 1, 2, 2)
+
+M <- 10
+d.ini <- 3
+d.end <- 3
+a1 <- 0
+b1 <- 1
+a2 <- 0
+b2 <-  1
+a3 <- 2
+b3 <- 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
