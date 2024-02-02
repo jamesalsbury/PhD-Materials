@@ -1,31 +1,13 @@
 
-# lambdac <- log(2)/12
-# HR1 <- 0.75
-# T1 <- 0
-# HR2 <- 0.75
-# numPatients <- 340
-# recTime <- 34
 
 lambdac <- log(2)/24
 T1 <- 3
 HR1 <- 5
 T2 <- 7
 HR2 <- 2.5
-recTime <- 0
+recTime <- 5
 
 numPatients <- 340
-
-# generateData <- function(lambdac, HR1, T1, HR2, numPatients, recTime) {
-#   CP <- exp(-lambdac*HR1*T1)
-#   u <- runif(numPatients)
-#   controlData <- -log(u)/lambdac
-#   u <- runif(numPatients)
-#   treatmentData <- ifelse(u>CP, -log(u)/(lambdac*HR1), (1/(lambdac*HR2))*(lambdac*HR2*T1-log(u)-lambdac*HR1*T1))
-#   dataCombined <- data.frame(time = c(controlData, treatmentData), group = c(rep("Control", numPatients), rep("Treatment", numPatients)))
-#   dataCombined$recTime <- runif(numPatients*2, min = 0, max = recTime)
-#   dataCombined$pseudo_time <- dataCombined$time + dataCombined$recTime
-#   return(dataCombined)
-# }
 
 generateDataPiecewise <- function(lambdac, HR1, HR2, T1, T2, numPatients, recTime){
   CP1 <- exp(-lambdac*T1)
@@ -38,6 +20,13 @@ generateDataPiecewise <- function(lambdac, HR1, HR2, T1, T2, numPatients, recTim
   dataCombined$recTime <- runif(numPatients*2, min = 0, max = recTime)
   dataCombined$pseudo_time <- dataCombined$time + dataCombined$recTime
   return(dataCombined)
+}
+
+# Create a function for the inner loop to avoid unnecessary copying
+censFuncInner <- function(data, threshold) {
+  newDataCombined <- censFunc(data, threshold)$dataCombined
+  newDataCombined <- newDataCombined[newDataCombined$status == 1, ]
+  mean(newDataCombined$survival_time > 3)
 }
 
 
@@ -61,36 +50,26 @@ censFunc <- function(dataset, censTime) {
 
 propEventFunc <- function(lambdac, HR1, HR2, T1, T2, numPatients, recTime){
   # Set parameters
-  numSimulations <- 100
-  calTime <- seq(0, 100, by = 0.25)
+  numSimulations <- 1
+  eventVec <- 1:(numPatients*2)
   
   # Initialize an empty matrix for storing results
-  eventMatrix <- matrix(NA, nrow = numSimulations, ncol = length(calTime))
+  eventMatrix <- matrix(NA, nrow = numSimulations, ncol = length(eventVec))
   
   # Simulate data and fill in the matrix
   for (k in 1:numSimulations) {
     dataCombined <- generateDataPiecewise(lambdac, HR1, HR2, T1, T2, numPatients, recTime)
-    eventMatrix[k,] <- sapply(calTime, function(t) sum(dataCombined$pseudo_time < t))
   }
   
-  # Calculate mean for each column
-  eventVec <- colMeans(eventMatrix)
+  dataCombined <- dataCombined[order(dataCombined$pseudo_time), ]
+  
+  calTime <- dataCombined$pseudo_time
   
   
   propMatrix <- matrix(NA, nrow = numSimulations, ncol = length(calTime))
   
   for (k in 1:numSimulations){
-    
-    # Assuming dataCombined$pseudo_time is a vector of pseudo times
-    dataCombined <- generateDataPiecewise(lambdac, HR1, HR2, T1, T2, numPatients, recTime)
-    
-    # Create a function for the inner loop to avoid unnecessary copying
-    censFuncInner <- function(data, threshold) {
-      newDataCombined <- censFunc(data, threshold)$dataCombined
-      newDataCombined <- newDataCombined[newDataCombined$status == 1, ]
-      mean(newDataCombined$survival_time > 3)
-    }
-    
+  
     # Use sapply for vectorized calculations
     propMatrix[k,] <- sapply(calTime, censFuncInner, data = dataCombined)
     
@@ -105,14 +84,16 @@ propEventFunc <- function(lambdac, HR1, HR2, T1, T2, numPatients, recTime){
 
 
 x1 <- propEventFunc(lambdac, HR1, HR2, T1, T2, numPatients, recTime)
-plotTime <- seq(1, 401, by = 12)
+plotTime <- seq(1, max(x1$calTime), length = 20)
+plotEvents <- rep(NA, length(plotTime))
+for (i in 1:length(plotTime)){
+  plotEvents[i] <-    sum(x1$calTime<plotTime[i])
+}
 plot(x1$eventVec, x1$eventProp, type = "l", ylim = c(0, 1), xlab = "Number of events", 
      ylab = "Proportion of events > 3 months", col = "red")
-points(x1$eventVec[plotTime], x1$eventProp[plotTime])
+points(x1$eventVec[plotEvents], x1$eventProp[plotEvents])
 abline(h = 2/3, lty = 2)
 abline(v = 512*0.5, lty = 3)
-abline(v = 512*0.75, lty = 3)
-abline(v = 512, lty = 3)
 
 plot(x1$calTime, x1$eventVec, type = "l")
 abline(v = 14)
@@ -151,11 +132,4 @@ abline(h = 512)
 # 
 # 
 # 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
+#
