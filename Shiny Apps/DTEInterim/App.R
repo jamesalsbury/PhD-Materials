@@ -1,5 +1,6 @@
 library(shiny)
 library(shinyjs)
+library(ggplot2)
 
 # UI definition
 ui <- fluidPage(
@@ -7,170 +8,441 @@ ui <- fluidPage(
   shinyjs::useShinyjs(),
   
   # Application title
-  titlePanel("Assurance: Delayed Treatment Effects"),
+  titlePanel("Bayesian Interim Analyses: Delayed Treatment Effects"),
   
   mainPanel(
-    
     tabsetPanel(
-      # Control UI ---------------------------------
-      
-      
+      # Data Generating UI ---------------------------------
       tabPanel("Data Generating", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    numericInput("numPatients", 'Number of Patients (in each group, 1:1)', value=340, min=0),
                    numericInput("numEvents", 'Number of Events', value=512, min=0),
                    numericInput("lambdac", '\\( \\lambda_c \\)', value = 0.08),
-                   actionButton("addButton", "Add trial"),
+                   
+                   # Render the initial trial panel when the app starts
+                   uiOutput("init_trial"),
+                   
+                   actionButton("addTrialButton", "Add trial"),
                    uiOutput("delayHRInputs"),
-                   actionButton("removeInput", "Remove last trial", disabled = TRUE)
+                   actionButton("removeTrial", "Remove last trial", disabled = TRUE)
                  ), 
                  mainPanel = mainPanel(
                    # Generate plotOutputs dynamically based on the number of delay and HR combinations
-                   uiOutput("plots")
+                   uiOutput("DGPlots")
                  )
                ),
       ),
       
-      
-      tabPanel("Futility rules", 
+      # Elicited Distributions UI ---------------------------------
+      tabPanel("Elicited Distributions", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
-                   radioButtons("uploadSampleCheck", "Do you wish to upload a MCMC sample?", choices = c("Yes", "No"), selected = "No"),
-                   numericInput("lambdacmean", 'mean (\\(\\text{scale} = \\lambda_c \\))', value=0.08, min=0),
-                   numericInput("gammacmean", 'mean \\(\\text{shape} = \\gamma_c \\)', value=0.8, min=0)
-                   
-                   
+                   wellPanel(
+                     selectInput("TDist", 'T', choices = c("Normal", "Student-t", "Gamma", "Log normal", 
+                                                           "Log student-t", "Beta", "Mirror gamma", "Mirror log normal",
+                                                           "Mirror log Student-t"), selected = "Normal"),
+                     uiOutput("TDistParams") # Output for TDist parameters
+                   ),
+                   wellPanel(
+                     selectInput("HRStarDist", label = HTML(' \\(\\text{HR}^*\\)'), choices = c("Normal", "Student-t", "Gamma", "Log normal", 
+                                                                                                "Log student-t", "Beta", "Mirror gamma", "Mirror log normal",
+                                                                                                "Mirror log Student-t"), selected = "Normal"),
+                     uiOutput("HRStarDistParams") # Output for HRStarDist parameters
+                   )
                  ), 
                  mainPanel = mainPanel(
-                   plotOutput("plotControl"),
-                   htmlOutput("recommendedParams")
+                   plotOutput("TDistPlot"),
+                   plotOutput("HRStarDistPlot")
+                 )
+               )
+      ),
+      
+      
+      # Rules UI ---------------------------------
+      tabPanel("Rules", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   
+                   # Render the initial trial panel when the app starts
+                   uiOutput("init_rule"),
+                   
+                   actionButton("addRuleButton", "Add rule"),
+                   uiOutput("ruleInputs"),
+                   actionButton("removeRule", "Remove last rule", disabled = TRUE)
+                 ), 
+                 mainPanel = mainPanel(
+                   
                  )
                ),
-      ),
+      )
       
-      
-      
-      #Help UI ---------------------------------
-      #Need to say what files can be uploaded in the control sample
-      #Link to SHELF for the elicitation
-      tabPanel("Help",
-               HTML("<p>This app implements the method as outlined in this <a href='https://jamesalsbury.github.io/'>paper</a>. For every tab, there is a brief summary below, for any other questions, comments or
-                  feedback, please contact <a href='mailto:jsalsbury1@sheffield.ac.uk'>James Salsbury</a>.</p>"),
-               HTML("<p><u>Control</u></p>"),
-               HTML("<p>Here, the parameters for the control survival are specified, the parameterisation for the control survival curve is:</p>"),
-               withMathJax(paste0(" $$S_c(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}$$")),
-               HTML("<p>The control tab also allows an upload of an Excel file containing survival data for the control sample. 
-                  The Excel file needs to have two columns: the first column containing the survival time, and the second column containing the event status (1 for dead, 0 for alive).</p>"),
-               HTML("<p><u>Eliciting the two parameters: T and post-delay HR</u></p>"),
-               HTML("<p>These two tabs elicit beliefs from the user about two quantities: the length of delay, T, and the post-delay HR. The parameterisation for the treatment survival curve is:</p>"),
-               withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_ct)^{\\gamma_c}\\}, t \\leq T$$")),
-               withMathJax(paste0(" $$S_t(t) = \\text{exp}\\{-(\\lambda_cT)^{\\gamma_c}-\\lambda_t^{\\gamma_t}(t^{\\gamma+t}-T^{\\gamma_t})\\}, t > T$$")),
-               HTML("<p>The elicitation technique is based on SHELF, more guidance can be found <a href='https://shelf.sites.sheffield.ac.uk/'>here.</a></p>"),
-               HTML("<p>There is also an option to include some mass at T = 0 and HR = 1.</p>"),
-               HTML("<p><u>Feedback</u></p>"),
-               HTML("<p>The plot shows the control survival curve (from the control tab), along with the median elicited treatment line (calculated from the previous two tabs). 
-                  There are also three optional quantities to view: the first is the median survival time for both groups, the second is a 95% confidence interval for T and the
-                  third shows a 80% confidence interval for the treatment curve. When the median survival time is added to the plot, a second plot is shown below. Initially, this plot is a histogram for the 
-                  treatment median survival time. However, the user is able to change this median to any other quantile of interest.</p>"),
-               HTML("<p><u>Calculating assurance</u></p>"),
-               HTML("<p>This tab allows the user to calculate assurance, given the control parameters and elicited prior distributions  for T and post-delay HR. Some additional questions
-                  about the trial are found on the left-hand panel. The app assumes uniform recruitment and uses a log-rank test for analysis of the simulated data. Depending on your processor speed, this 
-                  calculation can take between 30-40 seconds. Once the calculation is complete, the app shows two plots. The top plot shows assurance (along with standard error curves) and target effect curve - which
-                  shows the proportion of trials in which the target effect was observed. The bottom plot shows the average hazard ratio observed and the corresponding confidence intervals for this. </p>")
-      ),
-      
-      
-    ), style='width: 1000px; height: 600px',
-    
+    ), style='width: 1000px; height: 600px'
+  )
+)
+
+# Initialize initial trial panel
+init_trial <- tags$div(
+  id = "trial1",
+  wellPanel(
+    title = "Set 1",
+    numericInput(inputId = "delay1", label = "Delay", value = 0),
+    numericInput(inputId = "HRStar1", label = HTML(' \\(\\text{HR}^*\\)'),  value = 1),
+    numericInput(inputId = "Rec1", label = "Recruitment length", value = 34)
   )
 )
 
 
+
+
+
 # Server logic
 server <- function(input, output, session) {
+  
   # Initialize reactive values
-  rv <- reactiveValues(input_count = 1,
-                       delays = c(3),
-                       HRs = c(1),
-                       recruit_lengths = c(34))
+  rv <- reactiveValues(trial_input_count = 1,
+                       rule_input_count = 1)
   
-  # Function to render delay and HRstar inputs
-  output$delayHRInputs <- renderUI({
-    lapply(1:rv$input_count, function(i) {
-      wellPanel(
-        title = paste("Set", i),
-        numericInput(inputId = paste0("delay", i), label = "Delay", value = rv$delays[i]),
-        numericInput(inputId = paste0("HRStar", i), label = "HR", value = rv$HRs[i]),
-        numericInput(inputId = paste0("Rec", i), label = "Recruitment length", value = rv$recruit_lengths[i])
+  
+  # Data Generating Logic ---------------------------------
+  
+  observeEvent(input$addTrialButton, {
+    rv$trial_input_count <- rv$trial_input_count + 1
+    insertUI(
+      selector = "#addTrialButton",
+      where = "beforeBegin",
+      ui = tags$div(
+        id = paste0("trial", rv$trial_input_count),
+        wellPanel(
+          withMathJax(),
+          title = paste("Set", rv$trial_input_count),
+          numericInput(inputId = paste0("delay", rv$trial_input_count), label = "Delay", value = 0),
+          numericInput(inputId = paste0("HRStar", rv$trial_input_count), label = HTML(' \\(\\text{HR}^*\\)'),  value = 1),
+          numericInput(inputId = paste0("Rec", rv$trial_input_count), label = "Recruitment length", value = 34)
+        )
       )
-    })
-  })
-  
-  # Function to handle adding inputs
-  observeEvent(input$addButton, {
-    rv$input_count <- rv$input_count + 1
-    rv$delays <- c(rv$delays, 3)  # Initialize new trial with default values
-    rv$HRs <- c(rv$HRs, 1)
-    rv$recruit_lengths <- c(rv$recruit_lengths, 34)
-    if (rv$input_count > 1) {
-      shinyjs::enable("removeInput")
+    )
+    if (rv$trial_input_count > 1) {
+      shinyjs::enable("removeTrial")
     }
   })
+  
+
+  
   
   # Function to handle removing inputs
-  observeEvent(input$removeInput, {
-    if (rv$input_count > 0) {
-      rv$input_count <- rv$input_count - 1
-      rv$delays <- head(rv$delays, -1)  # Remove last trial
-      rv$HRs <- head(rv$HRs, -1)
-      rv$recruit_lengths <- head(rv$recruit_lengths, -1)
-    }
-    if (rv$input_count == 1) {
-      shinyjs::disable("removeInput")
+  observeEvent(input$removeTrial, {
+    if (rv$trial_input_count > 1) {
+      removeUI(selector = paste0("#trial", rv$trial_input_count))
+      rv$trial_input_count <- rv$trial_input_count - 1
+      if (rv$trial_input_count == 1) {
+        shinyjs::disable("removeTrial")
+      }
     }
   })
   
-  # Create separate reactive expressions for each plot
-  plot_reactive <- reactiveValues()
+  # Render the initial trial panel when the app starts
+  output$init_trial <- renderUI({
+    tags$div(
+      id = "trial1",
+      wellPanel(
+        withMathJax(),
+        title = "Set 1",
+        numericInput(inputId = "delay1", label = "Delay", value = 0),
+        numericInput(inputId = "HRStar1", label = HTML(' \\(\\text{HR}^*\\)'), value = 1),
+        numericInput(inputId = "Rec1", label = "Recruitment length", value = 34)
+      )
+    )
+  })
+  
+  # Render the plots
+  output$DGPlots <- renderUI({
+    plot_output_list <- lapply(1:rv$trial_input_count, function(i) {
+      plotOutput(outputId = paste0("plot", i))
+    })
+    do.call(tagList, plot_output_list)
+  })
+  
+  # Reactive expression for rendering plots
   observe({
-    lapply(1:rv$input_count, function(i) {
-      plot_reactive[[paste0("plot", i)]] <- renderPlot({
-        # Capture the delay and HR inputs
-        delay <- rv$delays[i]
-        HRStar <- rv$HRs[i]
+    lapply(1:rv$trial_input_count, function(i) {
+      output[[paste0("plot", i)]] <- renderPlot({
+        # Extract delay and HRStar inputs
+        delay <- input[[paste0("delay", i)]]
+        HRStar <- input[[paste0("HRStar", i)]]
         
-        ControlTime <- seq(0, 1000, by = 0.1)
-        ControlSurv <- exp(-input$lambdac*ControlTime)
-        MaxTime <- which(ControlSurv < 0.001)[1]
+        # Generate survival curves
+        Time <- seq(0, 1000, by = 0.1)
+        ControlSurv <- exp(-input$lambdac * Time)
+        TreatmentSurv <- ifelse(Time <= delay, exp(-input$lambdac * Time), exp(-input$lambdac * delay - input$lambdac * HRStar * (Time - delay)))
         
-        plot(ControlTime[1:MaxTime], ControlSurv[1:MaxTime], ylim = c(0,1), type = "l", col = "blue", xlab = "Time (months)", ylab = "Survival")
+        # Determine max time for plotting
+        MaxTimeC <- which(ControlSurv < 0.001)[1]
+        MaxTimeT <- which(TreatmentSurv < 0.001)[1]
+        MaxTime <- max(MaxTimeC, MaxTimeT)
         
-        TreatmentTime1 <- seq(0, delay, by = 0.1)
-        TreatmentSurv1 <- exp(-input$lambdac*TreatmentTime1)
+        # Plot survival curves
+        plot(Time[1:MaxTime], ControlSurv[1:MaxTime], ylim = c(0, 1), type = "l", col = "blue", xlab = "Time (months)", ylab = "Survival")
+        lines(Time[1:MaxTime], TreatmentSurv[1:MaxTime], col = "red")
         
-        TreatmentTime2 <- seq(delay, 1000, by = 0.1)
-        TreatmentSurv2 <- exp(-delay*input$lambdac-input$lambdac*HRStar*(TreatmentTime2-delay))
-        
-        lines(TreatmentTime1, TreatmentSurv1, col = "red")
-        lines(TreatmentTime2, TreatmentSurv2, col = "red")
+        # Add legend
+        legend("topright", legend = c("Control", "Treatment"), col = c("blue", "red"), lty = 1)
       })
     })
   })
   
-  # Render the plots dynamically
-  output$plots <- renderUI({
-    plot_output_list <- lapply(1:rv$input_count, function(i) {
-      plot_reactive[[paste0("plot", i)]]
-    })
-    do.call(tagList, plot_output_list)
+  
+  
+  # Elicited Distributions Logic ---------------------------------
+  
+  # Define UI outputs for parameters
+  output$TDistParams <- renderUI({
+    dist <- input$TDist
+    
+    if (dist %in% c("Normal", "Log normal", "Mirror log normal")) {
+      list(
+        numericInput("TDistMean", label = "Mean:", value = 0),
+        numericInput("TDistSD", label = "Standard Deviation:", value = 1)
+      )
+    } else if (dist %in% c("Student-t", "Log student-t", "Mirror log Student-t")) {
+      list(
+        numericInput("TDistMean", label = "Mean:", value = 0),
+        numericInput("TDistDF", label = "Degrees of Freedom:", value = 1)
+      )
+    } else if (dist %in% c("Gamma", "Beta", "Mirror gamma")) {
+      list(
+        numericInput("TDistShape", label = "Shape:", value = 1),
+        numericInput("TDistRate", label = "Rate:", value = 1)
+      )
+    } 
+    # Add conditions for other distributions
   })
+  
+  output$HRStarDistParams <- renderUI({
+    dist <- input$HRStarDist
+    
+    if (dist %in% c("Normal", "Log normal", "Mirror log normal")) {
+      list(
+        numericInput("HRStarDistMean", label = "Mean:", value = 0),
+        numericInput("HRStarDistSD", label = "Standard Deviation:", value = 1)
+      )
+    } else if (dist %in% c("Student-t", "Log student-t", "Mirror log Student-t")) {
+      list(
+        numericInput("HRStarDistMean", label = "Mean:", value = 0),
+        numericInput("HRStarDistDF", label = "Degrees of Freedom:", value = 1)
+      )
+    } else if (dist %in% c("Gamma", "Beta", "Mirror gamma")) {
+      list(
+        numericInput("HRStarDistShape", label = "Shape:", value = 1),
+        numericInput("HRStarDistRate", label = "Rate:", value = 1)
+      )
+    } 
+    # Add conditions for other distributions
+  })
+
+  
+  # Define reactive values to store distribution parameters
+  distParams <- reactiveValues()
+  
+  observe({
+    # Store TDist parameters
+    if (input$TDist == "Normal") {
+      distParams$TDist <- list(mean = input$TDistMean, sd = input$TDistSD)
+    } else if (input$TDist == "Student-t") {
+      distParams$TDist <- list(mean = input$TDistMean, df = input$TDistDF)
+    } else if (input$TDist %in% c("Gamma", "Beta")) {
+      distParams$TDist <- list(shape = input$TDistShape, rate = input$TDistRate)
+    }
+    
+    # Store HRStarDist parameters
+    if (input$HRStarDist == "Normal") {
+      distParams$HRStarDist <- list(mean = input$HRStarDistMean, sd = input$HRStarDistSD)
+    } else if (input$HRStarDist == "Student-t") {
+      distParams$HRStarDist <- list(mean = input$HRStarDistMean, df = input$HRStarDistDF)
+    } else if (input$HRStarDist %in% c("Gamma", "Beta")) {
+      distParams$HRStarDist <- list(shape = input$HRStarDistShape, rate = input$HRStarDistRate)
+    }
+  })
+  
+  # Plot TDist density
+  output$TDistPlot <- renderPlot({
+    x <- seq(-10, 10, length.out = 1000) # Generate x values for the density plot
+    y <- switch(
+      input$TDist,
+      "Normal" = dnorm(x, mean = distParams$TDist$mean, sd = distParams$TDist$sd),
+      "Student-t" = dt(x, df = distParams$TDist$df, ncp = distParams$TDist$mean),
+      "Gamma" = dgamma(x, shape = distParams$TDist$shape, rate = distParams$TDist$rate),
+      "Log normal" = dlnorm(x, meanlog = distParams$TDist$mean, sdlog = distParams$TDist$sd),
+      "Log student-t" = dt(exp(x), df = distParams$TDist$df, ncp = distParams$TDist$mean) * exp(x),
+      "Beta" = dbeta(x, shape1 = distParams$TDist$shape, shape2 = distParams$TDist$rate),
+      "Mirror gamma" = dgamma(abs(x), shape = distParams$TDist$shape, rate = distParams$TDist$rate),
+      "Mirror log normal" = dlnorm(abs(x), meanlog = distParams$TDist$mean, sdlog = distParams$TDist$sd),
+      "Mirror log Student-t" = dt(exp(abs(x)), df = distParams$TDist$df, ncp = distParams$TDist$mean) * exp(abs(x))
+    )
+    
+    ggplot(data.frame(x = x, y = y), aes(x, y)) +
+      geom_line(color = "blue") +
+      labs(title = paste("Density Plot of", input$TDist), x = "Value", y = "Density")
+  })
+  
+  # Plot HRStarDist density
+  output$HRStarDistPlot <- renderPlot({
+    x <- seq(-10, 10, length.out = 1000) # Generate x values for the density plot
+    y <- switch(
+      input$HRStarDist,
+      "Normal" = dnorm(x, mean = distParams$HRStarDist$mean, sd = distParams$HRStarDist$sd),
+      "Student-t" = dt(x, df = distParams$HRStarDist$df, ncp = distParams$HRStarDist$mean),
+      "Gamma" = dgamma(x, shape = distParams$HRStarDist$shape, rate = distParams$HRStarDist$rate),
+      "Log normal" = dlnorm(x, meanlog = distParams$HRStarDist$mean, sdlog = distParams$HRStarDist$sd),
+      "Log student-t" = dt(exp(x), df = distParams$HRStarDist$df, ncp = distParams$HRStarDist$mean) * exp(x),
+      "Beta" = dbeta(x, shape1 = distParams$HRStarDist$shape, shape2 = distParams$HRStarDist$rate),
+      "Mirror gamma" = dgamma(abs(x), shape = distParams$HRStarDist$shape, rate = distParams$HRStarDist$rate),
+      "Mirror log normal" = dlnorm(abs(x), meanlog = distParams$HRStarDist$mean, sdlog = distParams$HRStarDist$sd),
+      "Mirror log Student-t" = dt(exp(abs(x)), df = distParams$HRStarDist$df, ncp = distParams$HRStarDist$mean) * exp(abs(x))
+    )
+    
+    ggplot(data.frame(x = x, y = y), aes(x, y)) +
+      geom_line(color = "red") +
+      labs(title = paste("Density Plot of", input$HRStarDist), x = "Value", y = "Density")
+  })
+  
+  
+  # Rules Logic ---------------------------------
+  
+  observeEvent(input$addRuleButton, {
+    rv$rule_input_count <- rv$rule_input_count + 1
+    insertUI(
+      selector = "#addRuleButton",
+      where = "beforeBegin",
+      ui = tags$div(
+        id = paste0("rule", rv$rule_input_count),
+        wellPanel(
+          withMathJax(),
+          title = paste("Set", rv$rule_input_count),
+          selectInput(inputId = paste0("lookType", rv$rule_input_count), 'Look type', choices = c("One look", "Two looks", "Proposed", "Bayesian"), selected = "One look"),
+          numericInput(inputId = paste0("numInput1", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
+          numericInput(inputId = paste0("numInput2", rv$rule_input_count), label = "Stop if observed HR >", value = 0),
+          numericInput(inputId = paste0("numInput3", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
+          numericInput(inputId = paste0("numInput4", rv$rule_input_count), label = "Stop if observed HR >", value = 0),
+          numericInput(inputId = paste0("numInput5", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
+          numericInput(inputId = paste0("numInput6", rv$rule_input_count), label = "Stop if observed HR >", value = 0),
+          numericInput(inputId = paste0("numInput7", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
+          numericInput(inputId = paste0("numInput8", rv$rule_input_count), label = "Stop if observed HR >", value = 0)
+        )
+      )
+    )
+    if (rv$rule_input_count > 1) {
+      shinyjs::enable("removeRule")
+    }
+  })
+  
+  
+  
+  
+  # Function to handle removing inputs
+  observeEvent(input$removeRule, {
+    if (rv$rule_input_count > 1) {
+      removeUI(selector = paste0("#rule", rv$rule_input_count))
+      rv$rule_input_count <- rv$rule_input_count - 1
+      if (rv$rule_input_count == 1) {
+        shinyjs::disable("removeRule")
+      }
+    }
+  })
+  
+  # Render the initial rule panel when the app starts
+  output$init_rule <- renderUI({
+    tags$div(
+      id = "rule1",
+      wellPanel(
+        withMathJax(),
+        title = "Set 1",
+        selectInput("lookType1", 'Look type', choices = c("One look", "Two looks", "Proposed", "Bayesian"), selected = "One look"),
+        numericInput("numInput11", label = "At Information Fraction (0-1)", value = 0),
+        numericInput("numInput21", label = "Stop if observed HR >", value = 0),
+        numericInput("numInput31", label = "At Information Fraction (0-1)", value = 0),
+        numericInput("numInput41", label = "Stop if observed HR >", value = 0),
+        numericInput("numInput51", label = "At Information Fraction (0-1)", value = 0),
+        numericInput("numInput61", label = "Stop if observed HR >", value = 0),
+        numericInput("numInput71", label = "At Information Fraction (0-1)", value = 0),
+        numericInput("numInput81", label = "Stop if observed HR >", value = 0)
+      )
+    )
+  })
+  
+  
+  # Observe changes in lookType and adapt UI
+  observeEvent(seq_len(rv$rule_input_count), {
+    lapply(1:rv$rule_input_count, function(i) {
+      observeEvent(input[[paste0("lookType", i)]], {
+        shinyjs::hide(paste0("numInput1", i))
+        shinyjs::hide(paste0("numInput2", i))
+        shinyjs::hide(paste0("numInput3", i))
+        shinyjs::hide(paste0("numInput4", i))
+        shinyjs::hide(paste0("numInput5", i))
+        shinyjs::hide(paste0("numInput6", i))
+        shinyjs::hide(paste0("numInput7", i))
+        shinyjs::hide(paste0("numInput8", i))
+        if (!is.null(input[[paste0("lookType", i)]])) {
+          if (input[[paste0("lookType", i)]] == "One look") {
+            shinyjs::show(paste0("numInput1", i))
+            shinyjs::show(paste0("numInput2", i))
+            updateNumericInput(session, paste0("numInput1", i), label = "At Information Fraction (0-1)")
+            updateNumericInput(session, paste0("numInput2", i), label = "Stop if observed HR >")
+          } else if (input[[paste0("lookType", i)]] == "Two looks") {
+            shinyjs::show(paste0("numInput1", i))
+            shinyjs::show(paste0("numInput2", i))
+            shinyjs::show(paste0("numInput3", i))
+            shinyjs::show(paste0("numInput4", i))
+            updateNumericInput(session, paste0("numInput1", i), label = "At Information Fraction (0-1)")
+            updateNumericInput(session, paste0("numInput2", i), label = "Stop if observed HR >")
+            updateNumericInput(session, paste0("numInput3", i), label = "At Information Fraction (0-1)")
+            updateNumericInput(session, paste0("numInput4", i), label = "Stop if observed HR >")
+          } else if (input[[paste0("lookType", i)]] == "Proposed") {
+            shinyjs::show(paste0("numInput1", i))
+            shinyjs::show(paste0("numInput2", i))
+            shinyjs::show(paste0("numInput3", i))
+            shinyjs::show(paste0("numInput4", i))
+            shinyjs::show(paste0("numInput5", i))
+            shinyjs::show(paste0("numInput6", i))
+            shinyjs::show(paste0("numInput7", i))
+            shinyjs::show(paste0("numInput8", i))
+            updateNumericInput(session, paste0("numInput1", i), label = "At Information Fraction (0-1)")
+            updateNumericInput(session, paste0("numInput2", i), label = "AND more than ")
+            updateNumericInput(session, paste0("numInput3", i), label = "events occur after")
+            updateNumericInput(session, paste0("numInput4", i), label = "Stop if observed HR >")
+            updateNumericInput(session, paste0("numInput5", i), label = "At Information Fraction (0-1)")
+            updateNumericInput(session, paste0("numInput6", i), label = "AND more than ")
+            updateNumericInput(session, paste0("numInput7", i), label = "events occur after")
+            updateNumericInput(session, paste0("numInput8", i), label = "Stop if observed HR >")
+          } else if (input[[paste0("lookType", i)]] == "Bayesian") {
+            shinyjs::show(paste0("numInput1", i))
+            shinyjs::show(paste0("numInput2", i))
+            shinyjs::show(paste0("numInput3", i))
+            shinyjs::show(paste0("numInput4", i))
+            updateNumericInput(session, paste0("numInput1", i), label = "At Information Fraction (0-1)")
+            updateNumericInput(session, paste0("numInput2", i), label = "Stop if BPP <")
+            updateNumericInput(session, paste0("numInput3", i), label = "At Information Fraction (0-1)")
+            updateNumericInput(session, paste0("numInput4", i), label = "Stop if BPP <")
+          }
+        }
+      })
+    })
+  })
+  
+
+  
+  
+  
+  
+  
+  
+  
+  
 }
 
 # Run the Shiny app
 shinyApp(ui, server)
-
-
 
 
 
