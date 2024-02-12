@@ -75,6 +75,21 @@ ui <- fluidPage(
                    
                  )
                ),
+      ),
+      
+      # Output UI ---------------------------------
+      tabPanel("Output", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   
+                    textOutput("numDG"),
+                    textOutput("numRules"),
+                   actionButton("Compute", "Compute", disabled = TRUE)
+                 ), 
+                 mainPanel = mainPanel(
+                   
+                 )
+               ),
       )
       
     ), style='width: 1000px; height: 600px'
@@ -264,26 +279,71 @@ server <- function(input, output, session) {
     }
   })
   
-  # Plot TDist density
   output$TDistPlot <- renderPlot({
-    x <- seq(-10, 10, length.out = 1000) # Generate x values for the density plot
-    y <- switch(
-      input$TDist,
-      "Normal" = dnorm(x, mean = distParams$TDist$mean, sd = distParams$TDist$sd),
-      "Student-t" = dt(x, df = distParams$TDist$df, ncp = distParams$TDist$mean),
-      "Gamma" = dgamma(x, shape = distParams$TDist$shape, rate = distParams$TDist$rate),
-      "Log normal" = dlnorm(x, meanlog = distParams$TDist$mean, sdlog = distParams$TDist$sd),
-      "Log student-t" = dt(exp(x), df = distParams$TDist$df, ncp = distParams$TDist$mean) * exp(x),
-      "Beta" = dbeta(x, shape1 = distParams$TDist$shape, shape2 = distParams$TDist$rate),
-      "Mirror gamma" = dgamma(abs(x), shape = distParams$TDist$shape, rate = distParams$TDist$rate),
-      "Mirror log normal" = dlnorm(abs(x), meanlog = distParams$TDist$mean, sdlog = distParams$TDist$sd),
-      "Mirror log Student-t" = dt(exp(abs(x)), df = distParams$TDist$df, ncp = distParams$TDist$mean) * exp(abs(x))
+    dist_name <- input$TDist
+    dist_params <- distParams$TDist
+    
+    # Define the x-axis range dynamically based on the distribution parameters
+    switch(dist_name,
+           "Normal" = {
+             x_range <- c(dist_params$mean - 4 * dist_params$sd, dist_params$mean + 4 * dist_params$sd)
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Student-t" = {
+             x_range <- c(-10, 10) # Adjust according to your requirement
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Gamma" = {
+             x_range <- c(0, 10) # Adjust according to your requirement
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Log normal" = {
+             x_range <- c(exp(dist_params$mean - 4 * dist_params$sd), exp(dist_params$mean + 4 * dist_params$sd))
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Log student-t" = {
+             x_range <- c(exp(-10), exp(10)) # Adjust according to your requirement
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Beta" = {
+             x_range <- c(0, 1) # Adjust according to your requirement
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Mirror gamma" = {
+             x_range <- c(0, 10) # Adjust according to your requirement
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Mirror log normal" = {
+             x_range <- c(exp(dist_params$mean - 4 * dist_params$sd), exp(dist_params$mean + 4 * dist_params$sd))
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           },
+           "Mirror log Student-t" = {
+             x_range <- c(exp(-10), exp(10)) # Adjust according to your requirement
+             x <- seq(x_range[1], x_range[2], length.out = 1000)
+           }
     )
     
+    # Calculate y values based on the selected distribution and parameters
+    y <- switch(dist_name,
+                "Normal" = dnorm(x, mean = dist_params$mean, sd = dist_params$sd),
+                "Student-t" = dt(x, df = dist_params$df, ncp = dist_params$mean),
+                "Gamma" = dgamma(x, shape = dist_params$shape, rate = dist_params$rate),
+                "Log normal" = dlnorm(x, meanlog = dist_params$mean, sdlog = dist_params$sd),
+                "Log student-t" = dt(exp(x), df = dist_params$df, ncp = dist_params$mean) * exp(x),
+                "Beta" = dbeta(x, shape1 = dist_params$shape, shape2 = dist_params$rate),
+                "Mirror gamma" = dgamma(abs(x), shape = dist_params$shape, rate = dist_params$rate),
+                "Mirror log normal" = dlnorm(abs(x), meanlog = dist_params$mean, sdlog = dist_params$sd),
+                "Mirror log Student-t" = dt(exp(abs(x)), df = dist_params$df, ncp = dist_params$mean) * exp(abs(x))
+    )
+    
+    # Plot the density plot
     ggplot(data.frame(x = x, y = y), aes(x, y)) +
       geom_line(color = "blue") +
-      labs(title = paste("Density Plot of", input$TDist), x = "Value", y = "Density")
+      labs(title = paste("Density Plot of", dist_name), x = "Value", y = "Density") +
+      xlim(x_range) # Set x-axis limits dynamically
   })
+  
+  
   
   # Plot HRStarDist density
   output$HRStarDistPlot <- renderPlot({
@@ -431,8 +491,23 @@ server <- function(input, output, session) {
   })
   
 
+  # Output Logic ---------------------------------
   
+  output$numDG <- renderText({
+    if (rv$trial_input_count==1){
+      paste0("You have chosen ", rv$trial_input_count, " data generating mechaniam")
+    } else {
+      paste0("You have chosen ", rv$trial_input_count, " data generating mechaniams")
+    }
+  })
   
+  output$numRules <- renderText({
+    if (rv$rule_input_count==1){
+      paste0("You have chosen ", rv$rule_input_count, " rule")
+    } else {
+      paste0("You have chosen ", rv$rule_input_count, " rules")
+    } 
+  })
   
   
   
