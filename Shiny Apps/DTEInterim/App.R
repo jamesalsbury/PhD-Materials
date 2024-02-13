@@ -18,7 +18,7 @@ ui <- fluidPage(
                  sidebarPanel = sidebarPanel(
                    numericInput("numPatients", 'Number of Patients (in each group, 1:1)', value=340, min=0),
                    numericInput("numEvents", 'Number of Events', value=512, min=0),
-                   numericInput("lambdac", '\\( \\lambda_c \\)', value = 0.08),
+                   numericInput("lambdac", '\\( \\lambda_c \\)', value = round(log(2)/12, 4)),
                    
                    # Render the initial trial panel when the app starts
                    uiOutput("init_trial"),
@@ -193,8 +193,8 @@ server <- function(input, output, session) {
         TreatmentSurv <- ifelse(Time <= delay, exp(-input$lambdac * Time), exp(-input$lambdac * delay - input$lambdac * HRStar * (Time - delay)))
         
         # Determine max time for plotting
-        MaxTimeC <- which(ControlSurv < 0.001)[1]
-        MaxTimeT <- which(TreatmentSurv < 0.001)[1]
+        MaxTimeC <- which(ControlSurv < 0.01)[1]
+        MaxTimeT <- which(TreatmentSurv < 0.01)[1]
         MaxTime <- max(MaxTimeC, MaxTimeT)
         
         # Plot survival curves
@@ -527,6 +527,11 @@ server <- function(input, output, session) {
     #This is what happens when we click the button
     
     #We need to generate data 
+    i <- 1
+    dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, input[[paste0("delay", i)]], 
+                                  input[[paste0("HRStar", i)]], input[[paste0("Rec", i)]])
+    
+    
     
     
     
