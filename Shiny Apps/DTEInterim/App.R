@@ -87,7 +87,7 @@ ui <- fluidPage(
                    actionButton("Compute", "Compute", disabled = TRUE)
                  ), 
                  mainPanel = mainPanel(
-                   
+                   plotOutput("feedbackPlots")
                  )
                ),
       )
@@ -116,7 +116,8 @@ server <- function(input, output, session) {
   
   # Initialize reactive values
   rv <- reactiveValues(trial_input_count = 1,
-                       rule_input_count = 1)
+                       rule_input_count = 1, 
+                       error = F)
   
   
   # Data Generating Logic ---------------------------------
@@ -380,14 +381,14 @@ server <- function(input, output, session) {
           withMathJax(),
           title = paste("Set", rv$rule_input_count),
           selectInput(inputId = paste0("lookType", rv$rule_input_count), 'Look type', choices = c("One look", "Two looks", "Proposed", "Bayesian"), selected = "One look"),
-          numericInput(inputId = paste0("numInput1", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
-          numericInput(inputId = paste0("numInput2", rv$rule_input_count), label = "Stop if observed HR >", value = 0),
-          numericInput(inputId = paste0("numInput3", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
-          numericInput(inputId = paste0("numInput4", rv$rule_input_count), label = "Stop if observed HR >", value = 0),
-          numericInput(inputId = paste0("numInput5", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
-          numericInput(inputId = paste0("numInput6", rv$rule_input_count), label = "Stop if observed HR >", value = 0),
-          numericInput(inputId = paste0("numInput7", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0),
-          numericInput(inputId = paste0("numInput8", rv$rule_input_count), label = "Stop if observed HR >", value = 0)
+          numericInput(inputId = paste0("numInput1", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0.5),
+          numericInput(inputId = paste0("numInput2", rv$rule_input_count), label = "Stop if observed HR >", value = 1),
+          numericInput(inputId = paste0("numInput3", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0.5),
+          numericInput(inputId = paste0("numInput4", rv$rule_input_count), label = "Stop if observed HR >", value = 1),
+          numericInput(inputId = paste0("numInput5", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0.5),
+          numericInput(inputId = paste0("numInput6", rv$rule_input_count), label = "Stop if observed HR >", value = 1),
+          numericInput(inputId = paste0("numInput7", rv$rule_input_count), label = "At Information Fraction (0-1)", value = 0.5),
+          numericInput(inputId = paste0("numInput8", rv$rule_input_count), label = "Stop if observed HR >", value = 1)
         )
       )
     )
@@ -418,14 +419,14 @@ server <- function(input, output, session) {
         withMathJax(),
         title = "Set 1",
         selectInput("lookType1", 'Look type', choices = c("One look", "Two looks", "Proposed", "Bayesian"), selected = "One look"),
-        numericInput("numInput11", label = "At Information Fraction (0-1)", value = 0),
-        numericInput("numInput21", label = "Stop if observed HR >", value = 0),
-        numericInput("numInput31", label = "At Information Fraction (0-1)", value = 0),
-        numericInput("numInput41", label = "Stop if observed HR >", value = 0),
-        numericInput("numInput51", label = "At Information Fraction (0-1)", value = 0),
-        numericInput("numInput61", label = "Stop if observed HR >", value = 0),
-        numericInput("numInput71", label = "At Information Fraction (0-1)", value = 0),
-        numericInput("numInput81", label = "Stop if observed HR >", value = 0)
+        numericInput("numInput11", label = "At Information Fraction (0-1)", value = 0.5),
+        numericInput("numInput21", label = "Stop if observed HR >", value = 1),
+        numericInput("numInput31", label = "At Information Fraction (0-1)", value = 0.5),
+        numericInput("numInput41", label = "Stop if observed HR >", value = 1),
+        numericInput("numInput51", label = "At Information Fraction (0-1)", value = 0.5),
+        numericInput("numInput61", label = "Stop if observed HR >", value = 1),
+        numericInput("numInput71", label = "At Information Fraction (0-1)", value = 0.5),
+        numericInput("numInput81", label = "Stop if observed HR >", value = 1)
       )
     )
   })
@@ -509,10 +510,33 @@ server <- function(input, output, session) {
     } 
   })
   
+  # Observe changes in the 'error' reactive value
+  observeEvent(rv$error, {
+    # Check if error is FALSE
+    if (!rv$error) {
+      # If error is FALSE, enable the button
+      shinyjs::enable("Compute")
+    } else {
+      # If error is TRUE, disable the button
+      shinyjs::disable("Compute")
+    }
+  })
+
+
+  observeEvent(input$Compute, {
+    #This is what happens when we click the button
+    
+    #We need to generate data 
+    
+    
+    
+    
+    
+    
+    
+  })
   
-  
-  
-  
+
   
 }
 
