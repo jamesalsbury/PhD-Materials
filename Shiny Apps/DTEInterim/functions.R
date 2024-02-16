@@ -22,11 +22,20 @@ SimDTEDataSet <- function(n, lambdac, bigT, HRStar, recTime) {
   return(dataCombined)
 }
 
+CensFunc <- function(dataCombined, numEvents) {
+  
+  dataCombined <- dataCombined[order(dataCombined$pseudoTime), ]
+  
+  censTime <- dataCombined$pseudoTime[numEvents]
+  
+  dataCombined$status <- dataCombined$pseudoTime <= censTime
+  dataCombined$status <- dataCombined$status * 1
+  dataCombined$enrolled <- dataCombined$recTime < censTime
+  dataCombined <- dataCombined[dataCombined$enrolled, ]
+  dataCombined$survival_time <- ifelse(dataCombined$pseudoTime > censTime,
+                                       censTime - dataCombined$recTime,
+                                       dataCombined$time)
+  
+  return(list(dataCombined = dataCombined, censTime = censTime, SS = nrow(dataCombined)))
+}
 
-# dataCombined$status <- dataCombined$pseudoTime < censTime
-# dataCombined$status <- dataCombined$status * 1
-# dataCombined$enrolled <- dataCombined$recTime < censTime
-# dataCombined <- dataCombined[dataCombined$enrolled, ]
-# dataCombined$survival_time <- ifelse(dataCombined$pseudoTime > censTime,
-#                                      censTime - dataCombined$recTime,
-#                                      dataCombined$time)
