@@ -15,8 +15,8 @@ ui <- fluidPage(
   
   mainPanel(
     tabsetPanel(
-      # Data UI ---------------------------------
-      tabPanel("Data", 
+      # Output UI ---------------------------------
+      tabPanel("Output", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    numericInput("numPatients", 'Number of Patients (in each group, 1:1)', value=340, min=0),
@@ -40,8 +40,9 @@ ui <- fluidPage(
 # Server logic
 server <- function(input, output, session) {
   
-  # Data Logic ---------------------------------
+  # Output Logic ---------------------------------
   
+
   data <- reactiveValues(treatmentSamplesDF = NULL)
   
   observeEvent(input$samplesFile, {
@@ -55,18 +56,16 @@ server <- function(input, output, session) {
     }
   })
   
-  # Output Logic ---------------------------------
-  
   
   observeEvent(input$calcFutility, {
-    NRep <- 100
+    NRep <- 1000
     futilityVec <- seq(0.3, 1, by = 0.1)
     
     # Create empty data frames
     assDF <- SSDF <- DurationDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
     colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
     
-    withProgress(message = 'Calculating assurance', value = 0, {
+    withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
         treatmentSamplesDF <- data$treatmentSamplesDF
         
@@ -87,7 +86,7 @@ server <- function(input, output, session) {
         DurationDF[i,] <- finalDF$censTime
         
         for (k in 1:length(futilityVec)){
-          futilityCens <- CensFunc(dataCombined, input$numEvents*futilityDF$IF[k])
+          futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
           futilityLook <- interimLookFunc(futilityCens$dataCombined)
           if (futilityLook=="Stop"){
             assDF[i,k] <- 0
@@ -105,8 +104,6 @@ server <- function(input, output, session) {
                              Duration = colMeans(DurationDF))
     
     colnames(futilityDF) <- c("Information Fraction", "Assurance", "Sample Size", "Duration")
-    
-    print(futilityDF)
     
     output$futilityTable <- renderTable({
       futilityDF
