@@ -50,7 +50,10 @@ ui <- fluidPage(
                    actionButton("removeRule", "Remove last rule", disabled = TRUE)
                  ), 
                  mainPanel = mainPanel(
-                   textOutput("futilityText")
+                   textOutput("assText"),
+                   textOutput("durationText"),
+                   textOutput("SSText")
+                   
                  )
                ),
       )
@@ -152,7 +155,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$calcFutility, {
     
-    NRep <- 100
+    NRep <- 500
     assvec <- rep(NA, NRep)
     SSvec <- rep(NA, NRep)
     DurationVec <- rep(NA, NRep)
@@ -168,38 +171,62 @@ server <- function(input, output, session) {
       #Simulate control and treatment data
       dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
       
-      #Perform a futility look at 50% Information Fraction
+      #Perform futility look at different Information Fractions
       
-      #Censor these data at numEvents
-      futilityDF <- CensFunc(dataCombined, input$numEvents*0.5)
+      futilityVec <- seq(0.3, 1, by=0.1)
+      futilityDF <- data.frame(IF = futilityVec,
+                               ass = numeric(length(futilityVec)), 
+                               SS = numeric(length(futilityVec)), 
+                               duration = numeric(length(futilityVec)))
       
-      coxmodel <- coxph(Surv(survival_time, status)~group, data = futilityDF$dataCombined)
-      deltad <- as.numeric(exp(coef(coxmodel)))
+      
+      
+      for (k in 1:length(futilityVec)){
+        
+        #Censor these data at numEvents
+        futilityCens <- CensFunc(dataCombined, input$numEvents*futilityDF$IF[k])
+        
+        futilityLook <- interimLookFunc(futilityCens$dataCombined)
+        
+        if (futilityLook=="Stop"){
+          futilityDF$ass[k] <- 
+        }
+        
+        
+      }
+      
+      
       if (deltad>1){
         Outcome <- "Stop at look 1"
         assvec[i] <- 0
         SSvec[i] <- futilityDF$SS
         DurationVec[i] <- futilityDF$censTime
       } else {
-        
+        finalDF <- CensFunc(dataCombined, input$numEvents)
+        test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+        coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+        deltad <- as.numeric(exp(coef(coxmodel)))
+        assvec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        SSvec[i] <- finalDF$SS
+        DurationVec[i] <- finalDF$censTime
       }
       
     }
     
     
-    
-    print(SSvec)
-    
-    
-    
-    
-    
-    
-    output$futilityText <- renderText({
-      
-      #futilityDF$
-      
+    output$assText <- renderText({
+     paste0("The assurance is ", mean(assvec))
     })
+    
+    
+    output$durationText <- renderText({
+      paste0("The average duration is ", mean(DurationVec))
+    })
+    
+    output$SSText <- renderText({
+      paste0("The average sample size is ", mean(SSvec))
+    })
+    
     
   })
   
