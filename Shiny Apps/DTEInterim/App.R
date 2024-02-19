@@ -23,50 +23,22 @@ ui <- fluidPage(
                    numericInput("numEvents", 'Number of Events', value=512, min=0),
                    numericInput("lambdac", '\\( \\lambda_c \\)', value = round(log(2)/12, 4)),
                    numericInput("recTime", 'Recruitment time', value = 34),
-                   
                    fileInput("samplesFile", "Upload samples"),
-                   actionButton("calcAssurance", label  = "Calculate assurance", disabled = T)
-                   
+                   selectInput("lookType", 'Look type', choices = c("One look", "Two looks", "Proposed", "Bayesian"), selected = "One look"),
+                   actionButton("calcFutility", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    # Generate plotOutputs dynamically based on the number of delay and HR combinations
-                   textOutput("assuranceText")
+                   tableOutput("futilityTable")
                  )
-               ),
-      ),
-      
-      # Output UI ---------------------------------
-      tabPanel("Output", 
-               sidebarLayout(
-                 sidebarPanel = sidebarPanel(
-                   
-                   # Render the initial trial panel when the app starts
-                   uiOutput("init_rule"),
-                   
-                   actionButton("calcFutility", "Calculate"),
-                   
-                   actionButton("addRuleButton", "Add rule"),
-                   uiOutput("ruleInputs"),
-                   actionButton("removeRule", "Remove last rule", disabled = TRUE)
-                 ), 
-                 mainPanel = mainPanel(
-                   textOutput("assText"),
-                   textOutput("durationText"),
-                   textOutput("SSText")
-                   
-                 )
-               ),
+               )
       )
     ), style='width: 1000px; height: 600px'
   )
 )
 
-
-
-
 # Server logic
 server <- function(input, output, session) {
-  
   
   # Data Logic ---------------------------------
   
@@ -79,168 +51,68 @@ server <- function(input, output, session) {
       data$treatmentSamplesDF <- read.csv(file$datapath)
       
       # Enable the action button when a file is selected
-      shinyjs::enable("calcAssurance")
+      shinyjs::enable("calcFutility")
     }
   })
-  
-
-  
-  observeEvent(input$calcAssurance, {
-   
-    
-    treatmentSamplesDF <- data$treatmentSamplesDF
-    
-    NRep <- 1000
-    assvec <- rep(NA, NRep)
-    
-    
-    withProgress(message = 'Calculating assurance', value = 0, {
-      
-      
-    
-    for (i in 1:NRep){
-      
-      #Compute treatment times
-      HRStar <- sample(treatmentSamplesDF[,2], 1)
-      bigT <- sample(treatmentSamplesDF[,1], 1)
-      
-      #Simulate control and treatment data
-      dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
-        
-      #Censor these data at numEvents
-      dataCombined <- CensFunc(dataCombined, input$numEvents)$dataCombined
-
-      #Do a log-rank test on these data
-      test <- survdiff(Surv(survival_time, status)~group, data = dataCombined)
-      coxmodel <- coxph(Surv(survival_time, status)~group, data = dataCombined)
-      deltad <- as.numeric(exp(coef(coxmodel)))
-      assvec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-      
-      incProgress(1/NRep)
-      
-    }
-      
-    })
-    
-    
-    output$assuranceText <- renderText({
-      phat <- mean(assvec)
-      LB <- phat - 1.96 * sqrt(phat * (1 - phat) / NRep)
-      UB <- phat + 1.96 * sqrt(phat * (1 - phat) / NRep)
-      result <- paste0("Assurance is ~ ", round(phat, 3), " (", round(LB, 3), ", ", round(UB, 3), ")")
-      HTML(result)
-    })
-    
-
-    
-  })
-  
-  
-
   
   # Output Logic ---------------------------------
   
   
-  output$init_rule <- renderUI({
-    tags$div(
-      id = "rule1",
-      wellPanel(
-        withMathJax(),
-        title = "Set 1",
-        selectInput("lookType1", 'Look type', choices = c("One look", "Two looks", "Proposed", "Bayesian"), selected = "One look")
-      )
-    )
-  })
-  
-  
   observeEvent(input$calcFutility, {
+    NRep <- 100
+    futilityVec <- seq(0.3, 1, by = 0.1)
     
-    NRep <- 500
-    assvec <- rep(NA, NRep)
-    SSvec <- rep(NA, NRep)
-    DurationVec <- rep(NA, NRep)
-    Outcome <- ""
+    # Create empty data frames
+    assDF <- SSDF <- DurationDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
+    colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
     
-    for (i in 1:NRep){
-      treatmentSamplesDF <- data$treatmentSamplesDF
-      
-      #Compute treatment times
-      HRStar <- sample(treatmentSamplesDF[,2], 1)
-      bigT <- sample(treatmentSamplesDF[,1], 1)
-      
-      #Simulate control and treatment data
-      dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
-      
-      #Perform futility look at different Information Fractions
-      
-      futilityVec <- seq(0.3, 1, by=0.1)
-      futilityDF <- data.frame(IF = futilityVec,
-                               ass = numeric(length(futilityVec)), 
-                               SS = numeric(length(futilityVec)), 
-                               duration = numeric(length(futilityVec)))
-      
-      
-      
-      for (k in 1:length(futilityVec)){
+    withProgress(message = 'Calculating assurance', value = 0, {
+      for (i in 1:NRep){
+        treatmentSamplesDF <- data$treatmentSamplesDF
         
-        #Censor these data at numEvents
-        futilityCens <- CensFunc(dataCombined, input$numEvents*futilityDF$IF[k])
+        #Compute treatment times
+        HRStar <- sample(treatmentSamplesDF[,2], 1)
+        bigT <- sample(treatmentSamplesDF[,1], 1)
         
-        futilityLook <- interimLookFunc(futilityCens$dataCombined)
+        #Simulate control and treatment data
+        dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
         
-        if (futilityLook=="Stop"){
-          futilityDF$ass[k] <- 
-        }
-        
-        
-      }
-      
-      
-      if (deltad>1){
-        Outcome <- "Stop at look 1"
-        assvec[i] <- 0
-        SSvec[i] <- futilityDF$SS
-        DurationVec[i] <- futilityDF$censTime
-      } else {
+        #Perform futility look at different Information Fractions
         finalDF <- CensFunc(dataCombined, input$numEvents)
         test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         deltad <- as.numeric(exp(coef(coxmodel)))
-        assvec[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        SSvec[i] <- finalDF$SS
-        DurationVec[i] <- finalDF$censTime
+        assDF[i,] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        SSDF[i,] <- finalDF$SS
+        DurationDF[i,] <- finalDF$censTime
+        
+        for (k in 1:length(futilityVec)){
+          futilityCens <- CensFunc(dataCombined, input$numEvents*futilityDF$IF[k])
+          futilityLook <- interimLookFunc(futilityCens$dataCombined)
+          if (futilityLook=="Stop"){
+            assDF[i,k] <- 0
+            SSDF[i,k] <- futilityCens$SS
+            DurationDF[i,k] <- futilityCens$censTime
+          } 
+        }
+        incProgress(1/NRep)
       }
-      
-    }
-    
-    
-    output$assText <- renderText({
-     paste0("The assurance is ", mean(assvec))
     })
     
+    futilityDF <- data.frame(IF = futilityVec,
+                             ass = colMeans(assDF),
+                             SS = colMeans(SSDF),
+                             Duration = colMeans(DurationDF))
     
-    output$durationText <- renderText({
-      paste0("The average duration is ", mean(DurationVec))
-    })
+    colnames(futilityDF) <- c("Information Fraction", "Assurance", "Sample Size", "Duration")
     
-    output$SSText <- renderText({
-      paste0("The average sample size is ", mean(SSvec))
-    })
+    print(futilityDF)
     
-    
+    output$futilityTable <- renderTable({
+      futilityDF
+    }, digits = 3)
   })
-  
-
-  
 }
 
 # Run the Shiny app
 shinyApp(ui, server)
-
-
-
-
-  
-  
-  
-  
