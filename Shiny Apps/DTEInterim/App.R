@@ -58,11 +58,12 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutility, {
-    NRep <- 1000
-    futilityVec <- seq(0.3, 1, by = 0.1)
+    NRep <- 500
+    futilityVec <- seq(0.2, 1, by = 0.1)
     
     # Create empty data frames
     assDF <- SSDF <- DurationDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
+    stopDF <- data.frame(matrix(0, nrow = NRep, ncol = length(futilityVec)))
     colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
     
     withProgress(message = 'Calculating', value = 0, {
@@ -89,6 +90,7 @@ server <- function(input, output, session) {
           futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
           futilityLook <- interimLookFunc(futilityCens$dataCombined)
           if (futilityLook=="Stop"){
+            stopDF[i,k] <- 1
             assDF[i,k] <- 0
             SSDF[i,k] <- futilityCens$SS
             DurationDF[i,k] <- futilityCens$censTime
@@ -100,10 +102,11 @@ server <- function(input, output, session) {
     
     futilityDF <- data.frame(IF = futilityVec,
                              ass = colMeans(assDF),
+                             stop = colMeans(stopDF),
                              SS = colMeans(SSDF),
                              Duration = colMeans(DurationDF))
     
-    colnames(futilityDF) <- c("Information Fraction", "Assurance", "Sample Size", "Duration")
+    colnames(futilityDF) <- c("Information Fraction", "Assurance", "% stop","Sample Size", "Duration")
     
     output$futilityTable <- renderTable({
       futilityDF
