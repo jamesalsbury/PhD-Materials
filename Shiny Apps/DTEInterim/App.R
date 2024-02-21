@@ -15,17 +15,28 @@ ui <- fluidPage(
   
   mainPanel(
     tabsetPanel(
-      # Output UI ---------------------------------
-      tabPanel("Output", 
+      # Data UI ---------------------------------
+      tabPanel("Data", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    numericInput("numPatients", 'Number of Patients (in each group, 1:1)', value=340, min=0),
                    numericInput("numEvents", 'Number of Events', value=512, min=0),
                    numericInput("lambdac", '\\( \\lambda_c \\)', value = round(log(2)/12, 4)),
                    numericInput("recTime", 'Recruitment time', value = 34),
-                   fileInput("samplesFile", "Upload samples"),
-                   selectInput("lookType", 'Look type', choices = c("One look", "Two looks", "Proposed", "Bayesian"), selected = "One look"),
-                   actionButton("calcFutility", label  = "Calculate", disabled = T)
+                   fileInput("samplesFile", "Upload samples")
+                 ), 
+                 mainPanel = mainPanel(
+                   # Generate plotOutputs dynamically based on the number of delay and HR combinations
+                   tableOutput("futilityTable")
+                 )
+               )
+      ),
+      # One Look UI ---------------------------------
+      
+      tabPanel("One Look", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   actionButton("calcFutilityOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    # Generate plotOutputs dynamically based on the number of delay and HR combinations
@@ -33,6 +44,8 @@ ui <- fluidPage(
                  )
                )
       )
+      
+      
     ), style='width: 1000px; height: 600px'
   )
 )
@@ -52,17 +65,17 @@ server <- function(input, output, session) {
       data$treatmentSamplesDF <- read.csv(file$datapath)
       
       # Enable the action button when a file is selected
-      shinyjs::enable("calcFutility")
+      shinyjs::enable("calcFutilityOneLook")
     }
   })
   
   
-  observeEvent(input$calcFutility, {
-    NRep <- 500
+  observeEvent(input$calcFutilityOneLook, {
+    NRep <- 50
     futilityVec <- seq(0.2, 1, by = 0.1)
     
     # Create empty data frames
-    assDF <- SSDF <- DurationDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
+    assDF <- SSDF <- DurationDF <- IATimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
     stopDF <- data.frame(matrix(0, nrow = NRep, ncol = length(futilityVec)))
     colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
     
@@ -89,6 +102,7 @@ server <- function(input, output, session) {
         for (k in 1:length(futilityVec)){
           futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
           futilityLook <- interimLookFunc(futilityCens$dataCombined)
+          IATimeDF[i,k] <- futilityCens$censTime
           if (futilityLook=="Stop"){
             stopDF[i,k] <- 1
             assDF[i,k] <- 0
@@ -100,13 +114,21 @@ server <- function(input, output, session) {
       }
     })
     
+    pHat <- colMeans(assDF)
+    
+    LB <- pHat - 1.96 * sqrt(pHat * (1 - pHat) / NRep)
+    
+    UB <- pHat + 1.96 * sqrt(pHat * (1 - pHat) / NRep)
+    
+    
     futilityDF <- data.frame(IF = futilityVec,
-                             ass = colMeans(assDF),
+                             censTime = colMeans(IATimeDF),
+                             ass = paste0(round(pHat, 3), " [", round(LB, 3), ",", round(UB, 3), "]"),
                              stop = colMeans(stopDF),
                              SS = colMeans(SSDF),
                              Duration = colMeans(DurationDF))
     
-    colnames(futilityDF) <- c("Information Fraction", "Assurance", "% stop","Sample Size", "Duration")
+    colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop","Sample Size", "Duration")
     
     output$futilityTable <- renderTable({
       futilityDF
