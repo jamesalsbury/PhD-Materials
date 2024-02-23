@@ -53,7 +53,7 @@ ui <- fluidPage(
                  ), 
                  mainPanel = mainPanel(
                    # Generate plotOutputs dynamically based on the number of delay and HR combinations
-                   #tableOutput("futilityTable")
+                   tableOutput("twoLooksAss")
                  )
                )
       )
@@ -86,7 +86,7 @@ server <- function(input, output, session) {
   # One Look Logic ---------------------------------
   
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 50
+    NRep <- 500
     futilityVec <- seq(0.2, 1, by = 0.1)
     
     # Create empty data frames
@@ -155,7 +155,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 1
+    NRep <- 500
     Look1Vec <- seq(0.2, 0.8, by = 0.1)
     Look2Vec <- seq(0.3, 0.9, by = 0.1)
     futilityVec <- seq(0.2, 0.9, by = 0.1)
@@ -166,9 +166,9 @@ server <- function(input, output, session) {
     # stopDF <- data.frame(matrix(0, nrow = NRep, ncol = length(futilityVec)))
     # colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
     
+    ass3D <- array(0, dim = c(length(Look2Vec), length(Look1Vec), NRep))
     
-    
-    #withProgress(message = 'Calculating', value = 0, {
+    withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
         
         
@@ -195,8 +195,6 @@ server <- function(input, output, session) {
         futilityDF[nrow(futilityDF),3] <- finalDF$SS
         futilityDF[nrow(futilityDF),4] <- finalDF$censTime
         
-        #print(futilityDF)
-        
         for (k in 1:length(futilityVec)){
           futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
           futilityLook <- interimLookFunc(futilityCens$dataCombined)
@@ -204,45 +202,66 @@ server <- function(input, output, session) {
           futilityDF[k,4] <- futilityCens$censTime
           if (futilityLook!="Stop"){ futilityDF[k,2] <- 1} 
         }
-        print(futilityDF)
         
-        assDF <- SSDF <- DurationDF <- data.frame(matrix(NA, nrow = length(Look2Vec), ncol = length(Look1Vec)))
         
-        for (j in 1:length(Look1Vec)){
-          for (k in j:length(Look2Vec)){
-            assDF[k,j] <- "yes"
+        if (futilityDF[nrow(futilityDF),]$outcome!=0){
+          for (j in 1:length(Look1Vec)){
+            for (k in j:length(Look2Vec)){
+              Look1Value <- Look1Vec[j]
+              Look2Value <- Look2Vec[k]
+              Look1Row <- match(round(as.numeric(Look1Value), 1), round(as.numeric(futilityDF$futility), 1))
+              Look2Row <- match(round(as.numeric(Look2Value), 1), round(as.numeric(futilityDF$futility), 1))
+              
+              #Assurance logic
+              Look1Outcome <- futilityDF[Look1Row,]$outcome
+              Look2Outcome <- futilityDF[Look2Row,]$outcome
+              FinalOutcome <- futilityDF[nrow(futilityDF),]$outcome
+              
+              if (Look1Outcome == 1 && Look2Outcome == 1 && FinalOutcome == 1) {
+                ass3D[k, j, i] <- 1
+              }
+              
+              #Sample size logic
+              
+            }
           }
         }
         
-        print(assDF)
         
-        #incProgress(1/NRep)
+        incProgress(1/NRep)
       }
-   # })
-    
-    pHat <- colMeans(assDF)
-    
-    LB <- pHat - 1.96 * sqrt(pHat * (1 - pHat) / NRep)
-    
-    UB <- pHat + 1.96 * sqrt(pHat * (1 - pHat) / NRep)
     
     
-    futilityDF <- data.frame(IF = futilityVec,
-                             censTime = colMeans(IATimeDF),
-                             ass = paste0(round(pHat, 3), " [", round(LB, 3), ",", round(UB, 3), "]"),
-                             stop = colMeans(stopDF),
-                             SS = colMeans(SSDF),
-                             Duration = colMeans(DurationDF))
+
+    mean_ij <- function(i, j) {
+      mean(ass3D[i, j, ])
+    }
     
-    colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop","Sample Size", "Duration")
+    # Create a matrix to store the means
+    means_matrix <- matrix(0, nrow = length(Look2Vec), ncol = length(Look1Vec))
     
-    output$futilityTable <- renderTable({
-      futilityDF
-    }, digits = 3)
+    # Apply the mean_ij function to each combination of i and j
+    means_vector <- apply(expand.grid(i = 1:length(Look2Vec), j = 1:length(Look1Vec)), 1, function(idx) {
+      mean_ij(idx[1], idx[2])
+    })
+    
+    means_matrix[] <- means_vector
+    
+    colnames(means_matrix) <- Look1Vec
+    rownames(means_matrix) <- Look2Vec
+    
+    
+
+    output$twoLooksAss <- renderTable({
+      means_matrix
+    }, digits = 3, rownames = T)
+    
   })
   
   
   
+  })
+
 }
 
 # Run the Shiny app
