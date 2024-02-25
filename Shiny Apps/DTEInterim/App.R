@@ -35,6 +35,12 @@ ui <- fluidPage(
       tabPanel("One Look", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
+                   wellPanel(
+                   numericInput("OneLookLB", "IA, from:", value = 0.2),
+                   numericInput("OneLookUB", "to:", value = 0.8),
+                   numericInput("OneLookBy", "by:", value = 0.1),
+                   textOutput("OneLookText")),
+                   numericInput("OneLookHR", "Stop if observed HR > ", value = 1),
                    actionButton("calcFutilityOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -49,6 +55,18 @@ ui <- fluidPage(
       tabPanel("Two Looks", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
+                   wellPanel(
+                   numericInput("TwoLooksLB1", "IA1, from:", value = 0.2),
+                   numericInput("TwoLooksUB1", "to:", value = 0.8),
+                   numericInput("TwoLooksBy1", "by:", value = 0.1),
+                   numericInput("TwoLooksHR1", "Stop if observed HR > ", value = 1)),
+                   wellPanel(
+                    numericInput("TwoLooksLB2", "IA2, from:", value = 0.3),
+                   numericInput("TwoLooksUB2", "to:", value = 0.9),
+                   numericInput("TwoLooksBy2", "by:", value = 0.1),
+                   numericInput("TwoLooksHR2", "Stop if observed HR > ", value = 1)),
+                   textOutput("TwoLooksText1"),
+                   textOutput("TwoLooksText2"),
                    actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -56,6 +74,23 @@ ui <- fluidPage(
                    tableOutput("twoLooksAss"),
                    tableOutput("twoLooksSS"),
                    tableOutput("twoLooksDuration")
+                   
+                 )
+               )
+      ),
+      
+      # Bayesian UI ---------------------------------
+      
+      tabPanel("Bayesian", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   actionButton("calcFutilityBayesian", label  = "Calculate", disabled = T)
+                 ), 
+                 mainPanel = mainPanel(
+                   # Generate plotOutputs dynamically based on the number of delay and HR combinations
+                   tableOutput("BayesianAss"),
+                   tableOutput("BayesianSS"),
+                   tableOutput("BayesianDuration")
                    
                  )
                )
@@ -88,9 +123,16 @@ server <- function(input, output, session) {
   
   # One Look Logic ---------------------------------
   
+  output$OneLookText <- renderText({
+    OneLookSeq <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
+    value <- paste0("We look at: ", paste(OneLookSeq, collapse = " "))
+    return(value)
+  })
+  
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 500
-    futilityVec <- seq(0.2, 1, by = 0.1)
+    NRep <- 50
+    futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
+    
     
     # Create empty data frames
     assDF <- SSDF <- DurationDF <- IATimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
@@ -119,7 +161,7 @@ server <- function(input, output, session) {
         
         for (k in 1:length(futilityVec)){
           futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
-          futilityLook <- interimLookFunc(futilityCens$dataCombined)
+          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$OneLookHR)
           IATimeDF[i,k] <- futilityCens$censTime
           if (futilityLook=="Stop"){
             stopDF[i,k] <- 1
@@ -155,6 +197,19 @@ server <- function(input, output, session) {
   
   
   # Two Looks Logic ---------------------------------
+  
+  output$TwoLooksText1 <- renderText({
+    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+    value <- paste0("We perform IA1 at: ", paste(TwoLooksSeq1, collapse = " "))
+    return(value)
+  })
+  
+  output$TwoLooksText2 <- renderText({
+    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+    value <- paste0("We perform IA2 at: ", paste(TwoLooksSeq2, collapse = " "))
+    return(value)
+  })
+  
   
   
   observeEvent(input$calcFutilityTwoLooks, {

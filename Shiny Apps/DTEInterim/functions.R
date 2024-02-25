@@ -39,11 +39,11 @@ CensFunc <- function(dataCombined, numEvents) {
   return(list(dataCombined = dataCombined, censTime = censTime, SS = nrow(dataCombined)))
 }
 
-interimLookFunc <- function(dataCombined){
+interimLookFunc <- function(dataCombined, observedHR){
   
   coxmodel <- coxph(Surv(survival_time, status)~group, data = dataCombined)
   deltad <- as.numeric(exp(coef(coxmodel)))
   Outcome <- "Continue"
-  if (deltad>1){ Outcome <- "Stop"}
+  if (deltad>observedHR){ Outcome <- "Stop"}
   return(Outcome)
 }
