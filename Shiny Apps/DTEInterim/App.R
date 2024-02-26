@@ -233,14 +233,14 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 50
-    Look1Vec <- seq(0.3, 0.7, by = 0.05)
-    Look2Vec <- seq(0.4, 0.8, by = 0.05)
-    futilityVec <- seq(0.3, 0.8, by = 0.05)
+    NRep <- 5000
+    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+    TwoLooksCombined <- c(TwoLooksSeq1, TwoLooksSeq2)
     
+    #print(TwoLooksCombined)
     
-    
-    ass3D <- SS3d <- Duration3d <- array(0, dim = c(length(Look2Vec), length(Look1Vec), NRep))
+    ass3D <- SS3d <- Duration3d <- array(0, dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
     
     treatmentSamplesDF <- data$treatmentSamplesDF
     
@@ -252,10 +252,15 @@ server <- function(input, output, session) {
       for (i in 1:NRep){
         
         
-        futilityDF <- data.frame(futility = c(futilityVec,1),
-                                 outcome = numeric(length(futilityVec)+1),
-                                 SS = numeric(length(futilityVec)+1),
-                                 duration = numeric(length(futilityVec)+1))
+        futilityDF1 <- data.frame(futility = c(TwoLooksSeq1),
+                                 outcome = numeric(length(TwoLooksSeq1)),
+                                 SS = numeric(length(TwoLooksSeq1)),
+                                 duration = numeric(length(TwoLooksSeq1)))
+        
+        futilityDF2 <- data.frame(futility = c(TwoLooksSeq2),
+                                  outcome = numeric(length(TwoLooksSeq2)),
+                                  SS = numeric(length(TwoLooksSeq2)),
+                                  duration = numeric(length(TwoLooksSeq2)))
         
         
         #Simulate control and treatment data
@@ -266,31 +271,39 @@ server <- function(input, output, session) {
         test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         deltad <- as.numeric(exp(coef(coxmodel)))
-        futilityDF[nrow(futilityDF),2] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        futilityDF[nrow(futilityDF),3] <- finalDF$SS
-        futilityDF[nrow(futilityDF),4] <- finalDF$censTime
+        FinalOutcome <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        FinalSS <- finalDF$SS
+        FinalDuration <- finalDF$censTime
         
-        for (k in 1:length(futilityVec)){
-          futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
-          futilityLook <- interimLookFunc(futilityCens$dataCombined)
-          futilityDF[k,3] <- futilityCens$SS
-          futilityDF[k,4] <- futilityCens$censTime
-          if (futilityLook!="Stop"){ futilityDF[k,2] <- 1} 
+        for (k in 1:length(TwoLooksSeq1)){
+          futilityCens <- CensFunc(dataCombined, input$numEvents*TwoLooksSeq1[k])
+          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$TwoLooksHR1)
+          futilityDF1[k,3] <- futilityCens$SS
+          futilityDF1[k,4] <- futilityCens$censTime
+          if (futilityLook!="Stop"){ futilityDF1[k,2] <- 1} 
         }
         
+        for (k in 1:length(TwoLooksSeq2)){
+          futilityCens <- CensFunc(dataCombined, input$numEvents*TwoLooksSeq2[k])
+          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$TwoLooksHR2)
+          futilityDF2[k,3] <- futilityCens$SS
+          futilityDF2[k,4] <- futilityCens$censTime
+          if (futilityLook!="Stop"){ futilityDF2[k,2] <- 1} 
+        }
         
-          for (j in 1:length(Look1Vec)){
-            for (k in j:length(Look2Vec)){
-              Look1Value <- Look1Vec[j]
-              Look2Value <- Look2Vec[k]
-              Look1Row <- match(round(as.numeric(Look1Value), 1), round(as.numeric(futilityDF$futility), 1))
-              Look2Row <- match(round(as.numeric(Look2Value), 1), round(as.numeric(futilityDF$futility), 1))
+
+        
+          for (j in 1:length(TwoLooksSeq1)){
+            for (k in j:length(TwoLooksSeq2)){
+              Look1Value <- TwoLooksSeq1[j]
+              Look2Value <- TwoLooksSeq2[k]
+              Look1Row <- match(round(as.numeric(Look1Value), 1), round(as.numeric(futilityDF1$futility), 1))
+              Look2Row <- match(round(as.numeric(Look2Value), 1), round(as.numeric(futilityDF2$futility), 1))
               
               
-              Look1Outcome <- futilityDF[Look1Row,]$outcome
-              Look2Outcome <- futilityDF[Look2Row,]$outcome
-              FinalOutcome <- futilityDF[nrow(futilityDF),]$outcome
-              
+              Look1Outcome <- futilityDF1[Look1Row,]$outcome
+              Look2Outcome <- futilityDF2[Look2Row,]$outcome
+
               #Assurance logic
               if (Look1Outcome == 1 && Look2Outcome == 1 && FinalOutcome == 1) {
                 ass3D[k, j, i] <- 1
@@ -298,14 +311,14 @@ server <- function(input, output, session) {
               
               #Sample size & duration logic
               if (Look1Outcome == 1 & Look2Outcome == 1) {
-                SS3d[k,j,i] <- futilityDF[nrow(futilityDF),]$SS
-                Duration3d[k, j, i] <- futilityDF[nrow(futilityDF),]$duration
+                SS3d[k,j,i] <- FinalSS
+                Duration3d[k, j, i] <- FinalDuration
               } else if (Look1Outcome == 0) {
-                SS3d[k,j,i] <- futilityDF[Look1Row,]$SS
-                Duration3d[k, j, i] <- futilityDF[Look1Row,]$duration
+                SS3d[k,j,i] <- futilityDF1[Look1Row,]$SS
+                Duration3d[k, j, i] <- futilityDF1[Look1Row,]$duration
               } else if (Look1Outcome == 1 & Look2Outcome == 0) {
-                SS3d[k,j,i] <- futilityDF[Look2Row,]$SS
-                Duration3d[k, j, i] <- futilityDF[Look2Row,]$duration
+                SS3d[k,j,i] <- futilityDF2[Look2Row,]$SS
+                Duration3d[k, j, i] <- futilityDF2[Look2Row,]$duration
               }
               
             }
@@ -340,9 +353,9 @@ server <- function(input, output, session) {
       }
       
       # Create matrices
-      ass_matrix <- create_matrix(ass3D, Look2Vec, Look1Vec)
-      ss_matrix <- create_matrix(SS3d, Look2Vec, Look1Vec)
-      duration_matrix <- create_matrix(Duration3d, Look2Vec, Look1Vec)
+      ass_matrix <- create_matrix(ass3D, TwoLooksSeq2, TwoLooksSeq1)
+      ss_matrix <- create_matrix(SS3d, TwoLooksSeq2, TwoLooksSeq1)
+      duration_matrix <- create_matrix(Duration3d, TwoLooksSeq2, TwoLooksSeq1)
       
       
       
