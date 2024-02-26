@@ -45,7 +45,8 @@ ui <- fluidPage(
                  ), 
                  mainPanel = mainPanel(
                    # Generate plotOutputs dynamically based on the number of delay and HR combinations
-                  tableOutput("futilityTable")
+                  tableOutput("futilityTable"),
+                  tableOutput("finalAssTable")
                  )
                )
       ),
@@ -139,6 +140,8 @@ server <- function(input, output, session) {
     stopDF <- data.frame(matrix(0, nrow = NRep, ncol = length(futilityVec)))
     colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
     
+    FinalAss <- data.frame(Assurance = numeric(NRep), SS = numeric(NRep), Duration = numeric(NRep))
+    
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
         treatmentSamplesDF <- data$treatmentSamplesDF
@@ -158,6 +161,12 @@ server <- function(input, output, session) {
         assDF[i,] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
         SSDF[i,] <- finalDF$SS
         DurationDF[i,] <- finalDF$censTime
+        
+        #Input into the "final" assurance table
+        FinalAss[i,1] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        FinalAss[i,2] <- finalDF$SS
+        FinalAss[i,3] <- finalDF$censTime
+        
         
         for (k in 1:length(futilityVec)){
           futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
@@ -193,6 +202,17 @@ server <- function(input, output, session) {
     output$futilityTable <- renderTable({
       futilityDF
     }, digits = 3)
+    
+    FinalAss <- colMeans(FinalAss)
+    
+    FinalAss <- data.frame(Assurance = FinalAss[1], SS = FinalAss[2], Duration = FinalAss[3])
+    
+    colnames(FinalAss) <- c("Assurance", "Sample Size", "Duration")
+    
+    output$finalAssTable <- renderTable({
+      FinalAss
+    }, digits = 3) 
+    
   })
   
   
