@@ -11,8 +11,6 @@ library(shinyjs)
 library(dplyr)
 library(nph)
 library(nleqslv)
-#library(survminer)
-#library(xlsx)
 
 source("functions.R")
 
@@ -55,7 +53,7 @@ ui <- fluidPage(
                ),
       ),
       
-      # Length of delay UI ---------------------------------
+      # Conditional probabilities UI ---------------------------------
       tabPanel("Conditional probabilities",
                fluidRow(
                  column(6, 
@@ -998,8 +996,6 @@ server = function(input, output, session) {
         
         gammat <- gammac
 
-        
-        
         u <- runif(1)
         if (u < input$P_E){
           w <- runif(1)

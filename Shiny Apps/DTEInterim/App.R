@@ -59,12 +59,12 @@ ui <- fluidPage(
                    wellPanel(
                    numericInput("TwoLooksLB1", "IA1, from:", value = 0.2),
                    numericInput("TwoLooksUB1", "to:", value = 0.8),
-                   numericInput("TwoLooksBy1", "by:", value = 0.1),
+                   numericInput("TwoLooksBy1", "by:", value = 0.2),
                    numericInput("TwoLooksHR1", "Stop if observed HR > ", value = 1)),
                    wellPanel(
                     numericInput("TwoLooksLB2", "IA2, from:", value = 0.3),
                    numericInput("TwoLooksUB2", "to:", value = 0.9),
-                   numericInput("TwoLooksBy2", "by:", value = 0.1),
+                   numericInput("TwoLooksBy2", "by:", value = 0.2),
                    numericInput("TwoLooksHR2", "Stop if observed HR > ", value = 1)),
                    textOutput("TwoLooksText1"),
                    textOutput("TwoLooksText2"),
@@ -72,10 +72,12 @@ ui <- fluidPage(
                  ), 
                  mainPanel = mainPanel(
                    # Generate plotOutputs dynamically based on the number of delay and HR combinations
+                   p("Assurance Table"),
                    tableOutput("twoLooksAss"),
+                   p("Sample Size Table"),
                    tableOutput("twoLooksSS"),
+                   p("Duration Table"),
                    tableOutput("twoLooksDuration")
-                   
                  )
                )
       ),
@@ -131,7 +133,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 50
+    NRep <- 100
     futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
     
@@ -233,7 +235,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 5000
+    NRep <- 100
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     TwoLooksCombined <- c(TwoLooksSeq1, TwoLooksSeq2)
@@ -347,8 +349,6 @@ server <- function(input, output, session) {
         colnames(matrix_means) <- col_names
         rownames(matrix_means) <- row_names
         
-        matrix_means[matrix_means == 0] <- ""
-        
         return(matrix_means)
       }
       
@@ -360,16 +360,31 @@ server <- function(input, output, session) {
       
       
       output$twoLooksAss <- renderTable({
+        ass_matrix <- round(ass_matrix, 3)
+        
+        ass_matrix[upper.tri(ass_matrix)] <- ""
+        
         ass_matrix
-      }, digits = 3, rownames = TRUE)
+      }, rownames = TRUE)
+      
       
       output$twoLooksSS <- renderTable({
+        ss_matrix <- round(ss_matrix, 3)
+        
+        ss_matrix[upper.tri(ss_matrix)] <- ""
+        
         ss_matrix
-      }, digits = 3, rownames = T)
+      }, rownames = T)
       
       output$twoLooksDuration <- renderTable({
+        
+        duration_matrix <- round(duration_matrix, 3)
+        
+        duration_matrix[upper.tri(duration_matrix)] <- ""
+        
+        
         duration_matrix
-      }, digits = 3, rownames = T)
+      }, rownames = T)
       
     })
     
