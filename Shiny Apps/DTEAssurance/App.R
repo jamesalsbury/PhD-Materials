@@ -918,16 +918,6 @@ server = function(input, output, session) {
   # Functions for the Assurance tab ---------------------------------
   
   
-  # observe({
-  #   if (input$analysisType=="MWLRT"){
-  #     shinyjs::show("t_star")
-  #     shinyjs::show("s_star")
-  #   } else{
-  #     shinyjs::hide("t_star")
-  #     shinyjs::hide("s_star")
-  #   }
-  # })
-  
   observe({
     if (input$recMethod=="power"){
       shinyjs::show("rec_power")
@@ -1115,8 +1105,6 @@ server = function(input, output, session) {
   
   output$pdfRec <- renderPlot({
     
-    x <- 1:10
-    
     if (input$recMethod=="power"){
       
       # Calculate the correct PDF values
@@ -1158,8 +1146,6 @@ server = function(input, output, session) {
   })
   
   output$cdfRec <- renderPlot({
-    
-    x <- 1:10
     
     if (input$recMethod=="power"){
       
