@@ -2,6 +2,7 @@ library(shiny)
 library(shinyjs)
 library(ggplot2)
 library(survival)
+library(dplyr)
 
 source("functions.R")
 
@@ -26,6 +27,10 @@ ui <- fluidPage(
                    fileInput("samplesFile", "Upload samples")
                  ), 
                  mainPanel = mainPanel(
+                   textOutput("P_S"),
+                   textOutput("P_DTE"),
+                   plotOutput("TSamples"),
+                   plotOutput("HRStarSamples")
                    
                  )
                )
@@ -36,7 +41,7 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    wellPanel(
-                   numericInput("OneLookLB", "IA, from:", value = 0.2),
+                   numericInput("OneLookLB", "IA1, from:", value = 0.2),
                    numericInput("OneLookUB", "to:", value = 0.8),
                    numericInput("OneLookBy", "by:", value = 0.1),
                    textOutput("OneLookText")),
@@ -71,12 +76,11 @@ ui <- fluidPage(
                    actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
-                   # Generate plotOutputs dynamically based on the number of delay and HR combinations
-                   p("Assurance Table"),
+                   hidden(uiOutput("AssTable")),
                    tableOutput("twoLooksAss"),
-                   p("Sample Size Table"),
+                   hidden(uiOutput("SSTable")),
                    tableOutput("twoLooksSS"),
-                   p("Duration Table"),
+                   hidden(uiOutput("DurationTable")),
                    tableOutput("twoLooksDuration")
                  )
                )
@@ -120,6 +124,39 @@ server <- function(input, output, session) {
       # Enable the action button when a file is selected
       shinyjs::enable("calcFutilityOneLook")
       shinyjs::enable("calcFutilityTwoLooks")
+      
+      
+      # output$TSamples <- renderPlot({
+      #   hist(data$treatmentSamplesDF$bigT, freq = F, main  = "Histogram of T", xlab = "Time")
+      # })
+      # 
+      # output$HRStarSamples <- renderPlot({
+      #   hist(data$treatmentSamplesDF$HRStar, freq = F, main = "Histogram of post-delay HR", xlab = "Post-delay HR")
+      # })
+      # 
+      # output$P_S <- renderText({
+      #   
+      #   paste0("P_S is estimated to be: ",
+      #          nrow(subset(data$treatmentSamplesDF, HRStar != 1)) / nrow(data$treatmentSamplesDF))
+      #   
+      #   
+      # })
+      # 
+      # output$P_DTE <- renderText({
+      #   
+      #   separateDF <- data$treatmentSamplesDF %>%
+      #     filter(HRStar!=1)
+      #   
+      #   
+      #   
+      #   paste0("P_DTE is estimated to be: ",
+      #          nrow(subset(separateDF, bigT != 0)) / nrow(separateDF))
+      #   
+      #   
+      # })
+      
+      
+      
     }
   })
   
@@ -133,7 +170,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 100
+    NRep <- 500
     futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
     
@@ -235,7 +272,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 100
+    NRep <- 500
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     TwoLooksCombined <- c(TwoLooksSeq1, TwoLooksSeq2)
@@ -387,6 +424,24 @@ server <- function(input, output, session) {
       }, rownames = T)
       
     })
+    
+    
+    output$AssTable <- renderUI({
+      p(HTML("<b>Assurance table</b>"))
+    })
+    
+    output$SSTable <- renderUI({
+      p(HTML("<b>Sample size table</b>"))
+    })
+    
+    output$DurationTable <- renderUI({
+      p(HTML("<b>Duration table</b>"))
+    })
+    
+    shinyjs::show("AssTable")
+    shinyjs::show("SSTable")
+    shinyjs::show("DurationTable")
+    
     
     
     

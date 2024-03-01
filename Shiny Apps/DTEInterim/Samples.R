@@ -1,8 +1,8 @@
 library(survival)
 
 
-P_S <- 0.7
-P_DTE <- 0.6
+P_S <- 0.8
+P_DTE <- 0.3
 
 # T ~ Gamma(2.84, 0.519)
 # HR* ~ Gamma(25.6, 33.8)

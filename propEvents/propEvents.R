@@ -1,11 +1,10 @@
 
 lambdac <- log(2)/12
-HR1 <- 1.3
-T1 <- 0
-HR2 <- 1.3
+HR1 <- 1
+T1 <- 3
+HR2 <- 0.75
 numPatients <- 340
-recTime <- 12
-
+recTime <- 34
 
 
 generateData <- function(lambdac, HR1, T1, HR2, numPatients, recTime) {
@@ -84,16 +83,21 @@ propEventFunc <- function(lambdac, HR1, T1, HR2, numPatients, recTime){
 
 
 x1 <- propEventFunc(lambdac, HR1, T1, HR2, numPatients, recTime)
-plotTime <- seq(1, max(x1$calTime), length = 20)
+plotTime <- seq(1, max(x1$calTime), by = 6)
 plotEvents <- rep(NA, length(plotTime))
 for (i in 1:length(plotTime)){
   plotEvents[i] <-    sum(x1$calTime<plotTime[i])
 }
 plot(x1$eventVec, x1$eventProp, type = "l", ylim = c(0, 1), xlab = "Number of events", 
-     ylab = "Proportion of events > 3 months", col = "red")
+     ylab = "Proportion of events > 3 months", col = "red", main = paste0("Recruitment: ", recTime, " months"))
 points(x1$eventVec[plotEvents], x1$eventProp[plotEvents])
 abline(h = 2/3, lty = 2)
  abline(v = 512*0.5, lty = 3)
+ abline(v = 512*0.75, lty = 3)
+ print(plotTime)
+ 
+ 
+ 
 # abline(v = 512*0.75, lty = 3)
 # abline(v = 512, lty = 3)
 # 
