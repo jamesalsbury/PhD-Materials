@@ -12,7 +12,7 @@ ui <- fluidPage(
   shinyjs::useShinyjs(),
   
   # Application title
-  titlePanel("Bayesian Interim Analyses: Delayed Treatment Effects"),
+  titlePanel("Bayesian Futility Analyses: Delayed Treatment Effects"),
   
   mainPanel(
     tabsetPanel(
@@ -170,19 +170,26 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 500
+    NRep <- 2
     futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
+    iterationArray <- array(NA,  dim = c(3, length(futilityVec)+1, NRep))
+    
+    # colnames(iterationDF) <- c(futilityVec, "Final")
+    # 
+    # rownames(iterationDF) <- c("Success", "Duration", "Sample size")
+    # 
     
     # Create empty data frames
-    assDF <- SSDF <- DurationDF <- IATimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
-    stopDF <- data.frame(matrix(0, nrow = NRep, ncol = length(futilityVec)))
-    colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
-    
-    FinalAss <- data.frame(Assurance = numeric(NRep), SS = numeric(NRep), Duration = numeric(NRep))
+    # assDF <- SSDF <- DurationDF <- IATimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
+    # stopDF <- data.frame(matrix(0, nrow = NRep, ncol = length(futilityVec)))
+    # colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
+    # 
+    # FinalAss <- data.frame(Assurance = numeric(NRep), SS = numeric(NRep), Duration = numeric(NRep))
     
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
+        
         treatmentSamplesDF <- data$treatmentSamplesDF
         
         #Compute treatment times
@@ -197,27 +204,33 @@ server <- function(input, output, session) {
         test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         deltad <- as.numeric(exp(coef(coxmodel)))
-        assDF[i,] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        SSDF[i,] <- finalDF$SS
-        DurationDF[i,] <- finalDF$censTime
+        
+        iterationArray[1, length(futilityVec)+1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        iterationArray[2, length(futilityVec)+1, i] <- finalDF$censTime
+        iterationArray[3, length(futilityVec)+1, i] <- finalDF$SS
+        
+        # assDF[i,] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        # SSDF[i,] <- finalDF$SS
+        # DurationDF[i,] <- finalDF$censTime
         
         #Input into the "final" assurance table
-        FinalAss[i,1] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        FinalAss[i,2] <- finalDF$SS
-        FinalAss[i,3] <- finalDF$censTime
+        # FinalAss[i,1] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        # FinalAss[i,2] <- finalDF$SS
+        # FinalAss[i,3] <- finalDF$censTime
         
         
         for (k in 1:length(futilityVec)){
           futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
           futilityLook <- interimLookFunc(futilityCens$dataCombined, input$OneLookHR)
-          IATimeDF[i,k] <- futilityCens$censTime
-          if (futilityLook=="Stop"){
-            stopDF[i,k] <- 1
-            assDF[i,k] <- 0
-            SSDF[i,k] <- futilityCens$SS
-            DurationDF[i,k] <- futilityCens$censTime
-          } 
+          
+          iterationArray[1, k, i] <- futilityLook
+          iterationArray[2, k, i] <- futilityCens$censTime
+          iterationArray[3, k, i] <- futilityCens$SS
+          
         }
+        
+        print(iterationArray)
+        
         incProgress(1/NRep)
       }
     })

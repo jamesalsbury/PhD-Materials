@@ -43,7 +43,7 @@ interimLookFunc <- function(dataCombined, observedHR){
   
   coxmodel <- coxph(Surv(survival_time, status)~group, data = dataCombined)
   deltad <- as.numeric(exp(coef(coxmodel)))
-  Outcome <- "Continue"
-  if (deltad>observedHR){ Outcome <- "Stop"}
+  Outcome <- 1
+  if (deltad>observedHR){ Outcome <- 0}
   return(Outcome)
 }
