@@ -170,22 +170,10 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 2
+    NRep <- 1000
     futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
     iterationArray <- array(NA,  dim = c(3, length(futilityVec)+1, NRep))
-    
-    # colnames(iterationDF) <- c(futilityVec, "Final")
-    # 
-    # rownames(iterationDF) <- c("Success", "Duration", "Sample size")
-    # 
-    
-    # Create empty data frames
-    # assDF <- SSDF <- DurationDF <- IATimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = length(futilityVec)))
-    # stopDF <- data.frame(matrix(0, nrow = NRep, ncol = length(futilityVec)))
-    # colnames(assDF) <- colnames(SSDF) <- colnames(DurationDF) <- paste0(futilityVec)
-    # 
-    # FinalAss <- data.frame(Assurance = numeric(NRep), SS = numeric(NRep), Duration = numeric(NRep))
     
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
@@ -209,15 +197,6 @@ server <- function(input, output, session) {
         iterationArray[2, length(futilityVec)+1, i] <- finalDF$censTime
         iterationArray[3, length(futilityVec)+1, i] <- finalDF$SS
         
-        # assDF[i,] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        # SSDF[i,] <- finalDF$SS
-        # DurationDF[i,] <- finalDF$censTime
-        
-        #Input into the "final" assurance table
-        # FinalAss[i,1] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        # FinalAss[i,2] <- finalDF$SS
-        # FinalAss[i,3] <- finalDF$censTime
-        
         
         for (k in 1:length(futilityVec)){
           futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
@@ -229,41 +208,141 @@ server <- function(input, output, session) {
           
         }
         
-        print(iterationArray)
-        
         incProgress(1/NRep)
       }
     })
     
-    pHat <- colMeans(assDF)
+    powerDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
+    durationDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
+    ssDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
+    iaTimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
+    stopDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
+    falselyStop <- rep(NA, length(futilityVec))
+    correctlystop <- rep(NA, length(futilityVec))
+    falselyContinue <- rep(NA, length(futilityVec))
+    correctlyContinue <- rep(NA, length(futilityVec))
     
-    LB <- pHat - 1.96 * sqrt(pHat * (1 - pHat) / NRep)
+    for (i in 1:NRep){
+      for (k in 1:length(futilityVec)){
+        powerDF[i, k] <- iterationArray[1,k,i]*iterationArray[1,length(futilityVec)+1,i]
+        iaTimeDF[i,k] <- iterationArray[2,k,i]
+        stopDF[i,k] <- iterationArray[1,k,i]
+
+        if (iterationArray[1,k,i]==0){
+          durationDF[i, k] <- iterationArray[2,k,i]
+          ssDF[i, k] <- iterationArray[3,k,i]
+        } else {
+          durationDF[i, k] <- iterationArray[2,length(futilityVec)+1,i]
+          ssDF[i, k] <- iterationArray[3,length(futilityVec)+1,i]
+        }
+      }
+    }
     
-    UB <- pHat + 1.96 * sqrt(pHat * (1 - pHat) / NRep)
+    #Calculating falsely stopping
+    for (k in 1:length(futilityVec)){
+      indices <- which(iterationArray[1, k, ] == 0)
+      selected_layers <- iterationArray[,,indices]
+      if (length(dim(selected_layers))==2){
+        falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1])
+      } else {
+        if (dim(selected_layers)[3]==0){
+          falselyStop[k] <- NA
+        } else{
+          falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1, ])
+        }
+      }
+    }
+    
+    #Calculating correctly stopping
+    for (k in 1:length(futilityVec)){
+      indices <- which(iterationArray[1, k, ] == 0)
+      selected_layers <- iterationArray[,,indices]
+      if (length(dim(selected_layers))==2){
+        correctlystop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1])
+      } else {
+        if (dim(selected_layers)[3]==0){
+          correctlystop[k] <- NA
+        } else{
+          correctlystop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1, ])
+        }
+      }
+    }
+    
+    #Calculating falsely continuing
+    for (k in 1:length(futilityVec)){
+      indices <- which(iterationArray[1, k, ] == 1)
+      selected_layers <- iterationArray[,,indices]
+      if (length(dim(selected_layers))==2){
+        falselyContinue[k] <- 1-mean(selected_layers[1, length(futilityVec)+1])
+      } else {
+        if (dim(selected_layers)[3]==0){
+          falselyContinue[k] <- NA
+        } else{
+          falselyContinue[k] <- 1-mean(selected_layers[1, length(futilityVec)+1, ])
+        }
+      }
+    }
+    
+    #Calculating correctly continuing
+    for (k in 1:length(futilityVec)){
+      indices <- which(iterationArray[1, k, ] == 1)
+      selected_layers <- iterationArray[,,indices]
+      if (length(dim(selected_layers))==2){
+        correctlyContinue[k] <- mean(selected_layers[1, length(futilityVec)+1])
+      } else {
+        if (dim(selected_layers)[3]==0){
+          correctlyContinue[k] <- NA
+        } else{
+          correctlyContinue[k] <- mean(selected_layers[1, length(futilityVec)+1, ])
+        }
+      }
+    }
+    
+    
+    
+    
     
     
     futilityDF <- data.frame(IF = futilityVec,
-                             censTime = colMeans(IATimeDF),
-                             ass = paste0(round(pHat, 3), " [", round(LB, 3), ",", round(UB, 3), "]"),
-                             stop = colMeans(stopDF),
-                             SS = colMeans(SSDF),
-                             Duration = colMeans(DurationDF))
+                             IATime = colMeans(iaTimeDF),
+                             Assurance = colMeans(powerDF),
+                             Stop = 1-colMeans(stopDF),
+                             falselyStop = falselyStop,
+                             correctlyStop = correctlystop,
+                             falselyContinue = falselyContinue,
+                             correctlyContinue = correctlyContinue,
+                             Duration = colMeans(durationDF),
+                             SS = colMeans(ssDF))
     
-    colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop","Sample Size", "Duration")
+    # pHat <- colMeans(assDF)
+    # 
+    # LB <- pHat - 1.96 * sqrt(pHat * (1 - pHat) / NRep)
+    # 
+    # UB <- pHat + 1.96 * sqrt(pHat * (1 - pHat) / NRep)
+    
+    
+    # futilityDF <- data.frame(IF = futilityVec,
+    #                          censTime = colMeans(IATimeDF),
+    #                          ass = paste0(round(pHat, 3), " [", round(LB, 3), ",", round(UB, 3), "]"),
+    #                          stop = colMeans(stopDF),
+    #                          SS = colMeans(SSDF),
+    #                          Duration = colMeans(DurationDF))
+    # 
+    # colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop","Sample Size", "Duration")
     
     output$futilityTable <- renderTable({
       futilityDF
     }, digits = 3)
     
-    FinalAss <- colMeans(FinalAss)
-    
-    FinalAss <- data.frame(Assurance = FinalAss[1], SS = FinalAss[2], Duration = FinalAss[3])
-    
-    colnames(FinalAss) <- c("Assurance", "Sample Size", "Duration")
-    
-    output$finalAssTable <- renderTable({
-      FinalAss
-    }, digits = 3) 
+    # FinalAss <- colMeans(FinalAss)
+    # 
+    # FinalAss <- data.frame(Assurance = FinalAss[1], SS = FinalAss[2], Duration = FinalAss[3])
+    # 
+    # colnames(FinalAss) <- c("Assurance", "Sample Size", "Duration")
+    # 
+    # output$finalAssTable <- renderTable({
+    #   FinalAss
+    # }, digits = 3) 
     
   })
   
