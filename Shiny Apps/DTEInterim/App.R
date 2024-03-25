@@ -135,24 +135,24 @@ server <- function(input, output, session) {
       # })
       # 
       # output$P_S <- renderText({
-      #   
+      # 
       #   paste0("P_S is estimated to be: ",
       #          nrow(subset(data$treatmentSamplesDF, HRStar != 1)) / nrow(data$treatmentSamplesDF))
-      #   
-      #   
+      # 
+      # 
       # })
       # 
       # output$P_DTE <- renderText({
-      #   
+      # 
       #   separateDF <- data$treatmentSamplesDF %>%
       #     filter(HRStar!=1)
-      #   
-      #   
-      #   
+      # 
+      # 
+      # 
       #   paste0("P_DTE is estimated to be: ",
       #          nrow(subset(separateDF, bigT != 0)) / nrow(separateDF))
-      #   
-      #   
+      # 
+      # 
       # })
       
       
@@ -170,7 +170,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 1000
+    NRep <- 500
     futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
     iterationArray <- array(NA,  dim = c(3, length(futilityVec)+1, NRep))
@@ -211,6 +211,7 @@ server <- function(input, output, session) {
         incProgress(1/NRep)
       }
     })
+    
     
     powerDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
     durationDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
@@ -314,35 +315,27 @@ server <- function(input, output, session) {
                              Duration = colMeans(durationDF),
                              SS = colMeans(ssDF))
     
-    # pHat <- colMeans(assDF)
-    # 
-    # LB <- pHat - 1.96 * sqrt(pHat * (1 - pHat) / NRep)
-    # 
-    # UB <- pHat + 1.96 * sqrt(pHat * (1 - pHat) / NRep)
+    colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop",
+                              "Falsely Stop", "Correctly Stop", "Falsely Continue", "Correctly Continue",
+                               "Duration", "Sample Size")
     
-    
-    # futilityDF <- data.frame(IF = futilityVec,
-    #                          censTime = colMeans(IATimeDF),
-    #                          ass = paste0(round(pHat, 3), " [", round(LB, 3), ",", round(UB, 3), "]"),
-    #                          stop = colMeans(stopDF),
-    #                          SS = colMeans(SSDF),
-    #                          Duration = colMeans(DurationDF))
-    # 
-    # colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop","Sample Size", "Duration")
     
     output$futilityTable <- renderTable({
       futilityDF
     }, digits = 3)
     
-    # FinalAss <- colMeans(FinalAss)
-    # 
-    # FinalAss <- data.frame(Assurance = FinalAss[1], SS = FinalAss[2], Duration = FinalAss[3])
-    # 
-    # colnames(FinalAss) <- c("Assurance", "Sample Size", "Duration")
-    # 
-    # output$finalAssTable <- renderTable({
-    #   FinalAss
-    # }, digits = 3) 
+    FinalAss <- mean(iterationArray[1, length(futilityVec)+1, ])
+    FinalDuration <- mean(iterationArray[2, length(futilityVec)+1, ])
+    FinalSS <- mean(iterationArray[3, length(futilityVec)+1, ])
+  
+    
+    FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+
+    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+
+    output$finalAssTable <- renderTable({
+      FinalAss
+    }, digits = 3)
     
   })
   
@@ -364,100 +357,58 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 500
+    NRep <- 3
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
-    TwoLooksCombined <- c(TwoLooksSeq1, TwoLooksSeq2)
+    TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
     
     #print(TwoLooksCombined)
     
-    ass3D <- SS3d <- Duration3d <- array(0, dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+    iterationArray <- array(NA,  dim = c(3, length(TwoLooksCombined)+1, NRep))
+    
+    dimnames(iterationArray) <- list(c("Power", "Duration", "Sample Size"), c(TwoLooksCombined, "Final"), 1:NRep)
+    
+    #ass3D <- SS3d <- Duration3d <- array(0, dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
     
     treatmentSamplesDF <- data$treatmentSamplesDF
-    
-    #Compute treatment times
-    HRStar <- sample(treatmentSamplesDF[,2], NRep, replace = T)
-    bigT <- sample(treatmentSamplesDF[,1], NRep, replace = T)
     
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
         
+        treatmentSamplesDF <- data$treatmentSamplesDF
         
-        futilityDF1 <- data.frame(futility = c(TwoLooksSeq1),
-                                 outcome = numeric(length(TwoLooksSeq1)),
-                                 SS = numeric(length(TwoLooksSeq1)),
-                                 duration = numeric(length(TwoLooksSeq1)))
-        
-        futilityDF2 <- data.frame(futility = c(TwoLooksSeq2),
-                                  outcome = numeric(length(TwoLooksSeq2)),
-                                  SS = numeric(length(TwoLooksSeq2)),
-                                  duration = numeric(length(TwoLooksSeq2)))
-        
+        #Compute treatment times
+        HRStar <- sample(treatmentSamplesDF[,2], 1)
+        bigT <- sample(treatmentSamplesDF[,1], 1)
         
         #Simulate control and treatment data
-        dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT[i], HRStar[i], input$recTime)  
+        dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
         
         #Perform futility look at different Information Fractions
         finalDF <- CensFunc(dataCombined, input$numEvents)
         test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         deltad <- as.numeric(exp(coef(coxmodel)))
-        FinalOutcome <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        FinalSS <- finalDF$SS
-        FinalDuration <- finalDF$censTime
         
-        for (k in 1:length(TwoLooksSeq1)){
-          futilityCens <- CensFunc(dataCombined, input$numEvents*TwoLooksSeq1[k])
-          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$TwoLooksHR1)
-          futilityDF1[k,3] <- futilityCens$SS
-          futilityDF1[k,4] <- futilityCens$censTime
-          if (futilityLook!="Stop"){ futilityDF1[k,2] <- 1} 
+        iterationArray[1, length(TwoLooksCombined)+1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        iterationArray[2, length(TwoLooksCombined)+1, i] <- finalDF$censTime
+        iterationArray[3, length(TwoLooksCombined)+1, i] <- finalDF$SS
+        
+        
+        for (k in 1:length(TwoLooksCombined)){
+          futilityCens <- CensFunc(dataCombined, input$numEvents*TwoLooksCombined[k])
+          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$OneLookHR)
+          
+          iterationArray[1, k, i] <- futilityLook
+          iterationArray[2, k, i] <- futilityCens$censTime
+          iterationArray[3, k, i] <- futilityCens$SS
+          
         }
-        
-        for (k in 1:length(TwoLooksSeq2)){
-          futilityCens <- CensFunc(dataCombined, input$numEvents*TwoLooksSeq2[k])
-          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$TwoLooksHR2)
-          futilityDF2[k,3] <- futilityCens$SS
-          futilityDF2[k,4] <- futilityCens$censTime
-          if (futilityLook!="Stop"){ futilityDF2[k,2] <- 1} 
-        }
-        
-
-        
-          for (j in 1:length(TwoLooksSeq1)){
-            for (k in j:length(TwoLooksSeq2)){
-              Look1Value <- TwoLooksSeq1[j]
-              Look2Value <- TwoLooksSeq2[k]
-              Look1Row <- match(round(as.numeric(Look1Value), 1), round(as.numeric(futilityDF1$futility), 1))
-              Look2Row <- match(round(as.numeric(Look2Value), 1), round(as.numeric(futilityDF2$futility), 1))
-              
-              
-              Look1Outcome <- futilityDF1[Look1Row,]$outcome
-              Look2Outcome <- futilityDF2[Look2Row,]$outcome
-
-              #Assurance logic
-              if (Look1Outcome == 1 && Look2Outcome == 1 && FinalOutcome == 1) {
-                ass3D[k, j, i] <- 1
-              }
-              
-              #Sample size & duration logic
-              if (Look1Outcome == 1 & Look2Outcome == 1) {
-                SS3d[k,j,i] <- FinalSS
-                Duration3d[k, j, i] <- FinalDuration
-              } else if (Look1Outcome == 0) {
-                SS3d[k,j,i] <- futilityDF1[Look1Row,]$SS
-                Duration3d[k, j, i] <- futilityDF1[Look1Row,]$duration
-              } else if (Look1Outcome == 1 & Look2Outcome == 0) {
-                SS3d[k,j,i] <- futilityDF2[Look2Row,]$SS
-                Duration3d[k, j, i] <- futilityDF2[Look2Row,]$duration
-              }
-              
-            }
-          }
         
         incProgress(1/NRep)
       }
       
+      print(iterationArray)
       
       # Define a function to create the matrix
       create_matrix <- function(data3D, row_names, col_names) {
