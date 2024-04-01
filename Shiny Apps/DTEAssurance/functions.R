@@ -1,19 +1,17 @@
-SimDTEDataSetPower <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, censTime, rec_period, rec_power) {
-  #Simulates the treatment data
-  CP <- exp(-(lambdac*bigT)^gammac)
-  u <- runif(n2)
+CensFunc <- function(dataCombined, censEvents = NULL, censTime = NULL){
   
-  treatmenttime <- ifelse(u>CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*bigT)^gammat-log(u)-(lambdac*bigT)^gammac))^(1/gammat))
+  if (is.null(censEvents) && is.null(censTime)) {
+    stop("Either censEvents or censTime must be specified")
+  }
   
-  dataCombined <- data.frame(time = c(rweibull(n1, gammac, 1/lambdac), treatmenttime),
-                             group = c(rep("Control", n1), rep("Treatment", n2)))
+  if (!is.null(censEvents)){
+    dataCombined <- dataCombined[order(dataCombined$pseudoTime),]
+    censTime <- dataCombined$pseudoTime[censEvents]
+  }
   
-  n_total <- n1+n2
-  dataCombined$recTime <- rec_period * stats::runif(n_total)^(1/rec_power)
   
-  dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
   
-  dataCombined$status <- dataCombined$pseudoTime < censTime
+  dataCombined$status <- dataCombined$pseudoTime <= censTime
   dataCombined$status <- dataCombined$status * 1
   dataCombined$enrolled <- dataCombined$recTime < censTime
   dataCombined <- dataCombined[dataCombined$enrolled, ]
@@ -21,22 +19,100 @@ SimDTEDataSetPower <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, c
                                        censTime - dataCombined$recTime,
                                        dataCombined$time)
   
-  return(dataCombined)
+  return(list(dataCombined = dataCombined, censEvents = censEvents, censTime = censTime))
 }
 
-SimDTEDataSetPWC <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, censTime, rec_rate, rec_duration) {
+
+calculateAssurance <- function(n_C, n_E, lambda_C, HRStar, HRStarDist = "hist", gamma_C, gamma_E, delayT, delayTDist = "hist",
+                               P_S = 1, P_DTE = 0, censEvents = NULL, censTime = NULL, rec_method, rec_period=NULL, rec_power=NULL, rec_rate=NULL, rec_duration=NULL,
+                               analysis_method, rho = 0, gamma = 0, nSims=1e4){
+  
+  control_n <- length(lambda_C)
+  
+  
+  assVec <- rep(NA, nSims)
+  censVec <- rep(NA, nSims)
+  
+  for (i in 1:nSims){
+    
+    #Sample the control parameters
+    u <- sample(1:control_n, size = 1)
+    sampled_lambdac <- lambda_C[u]
+    sampled_gammac <- gamma_C[u]
+    
+    #Sample the treatment effect parameters
+    sampled_HRStar <- SHELF::sampleFit(HRStar, n = 1)[,HRStarDist]
+    sampled_delayT <- SHELF::sampleFit(delayT, n = 1)[,delayTDist]
+    
+    #Make the simplifications
+    sampled_gammae <- sampled_gammac
+    
+    
+    dataCombined <- SimDTEDataSet(n_C, n_E, sampled_lambdac, sampled_HRStar, sampled_gammac, sampled_gammae, sampled_delayT, P_S, P_DTE,
+                                  rec_method, rec_period, rec_power, rec_rate, rec_duration)
+    
+    
+    censoredDF <- CensFunc(dataCombined, censEvents, censTime)
+    
+    dataCombined <- censoredDF$dataCombined
+    
+    censVec[i] <- censoredDF$censTime
+    
+    assVec[i] <- survivalAnalysis(dataCombined, analysis_method, alpha = 0.05, rho, gamma)
+    
+    
+  }
+  
+  pHat <- mean(assVec)
+  
+  return(list(assurance = pHat, duration = mean(censVec), LBAssurance = pHat - 1.96*sqrt(pHat*(1-pHat)/nSims),
+              UBAssurance = pHat + 1.96*sqrt(pHat*(1-pHat)/nSims)))
+  
+}
+
+
+SimDTEDataSet <- function(n_C, n_E, lambda_C, HRStar, gamma_C, gamma_E, delayT, P_S = 1, P_DTE = 0,
+                          rec_method, rec_period=NULL, rec_power=NULL, rec_rate=NULL, rec_duration=NULL) {
+  
+  #Simulates the control data
+  u <- runif(n_C)
+  controlTimes <- (1/lambda_C)*(-log(u))^(1/gamma_C)
+  
+  #Make the simplification
+  gamma_E <- gamma_C
+  
+  #Takes into account the probabilities of the curves separating (and then being subject to a DTE)
+  if (runif(1)>P_S){
+    delayT <- 0
+    HRStar <- 1
+  } else if (runif(1)>P_DTE){
+    delayT <- 0
+  }
+  
+  #Transforming the post-delay HR to lambda_E
+  lambda_E <- lambda_C*HRStar^(1/gamma_C)
+  
   #Simulates the treatment data
-  CP <- exp(-(lambdac*bigT)^gammac)
-  u <- runif(n2)
-  
-  treatmenttime <- ifelse(u>CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*bigT)^gammat-log(u)-(lambdac*bigT)^gammac))^(1/gammat))
-  
-  dataCombined <- data.frame(time = c(rweibull(n1, gammac, 1/lambdac), treatmenttime),
-                             group = c(rep("Control", n1), rep("Treatment", n2)))
-  
-  n_total <- n1+n2
+  CP <- exp(-(lambda_C*delayT)^gamma_C)
+  u <- runif(n_E)
+  treatmentTimes <- ifelse(u>CP, (1/lambda_C)*(-log(u))^(1/gamma_C),
+                           (1/(lambda_E^gamma_E)*((lambda_E*delayT)^gamma_E-log(u)-(lambda_C*delayT)^gamma_C))^(1/gamma_E))
   
   
+  #Combines the control and treatment data
+  dataCombined <- data.frame(time = c(controlTimes, treatmentTimes),
+                             group = c(rep("Control", n_C), rep("Treatment", n_E)))
+  
+  n_total <- n_C + n_E
+  
+  if (rec_method=="power"){
+    
+    dataCombined$recTime <- rec_period * stats::runif(n_total)^(1/rec_power)
+    
+    dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
+  }
+  
+  if (rec_method=="PWC"){
     if(any(rec_rate<0)){stop("rec_rate should be non-negative")}
     if(length(rec_rate)==1){#simple case with only one rate
       rec<-cumsum(stats::rexp(n=n_total,rate=rec_rate))
@@ -62,25 +138,18 @@ SimDTEDataSetPWC <- function(n1, n2, gammat, gammac, lambdat, lambdac, bigT, cen
           rec<-c(rec, cumsum(stats::rexp(n_total-nrow(rec),rate=df$rate[n_periods]))+df$finish[n_periods])
         }
       }
+      
+      dataCombined$recTime <- rec
+      
+    }
     
-    dataCombined$recTime <- rec
-    
-    
+    dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
   }
   
-  dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
   
-  dataCombined$status <- dataCombined$pseudoTime < censTime
-  dataCombined$status <- dataCombined$status * 1
-  dataCombined$enrolled <- dataCombined$recTime < censTime
-  dataCombined <- dataCombined[dataCombined$enrolled, ]
-  dataCombined$survival_time <- ifelse(dataCombined$pseudoTime > censTime,
-                                       censTime - dataCombined$recTime,
-                                       dataCombined$time)
   
   return(dataCombined)
 }
-
 
 normal.error <-
   function(parameters, values, probabilities, weights){
@@ -132,9 +201,9 @@ fitdistdelayT <-
     n.experts <- ncol(vals)
     normal.parameters <- matrix(NA, n.experts, 2)
     t.parameters <- matrix(NA, n.experts, 3)
-    mirrorgamma.parameters <- gamma.parameters <- 
+    mirrorgamma.parameters <- gamma.parameters <-
       matrix(NA, n.experts, 2)
-    mirrorlognormal.parameters <- 
+    mirrorlognormal.parameters <-
       lognormal.parameters <- matrix(NA, n.experts, 2)
     mirrorlogt.parameters <- logt.parameters <-
       matrix(NA, n.experts, 3)
@@ -204,23 +273,23 @@ fitdistdelayT <-
       #  maxq <- qnorm(max(probs[probs[, i] < 1, i]))
       #  m <- q.fit[2] # Estimated median on original scale
       #  v<- (u - l)^2 / 0.25 # Estimated variance on original scale
-      # } 
+      # }
       
       # Symmetric distribution fits ----
       
-      normal.fit <- optim(c(m, 0.5*log(v)), 
-                          normal.error, values = vals[inc,i], 
-                          probabilities = probs[inc,i], 
-                          weights = weights[inc,i])   
+      normal.fit <- optim(c(m, 0.5*log(v)),
+                          normal.error, values = vals[inc,i],
+                          probabilities = probs[inc,i],
+                          weights = weights[inc,i])
       normal.parameters[i,] <- c(normal.fit$par[1], exp(normal.fit$par[2]))
       ssq[i, "normal"] <- normal.fit$value
       
       # starting values: c(m, log((u - m)/ qt(0.6, tdf[i])))
       
-      t.fit <- optim(c(m, 0.5*log(v)), t.error, 
-                     values = vals[inc,i], 
-                     probabilities = probs[inc,i], 
-                     weights = weights[inc,i], 
+      t.fit <- optim(c(m, 0.5*log(v)), t.error,
+                     values = vals[inc,i],
+                     probabilities = probs[inc,i],
+                     weights = weights[inc,i],
                      degreesfreedom = tdf[i])
       t.parameters[i, 1:2] <- c(t.fit$par[1], exp(t.fit$par[2]))
       t.parameters[i, 3] <- tdf[i]
@@ -233,34 +302,34 @@ fitdistdelayT <-
         vals.scaled1 <- vals[inc,i] - lower[i]
         m.scaled1 <- m - lower[i]
         
-        gamma.fit<-optim(c(log(m.scaled1^2/v), log(m.scaled1/v)), 
-                         gamma.error, values = vals.scaled1, 
-                         probabilities = probs[inc,i], 
+        gamma.fit<-optim(c(log(m.scaled1^2/v), log(m.scaled1/v)),
+                         gamma.error, values = vals.scaled1,
+                         probabilities = probs[inc,i],
                          weights = weights[inc,i])
         gamma.parameters[i,] <- exp(gamma.fit$par)
         ssq[i, "gamma"] <- gamma.fit$value
         
         std<-((log(u - lower[i])-log(l - lower[i]))/1.35)
         
-        mlog <- (log(minvals - lower[i]) * 
+        mlog <- (log(minvals - lower[i]) *
                    maxq - log(maxvals - lower[i]) * minq) /
           (maxq - minq)
         
         lognormal.fit <- optim(c(mlog,
-                                 log(std)), 
-                               lognormal.error, 
-                               values = vals.scaled1, 
-                               probabilities = probs[inc,i], 
+                                 log(std)),
+                               lognormal.error,
+                               values = vals.scaled1,
+                               probabilities = probs[inc,i],
                                weights = weights[inc,i])
         lognormal.parameters[i, 1:2] <- c(lognormal.fit$par[1],
                                           exp(lognormal.fit$par[2]))
         ssq[i, "lognormal"] <- lognormal.fit$value
         
-        logt.fit <- optim(c(log(m.scaled1), log(std)), 
-                          logt.error, 
-                          values = vals.scaled1, 
-                          probabilities = probs[inc,i], 
-                          weights = weights[inc,i], 
+        logt.fit <- optim(c(log(m.scaled1), log(std)),
+                          logt.error,
+                          values = vals.scaled1,
+                          probabilities = probs[inc,i],
+                          weights = weights[inc,i],
                           degreesfreedom = tdf[i])
         logt.parameters[i,1:2] <- c(logt.fit$par[1], exp(logt.fit$par[2]))
         logt.parameters[i,3] <- tdf[i]
@@ -276,17 +345,17 @@ fitdistdelayT <-
         
         alp <- abs(m.scaled2 ^3 / v.scaled2 * (1/m.scaled2-1) - m.scaled2)
         bet <- abs(alp/m.scaled2 - alp)
-        if(identical(probs[inc, i], 
+        if(identical(probs[inc, i],
                      (vals[inc, i] - lower[i]) / (upper[i] - lower[i]))){
           alp <- bet <- 1
         }
-        beta.fit <- optim(c(log(alp), log(bet)), 
-                          beta.error, 
-                          values = vals.scaled2, 
-                          probabilities = probs[inc,i], 
+        beta.fit <- optim(c(log(alp), log(bet)),
+                          beta.error,
+                          values = vals.scaled2,
+                          probabilities = probs[inc,i],
                           weights = weights[inc,i])
         beta.parameters[i,] <- exp(beta.fit$par)
-        ssq[i, "beta"] <- beta.fit$value	
+        ssq[i, "beta"] <- beta.fit$value
         
       }
       
@@ -304,9 +373,9 @@ fitdistdelayT <-
         
         
         
-        mirrorgamma.fit<-optim(c(log(mMirrored^2/v), log(mMirrored/v)), 
-                               gamma.error, values = valsMirrored, 
-                               probabilities = probsMirrored, 
+        mirrorgamma.fit<-optim(c(log(mMirrored^2/v), log(mMirrored/v)),
+                               gamma.error, values = valsMirrored,
+                               probabilities = probsMirrored,
                                weights = weights[inc,i])
         mirrorgamma.parameters[i,] <- exp(mirrorgamma.fit$par)
         ssq[i, "mirrorgamma"] <- mirrorgamma.fit$value
@@ -322,7 +391,7 @@ fitdistdelayT <-
         # and we model Y = log(upper - X) ~ N(mlogMirror, stdMirror^2)
         
         
-        mlogMirror <- (log(upper[i] - maxvals) * 
+        mlogMirror <- (log(upper[i] - maxvals) *
                          (1 - minq) -
                          log(upper[i] - minvals) * (1-maxq)) /
           (maxq - minq)
@@ -331,10 +400,10 @@ fitdistdelayT <-
         
         
         mirrorlognormal.fit <- optim(c(mlogMirror,
-                                       log(stdMirror)), 
-                                     lognormal.error, 
-                                     values = valsMirrored, 
-                                     probabilities = probsMirrored, 
+                                       log(stdMirror)),
+                                     lognormal.error,
+                                     values = valsMirrored,
+                                     probabilities = probsMirrored,
                                      weights = weights[inc,i])
         mirrorlognormal.parameters[i, 1:2] <-
           c(mirrorlognormal.fit$par[1],
@@ -343,11 +412,11 @@ fitdistdelayT <-
         
         # Mirror log t
         
-        mirrorlogt.fit <- optim(c(log(mMirrored), log(stdMirror)), 
-                                logt.error, 
-                                values = valsMirrored, 
-                                probabilities = probsMirrored, 
-                                weights = weights[inc,i], 
+        mirrorlogt.fit <- optim(c(log(mMirrored), log(stdMirror)),
+                                logt.error,
+                                values = valsMirrored,
+                                probabilities = probsMirrored,
+                                weights = weights[inc,i],
                                 degreesfreedom = tdf[i])
         mirrorlogt.parameters[i,1:2] <- c(mirrorlogt.fit$par[1],
                                           exp(mirrorlogt.fit$par[2]))
@@ -406,10 +475,10 @@ fitdistdelayT <-
       best.fitting <- data.frame(best.fit=
                                    names(reducedssq)[index])}
     else{
-        index <- apply(ssqT, 1, which.min)
-        
-        best.fitting <- data.frame(best.fit=names(ssqT)[index])
-        }
+      index <- apply(ssqT, 1, which.min)
+      
+      best.fitting <- data.frame(best.fit=names(ssqT)[index])
+    }
     
     
     
@@ -421,18 +490,25 @@ fitdistdelayT <-
     probs <- data.frame(probs)
     names(probs) <- expertnames
     
-    fit <- list(Normal = dfn, Student.t = dft, 
-                Gamma = dfg, Log.normal = dfln, 
+    fit <- list(Normal = dfn, Student.t = dft,
+                Gamma = dfg, Log.normal = dfln,
                 Log.Student.t = dflt, Beta = dfb,
                 mirrorgamma = dfmirrorg,
                 mirrorlognormal = dfmirrorln,
                 mirrorlogt = dfmirrorlt,
-                ssq = ssq, 
-                best.fitting = best.fitting, vals = t(vals), 
+                ssq = ssq,
+                best.fitting = best.fitting, vals = t(vals),
                 probs = t(probs), limits = limits)
     class(fit) <- "elicitation"
     fit
   }
+
+
+
+
+
+
+
 
 
 

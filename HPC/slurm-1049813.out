@@ -1,0 +1,14 @@
+Lmod has detected the following error: Your site prevents the automatic
+swapping of modules with same name. You must explicitly unload the loaded
+version of "foss/2020a" before you can load the new one. Use swap to do this:
+
+   $ module swap foss/2020a foss/2022a
+
+Alternatively, you can set the environment variable
+LMOD_DISABLE_SAME_NAME_AUTOSWAP to "no" to re-enable same name autoswapping.
+
+While processing the following module(s):
+    Module fullname                Module Filename
+    ---------------                ---------------
+    rjags/4-13-foss-2022a-R-4.2.1  /opt/apps/testapps/el7/modules/staging/all/rjags/4-13-foss-2022a-R-4.2.1.lua
+
