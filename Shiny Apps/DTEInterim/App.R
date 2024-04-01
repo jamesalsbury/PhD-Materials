@@ -29,8 +29,8 @@ ui <- fluidPage(
                  mainPanel = mainPanel(
                    textOutput("P_S"),
                    textOutput("P_DTE"),
-                   plotOutput("TSamples"),
-                   plotOutput("HRStarSamples")
+                   plotOutput("TDist"),
+                   plotOutput("HRDist")
                    
                  )
                )
@@ -49,9 +49,10 @@ ui <- fluidPage(
                    actionButton("calcFutilityOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
-                   # Generate plotOutputs dynamically based on the number of delay and HR combinations
                   tableOutput("futilityTable"),
-                  tableOutput("finalAssTable")
+                  tableOutput("finalAssTable"),
+                  plotOutput("oneLookPlotDuration"),
+                  plotOutput("oneLookPlotSS")
                  )
                )
       ),
@@ -76,12 +77,26 @@ ui <- fluidPage(
                    actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
-                   hidden(uiOutput("AssTable")),
+                   hidden(uiOutput("AssText")),
                    tableOutput("twoLooksAss"),
-                   hidden(uiOutput("SSTable")),
+                   hidden(uiOutput("SSText")),
                    tableOutput("twoLooksSS"),
-                   hidden(uiOutput("DurationTable")),
-                   tableOutput("twoLooksDuration")
+                   hidden(uiOutput("DurationText")),
+                   tableOutput("twoLooksDuration"),
+                   hidden(uiOutput("IATime1Text")),
+                   tableOutput("IATime1Table"),
+                   hidden(uiOutput("IATime2Text")),
+                   tableOutput("IATime2Table"),
+                   hidden(uiOutput("PercentStopText")),
+                   tableOutput("PercentStopTable"),
+                   hidden(uiOutput("PercentStopLook1Text")),
+                   tableOutput("PercentStopLook1Table"),
+                   hidden(uiOutput("PercentStopLook2Text")),
+                   tableOutput("PercentStopLook2Table"),
+                   tableOutput("finalAssTable2Looks"),
+                   plotOutput("twoLooksPlotDuration"),
+                   plotOutput("twoLooksPlotSS")
+                   
                  )
                )
       ),
@@ -94,7 +109,6 @@ ui <- fluidPage(
                    actionButton("calcFutilityBayesian", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
-                   # Generate plotOutputs dynamically based on the number of delay and HR combinations
                    tableOutput("BayesianAss"),
                    tableOutput("BayesianSS"),
                    tableOutput("BayesianDuration")
@@ -116,44 +130,38 @@ server <- function(input, output, session) {
   data <- reactiveValues(treatmentSamplesDF = NULL)
   
   observeEvent(input$samplesFile, {
-    file <- input$samplesFile
+    inFile  <- input$samplesFile
     if (!is.null(file)) {
       # Read the uploaded file into treatmentSamplesDF
-      data$treatmentSamplesDF <- read.csv(file$datapath)
+      data$treatmentSamplesDF <-  readRDS(inFile$datapath)
 
       # Enable the action button when a file is selected
       shinyjs::enable("calcFutilityOneLook")
       shinyjs::enable("calcFutilityTwoLooks")
-      
-      
-      # output$TSamples <- renderPlot({
-      #   hist(data$treatmentSamplesDF$bigT, freq = F, main  = "Histogram of T", xlab = "Time")
-      # })
-      # 
-      # output$HRStarSamples <- renderPlot({
-      #   hist(data$treatmentSamplesDF$HRStar, freq = F, main = "Histogram of post-delay HR", xlab = "Post-delay HR")
-      # })
-      # 
-      # output$P_S <- renderText({
-      # 
-      #   paste0("P_S is estimated to be: ",
-      #          nrow(subset(data$treatmentSamplesDF, HRStar != 1)) / nrow(data$treatmentSamplesDF))
-      # 
-      # 
-      # })
-      # 
-      # output$P_DTE <- renderText({
-      # 
-      #   separateDF <- data$treatmentSamplesDF %>%
-      #     filter(HRStar!=1)
-      # 
-      # 
-      # 
-      #   paste0("P_DTE is estimated to be: ",
-      #          nrow(subset(separateDF, bigT != 0)) / nrow(separateDF))
-      # 
-      # 
-      # })
+
+       
+      output$TDist <- renderPlot({
+        SHELF::plotfit(data$treatmentSamplesDF$fit1, d = data$treatmentSamplesDF$d[1])
+      })
+
+      output$HRDist <- renderPlot({
+        SHELF::plotfit(data$treatmentSamplesDF$fit2, d = data$treatmentSamplesDF$d[2])
+      })
+
+      output$P_S <- renderText({
+
+        paste0("P_S is: ", data$treatmentSamplesDF$P_S)
+
+
+      })
+
+      output$P_DTE <- renderText({
+
+        paste0("P_DTE is: ", data$treatmentSamplesDF$P_DTE)
+        
+
+
+      })
       
       
       
@@ -175,10 +183,14 @@ server <- function(input, output, session) {
     
     iterationArray <- array(NA,  dim = c(3, length(futilityVec)+1, NRep))
     
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    
+    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
-        
-        treatmentSamplesDF <- data$treatmentSamplesDF
         
         #Compute treatment times
         HRStar <- sample(treatmentSamplesDF[,2], 1)
@@ -324,18 +336,35 @@ server <- function(input, output, session) {
       futilityDF
     }, digits = 3)
     
-    FinalAss <- mean(iterationArray[1, length(futilityVec)+1, ])
-    FinalDuration <- mean(iterationArray[2, length(futilityVec)+1, ])
-    FinalSS <- mean(iterationArray[3, length(futilityVec)+1, ])
-  
-    
-    FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-
-    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+   x <<- futilityDF
 
     output$finalAssTable <- renderTable({
+      
+      FinalAss <- mean(iterationArray[1, length(futilityVec)+1, ])
+      FinalDuration <- mean(iterationArray[2, length(futilityVec)+1, ])
+      FinalSS <- mean(iterationArray[3, length(futilityVec)+1, ])
+      
+      
+      FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+      
+      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+      
       FinalAss
     }, digits = 3)
+    
+    output$oneLookPlotDuration <- renderPlot({
+      
+      plot(futilityDF$Assurance, futilityDF$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration")
+      
+    })
+    
+    output$oneLookPlotSS <- renderPlot({
+      
+      plot(futilityDF$Assurance, futilityDF$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size")
+      
+    })
+    
+    
     
   })
   
@@ -355,27 +384,25 @@ server <- function(input, output, session) {
   })
   
   
-  
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 3
+    NRep <- 500
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
     
-    #print(TwoLooksCombined)
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    
+    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
     
     iterationArray <- array(NA,  dim = c(3, length(TwoLooksCombined)+1, NRep))
     
     dimnames(iterationArray) <- list(c("Power", "Duration", "Sample Size"), c(TwoLooksCombined, "Final"), 1:NRep)
     
-    #ass3D <- SS3d <- Duration3d <- array(0, dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    
-    treatmentSamplesDF <- data$treatmentSamplesDF
-    
+
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
-        
-        treatmentSamplesDF <- data$treatmentSamplesDF
         
         #Compute treatment times
         HRStar <- sample(treatmentSamplesDF[,2], 1)
@@ -408,82 +435,245 @@ server <- function(input, output, session) {
         incProgress(1/NRep)
       }
       
-      print(iterationArray)
+      PowerArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      DurationArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      SSArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      IATime1 <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      IATime2 <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      PercentStop <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      PercentStopLook1 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      PercentStopLook2 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
       
-      # Define a function to create the matrix
-      create_matrix <- function(data3D, row_names, col_names) {
-        mean_ij <- function(i, j) {
-          mean(data3D[i, j, ])
-        }
-        
-        # Create a matrix to store the means
-        matrix_means <- matrix(0, nrow = length(row_names), ncol = length(col_names))
-        
-        # Apply the mean_ij function to each combination of i and j
-        vector_means <- apply(expand.grid(i = 1:length(row_names), j = 1:length(col_names)), 1, function(idx) {
-          mean_ij(idx[1], idx[2])
-        })
-        
-        matrix_means[] <- vector_means
-        
-        colnames(matrix_means) <- col_names
-        rownames(matrix_means) <- row_names
-        
-        return(matrix_means)
+      
+
+      for (l in 1:NRep){
+        for(i in 1:length(TwoLooksSeq2)) {
+          for(j in 1:length(TwoLooksSeq1)) {
+            
+            if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+              Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+              Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+              FinalPower <- iterationArray[1, length(TwoLooksCombined)+1, l]
+              PowerArray[i,j, l] <- Look1Power*Look2Power*FinalPower
+              
+              #Sample size and duration logic
+              
+              if (Look1Power==0){
+                DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+                SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+              } else if (Look2Power==0){
+                DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+                SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+              } else {
+                DurationArray[i,j,l] <- iterationArray[2,length(TwoLooksCombined)+1, l]
+                SSArray[i,j,l] <- iterationArray[3,length(TwoLooksCombined)+1, l]
+              }
+              
+              #Interim analysis time logic
+              IATime1[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+              IATime2[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+              
+              #Percentage stop logic
+              if (Look1Power==0 || Look2Power==0){
+                PercentStop[i,j,l] <- 1
+              }
+              
+              if (Look1Power==0){
+                PercentStopLook1[i,j,l] <- 1
+              } else if (Look2Power==0){
+                PercentStopLook2[i,j,l] <- 1
+              }
+            } 
+            
+          }
+        } 
       }
       
-      # Create matrices
-      ass_matrix <- create_matrix(ass3D, TwoLooksSeq2, TwoLooksSeq1)
-      ss_matrix <- create_matrix(SS3d, TwoLooksSeq2, TwoLooksSeq1)
-      duration_matrix <- create_matrix(Duration3d, TwoLooksSeq2, TwoLooksSeq1)
       
+      PowerArray <- apply(PowerArray, c(1, 2), mean, na.rm = TRUE)
+      SSArray <- apply(SSArray, c(1, 2), mean, na.rm = TRUE)
+      DurationArray <- apply(DurationArray, c(1, 2), mean, na.rm = TRUE)
+      
+      x <<- PowerArray
+      y <<- DurationArray
       
       
       output$twoLooksAss <- renderTable({
-        ass_matrix <- round(ass_matrix, 3)
         
-        ass_matrix[upper.tri(ass_matrix)] <- ""
+        PowerArray <- round(PowerArray, 3)
         
-        ass_matrix
+        colnames(PowerArray) <- TwoLooksSeq1
+        rownames(PowerArray) <- TwoLooksSeq2
+        
+        PowerArray
       }, rownames = TRUE)
       
       
       output$twoLooksSS <- renderTable({
-        ss_matrix <- round(ss_matrix, 3)
         
-        ss_matrix[upper.tri(ss_matrix)] <- ""
         
-        ss_matrix
+        SSArray <- round(SSArray, 3)
+        
+        colnames(SSArray) <- TwoLooksSeq1
+        rownames(SSArray) <- TwoLooksSeq2
+        
+        SSArray
       }, rownames = T)
       
       output$twoLooksDuration <- renderTable({
         
-        duration_matrix <- round(duration_matrix, 3)
-        
-        duration_matrix[upper.tri(duration_matrix)] <- ""
         
         
-        duration_matrix
+        DurationArray <- round(DurationArray, 3)
+        
+        colnames(DurationArray) <- TwoLooksSeq1
+        rownames(DurationArray) <- TwoLooksSeq2
+        
+        DurationArray
       }, rownames = T)
+      
+      output$IATime1Table <- renderTable({
+        
+        IATime1 <- apply(IATime1, c(1, 2), mean, na.rm = TRUE)
+        
+        IATime1 <- round(IATime1, 3)
+        
+        colnames(IATime1) <- TwoLooksSeq1
+        rownames(IATime1) <- TwoLooksSeq2
+        
+        IATime1
+      }, rownames = T)
+      
+      output$IATime2Table <- renderTable({
+        
+        IATime2 <- apply(IATime2, c(1, 2), mean, na.rm = TRUE)
+        
+        IATime2 <- round(IATime2, 3)
+        
+        colnames(IATime2) <- TwoLooksSeq1
+        rownames(IATime2) <- TwoLooksSeq2
+        
+        IATime2
+      }, rownames = T)
+      
+      
+      output$PercentStopTable <- renderTable({
+        
+        PercentStop <- apply(PercentStop, c(1, 2), mean, na.rm = TRUE)
+        
+        PercentStop <- round(PercentStop, 3)
+        
+        colnames(PercentStop) <- TwoLooksSeq1
+        rownames(PercentStop) <- TwoLooksSeq2
+        
+        PercentStop
+        
+        
+      }, rownames = T)
+      
+      output$PercentStopLook1Table <- renderTable({
+        
+        PercentStopLook1 <- apply(PercentStopLook1, c(1, 2), mean, na.rm = TRUE)
+        
+        PercentStopLook1 <- round(PercentStopLook1, 3)
+        
+        colnames(PercentStopLook1) <- TwoLooksSeq1
+        rownames(PercentStopLook1) <- TwoLooksSeq2
+        
+        PercentStopLook1
+        
+        
+      }, rownames = T)
+      
+      output$PercentStopLook2Table <- renderTable({
+        
+        PercentStopLook2 <- apply(PercentStopLook2, c(1, 2), mean, na.rm = TRUE)
+        
+        PercentStopLook2 <- round(PercentStopLook2, 3)
+        
+        colnames(PercentStopLook2) <- TwoLooksSeq1
+        rownames(PercentStopLook2) <- TwoLooksSeq2
+        
+        PercentStopLook2
+        
+        
+      }, rownames = T)
+      
+      
+      
+      
+      output$finalAssTable2Looks <- renderTable({
+        
+        FinalAss <- mean(iterationArray[1, length(TwoLooksCombined)+1, ])
+        FinalDuration <- mean(iterationArray[2, length(TwoLooksCombined)+1, ])
+        FinalSS <- mean(iterationArray[3, length(TwoLooksCombined)+1, ])
+        
+        
+        FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+        
+        colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+        
+        FinalAss
+      }, digits = 3)
+      
+      output$twoLooksPlotDuration <- renderPlot({
+        
+        plot(PowerArray, DurationArray, xlab = "Assurance", ylab = "Duration", xlim = c(0,1))
+        
+      })
+      
+      output$twoLooksPlotSS <- renderPlot({
+        
+        plot(PowerArray, SSArray,  xlab = "Assurance", ylab = "Sample size", xlim = c(0,1))
+        
+      })
+        
       
     })
     
     
-    output$AssTable <- renderUI({
+    output$AssText <- renderUI({
       p(HTML("<b>Assurance table</b>"))
     })
     
-    output$SSTable <- renderUI({
+    output$SSText <- renderUI({
       p(HTML("<b>Sample size table</b>"))
     })
     
-    output$DurationTable <- renderUI({
+    output$DurationText <- renderUI({
       p(HTML("<b>Duration table</b>"))
     })
     
-    shinyjs::show("AssTable")
-    shinyjs::show("SSTable")
-    shinyjs::show("DurationTable")
+    output$IATime1Text <- renderUI({
+      p(HTML("<b>Interim Analysis 1 Time</b>"))
+    })
+    
+    output$IATime2Text <- renderUI({
+      p(HTML("<b>Interim Analysis 2 Time</b>"))
+    })
+    
+    output$PercentStopText <- renderUI({
+      p(HTML("<b>% stop (in total)</b>"))
+    })
+    
+    output$PercentStopLook1Text <- renderUI({
+      p(HTML("<b>% stop at Look 1</b>"))
+    })
+    
+    output$PercentStopLook2Text <- renderUI({
+      p(HTML("<b>% stop at Look 2</b>"))
+    })
+  
+    
+    shinyjs::show("AssText")
+    shinyjs::show("SSText")
+    shinyjs::show("DurationText")
+    shinyjs::show("IATime1Text")
+    shinyjs::show("IATime2Text")
+    shinyjs::show("PercentStopText")
+    shinyjs::show("PercentStopLook1Text")
+    shinyjs::show("PercentStopLook2Text")
     
     
     
