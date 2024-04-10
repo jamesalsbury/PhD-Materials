@@ -101,11 +101,13 @@ ui <- fluidPage(
                )
       ),
       
+      
       # Bayesian UI ---------------------------------
       
       tabPanel("Bayesian", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
+                   numericInput("IFBayesian", "Information Fraction", value = 0.5),
                    actionButton("calcFutilityBayesian", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -138,6 +140,7 @@ server <- function(input, output, session) {
       # Enable the action button when a file is selected
       shinyjs::enable("calcFutilityOneLook")
       shinyjs::enable("calcFutilityTwoLooks")
+      shinyjs::enable("calcFutilityBayesian")
 
        
       output$TDist <- renderPlot({
@@ -680,6 +683,60 @@ server <- function(input, output, session) {
     
   })
 
+  
+  # Bayesian Logic ---------------------------------
+  
+  
+  observeEvent(input$calcFutilityBayesian, {
+    NRep <- 1
+    
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    
+    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    
+    withProgress(message = 'Calculating', value = 0, {
+      for (i in 1:NRep){
+        
+        #Compute treatment times
+        HRStar <- sample(treatmentSamplesDF[,2], 1)
+        bigT <- sample(treatmentSamplesDF[,1], 1)
+        
+        #Simulate control and treatment data
+        dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
+        
+        #Perform futility look at different Information Fractions
+        finalDF <- CensFunc(dataCombined, input$numEvents)
+        test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+        coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+        deltad <- as.numeric(exp(coef(coxmodel)))
+        
+        #Censor at chosen IF
+        censoredDF <- CensFunc(dataCombined, input$numEvents*input$IFBayesian)
+        
+        print(censoredDF)
+        
+        # iterationArray[1, length(TwoLooksCombined)+1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        # iterationArray[2, length(TwoLooksCombined)+1, i] <- finalDF$censTime
+        # iterationArray[3, length(TwoLooksCombined)+1, i] <- finalDF$SS
+        
+        incProgress(1/NRep)
+      }
+      
+    })
+    
+    
+    
+    
+
+    
+    
+    
+    
+  })
+  
+  
 }
 
 # Run the Shiny app
