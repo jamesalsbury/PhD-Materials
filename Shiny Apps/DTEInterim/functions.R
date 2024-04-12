@@ -48,11 +48,14 @@ interimLookFunc <- function(dataCombined, observedHR){
   return(Outcome)
 }
 
-BPPFunc <- function(dataset, numEvents, recTime){
+BPPFunc <- function(dataset, numPatients, numIAEvents, numFinalEvents, recTime){
   
-  BPPOutcome <- CensFunc(dataset, numEvents)
+  BPPOutcome <- CensFunc(dataset, numIAEvents)
   
   dataCombined <- BPPOutcome$dataCombined
+  
+  dataCombined <- dataCombined[order(dataCombined$group), ]
+  
   
   
   #JAGS code which calculates posterior distributions
@@ -91,26 +94,25 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = dataCombi
                                                             datEvent = dataCombined$status, n = sum(dataCombined$group=="Control"), 
                                                             m=nrow(dataCombined)), quiet = T) 
 
-update(model, n.iter=100)
-output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 250)
+update(model, n.iter=100, progress.bar = "none")
+output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 250, progress.bar = "none")
 
-#plot(output)
 
 #The number of unenrolled patients in each group
-cPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Control") 
-tPatientsLeft <- paramsList$numPatients - sum(dataCombined$group=="Treatment") 
+cPatientsLeft <- numPatients - sum(dataCombined$group=="Control") 
+tPatientsLeft <- numPatients - sum(dataCombined$group=="Treatment") 
 
-BPPVec <- rep(NA, 200)
+#Extract realisations from the MCMC
+HRoutput <- as.numeric(unlist(output[,1]))
+bigToutput <- as.numeric(unlist(output[,2]))
+lambda2output <- as.numeric(unlist(output[,3]))
 
-for (j in 1:200){
+BPPVec <- rep(NA, 20)
+
+for (j in 1:20){
   
   #Sampling the recruitment times for the unenrolled patients
   unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, BPPOutcome$censTime, recTime)
-  
-  #Extract realisations from the MCMC
-  HRoutput <- as.numeric(unlist(output[,1]))
-  bigToutput <- as.numeric(unlist(output[,2]))
-  lambda2output <- as.numeric(unlist(output[,3]))
   
   #Sample values from the MCMC output
   sampledHR <- sample(HRoutput, 1)
@@ -126,7 +128,7 @@ for (j in 1:200){
   unenrolledData <- data.frame(time = c(rexp(cPatientsLeft, rate = sampledlambda2), ifelse(u>CP, (-log(u))/sampledlambda2, (1/sampledlambda1)*(sampledbigT*sampledlambda1-log(u)-sampledbigT*sampledlambda2))), group = c(rep("Control", cPatientsLeft),
                                                                                                                                                                                                                           rep("Treatment", tPatientsLeft)), recTime = unenrolledRecTimes)
   
-  unenrolledData$pseudo_time <- unenrolledData$time + unenrolledData$recTime
+  unenrolledData$pseudoTime <- unenrolledData$time + unenrolledData$recTime
   
   
   #Extracting the observations that were censored at the IA  
@@ -179,16 +181,16 @@ for (j in 1:200){
   tAfterDelay$IApsuedoTime <- tAfterDelay$IASurv + tAfterDelay$recTime
   
   #Only keeping the columns of interest
-  cCensoredData <- cCensoredData[,c(2:3, 7:8)]
-  tBeforeDelay1 <- tBeforeDelay1[,c(2:3, 7:8)]
-  tBeforeDelay2 <- tBeforeDelay2[,c(2:3, 8:9)]
-  tAfterDelay <- tAfterDelay[,c(2:3, 7:8)]
+  cCensoredData <- cCensoredData[,c(8, 2, 3, 9)]
+  tBeforeDelay1 <- tBeforeDelay1[,c(8, 2, 3, 9)]
+  tBeforeDelay2 <- tBeforeDelay2[,c(9, 2, 3, 10)]
+  tAfterDelay <- tAfterDelay[,c(8, 2, 3, 9)]
   
   #Keeping the column names consistent
-  colnames(cCensoredData) <- c("group", "recTime", "time", "pseudo_time")
-  colnames(tBeforeDelay1) <- c("group", "recTime", "time", "pseudo_time")
-  colnames(tBeforeDelay2) <- c("group", "recTime", "time", "pseudo_time")
-  colnames(tAfterDelay) <- c("group", "recTime", "time", "pseudo_time")
+  colnames(cCensoredData) <- c("time", "group", "recTime", "pseudoTime")
+  colnames(tBeforeDelay1) <- c("time", "group", "recTime", "pseudoTime")
+  colnames(tBeforeDelay2) <- c("time", "group", "recTime", "pseudoTime")
+  colnames(tAfterDelay) <- c("time", "group", "recTime", "pseudoTime")
   
   #Only keeping observations from the censored data set which are dead
   finalDataset <- dataCombined %>%
@@ -204,12 +206,12 @@ for (j in 1:200){
   finalDataset <- rbind(finalDataset, cCensoredData)
   
   #Making sure the final data set is correct
-  censTime1 <- sort(finalDataset$pseudo_time)[paramsList$numEventsRequired]
-  finalDataset$status <- finalDataset$pseudo_time <= censTime1
+  censTime1 <- sort(finalDataset$pseudoTime)[numFinalEvents]
+  finalDataset$status <- finalDataset$pseudoTime <= censTime1
   finalDataset$status <- finalDataset$status*1
   finalDataset$enrolled <- finalDataset$recTime <= censTime1
   finalDataset <-  finalDataset[finalDataset$enrolled==T,]
-  finalDataset$survival_time <- ifelse(finalDataset$pseudo_time>censTime1, censTime1  - finalDataset$recTime, finalDataset$time)
+  finalDataset$survival_time <- ifelse(finalDataset$pseudoTime>censTime1, censTime1  - finalDataset$recTime, finalDataset$time)
   
   #Testing for significance
   test <- survdiff(Surv(survival_time, status)~group, data = finalDataset)

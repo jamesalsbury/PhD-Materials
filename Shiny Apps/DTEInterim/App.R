@@ -3,6 +3,7 @@ library(shinyjs)
 library(ggplot2)
 library(survival)
 library(dplyr)
+library(rjags)
 
 source("functions.R")
 
@@ -111,7 +112,7 @@ ui <- fluidPage(
                    actionButton("calcFutilityBayesian", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
-                   tableOutput("BayesianAss"),
+                   plotOutput("BayesianPlot"),
                    tableOutput("BayesianSS"),
                    tableOutput("BayesianDuration")
                    
@@ -688,13 +689,15 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityBayesian, {
-    NRep <- 1
+    NRep <- 10
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
     treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    
+    BPPVec <- rep(NA, NRep)
     
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
@@ -713,13 +716,22 @@ server <- function(input, output, session) {
         deltad <- as.numeric(exp(coef(coxmodel)))
         
         #Censor at chosen IF
-        censoredDF <- CensFunc(dataCombined, input$numEvents*input$IFBayesian)
+        #censoredDF <- CensFunc(dataCombined, input$numEvents*input$IFBayesian)
         
-        print(censoredDF)
+       # print(censoredDF)
         
         # iterationArray[1, length(TwoLooksCombined)+1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
         # iterationArray[2, length(TwoLooksCombined)+1, i] <- finalDF$censTime
         # iterationArray[3, length(TwoLooksCombined)+1, i] <- finalDF$SS
+        
+        #y <<- dataCombined
+        
+        
+        BPPOutcome <- BPPFunc(dataCombined, input$numPatients, input$numEvents*input$IFBayesian, input$numEvents, input$recTime)
+        
+        BPPVec[i] <- BPPOutcome$BPP
+          
+        #print(x)
         
         incProgress(1/NRep)
       }
@@ -729,7 +741,21 @@ server <- function(input, output, session) {
     
     
     
-
+    output$BayesianPlot <- renderPlot({
+      
+      BPPDF <- data.frame(BPPVec = BPPVec)
+      print("yes")
+      print(BPPVec)
+      
+      p <- ggplot(BPPDF, aes(x = BPPVec)) +
+        geom_histogram(binwidth = 0.5, fill = "skyblue", color = "black", aes(y = after_stat(density))) +
+        geom_density(alpha = 0.2, fill = "orange") +
+        labs(title = "Histogram of Sample Data", x = "Values", y = "Density") +
+        theme_minimal()
+      
+      p
+      
+    })
     
     
     
