@@ -94,8 +94,8 @@ model = jags.model(textConnection(modelstring), data = list(datTimes = dataCombi
                                                             datEvent = dataCombined$status, n = sum(dataCombined$group=="Control"), 
                                                             m=nrow(dataCombined)), quiet = T) 
 
-update(model, n.iter=100, progress.bar = "none")
-output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 250, progress.bar = "none")
+update(model, n.iter=50, progress.bar = "none")
+output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 150, progress.bar = "none")
 
 
 #The number of unenrolled patients in each group
@@ -107,9 +107,9 @@ HRoutput <- as.numeric(unlist(output[,1]))
 bigToutput <- as.numeric(unlist(output[,2]))
 lambda2output <- as.numeric(unlist(output[,3]))
 
-BPPVec <- rep(NA, 20)
+BPPVec <- rep(NA, 50)
 
-for (j in 1:20){
+for (j in 1:50){
   
   #Sampling the recruitment times for the unenrolled patients
   unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, BPPOutcome$censTime, recTime)
