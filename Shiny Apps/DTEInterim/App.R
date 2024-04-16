@@ -4,6 +4,10 @@ library(ggplot2)
 library(survival)
 library(dplyr)
 library(rjags)
+library(magrittr)
+library(future.apply)
+library(doParallel)
+library(foreach)
 
 source("functions.R")
 
@@ -688,58 +692,62 @@ server <- function(input, output, session) {
   # Bayesian Logic ---------------------------------
   
   
+  # Set up parallel processing
+  cl <- makeCluster(detectCores())  # Use all available cores
+  registerDoParallel(cl)
+  
   observeEvent(input$calcFutilityBayesian, {
     NRep <- 100
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
+    # Extract required input values
+    numPatients <- input$numPatients
+    lambdac <- input$lambdac
+    recTime <- input$recTime
+    numEvents <- input$numEvents
+    IFBayesian <- input$IFBayesian
+    
     treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
     
-    BPPVec <- rep(NA, NRep)
-    
-    withProgress(message = 'Calculating', value = 0, {
-      for (i in 1:NRep){
-        
-        #Compute treatment times
-        HRStar <- sample(treatmentSamplesDF[,2], 1)
-        bigT <- sample(treatmentSamplesDF[,1], 1)
-        
-        #Simulate control and treatment data
-        dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
-        
-        #Perform futility look at different Information Fractions
-        finalDF <- CensFunc(dataCombined, input$numEvents)
-        test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
-        coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
-        deltad <- as.numeric(exp(coef(coxmodel)))
-      
-        
-        
-        BPPOutcome <- BPPFunc(dataCombined, input$numPatients, input$numEvents*input$IFBayesian, input$numEvents, input$recTime)
-        
-        BPPVec[i] <- BPPOutcome$BPP
-          
+    BPPVec <- foreach(i = 1:NRep, .combine = c, .export = c("SimDTEDataSet", "CensFunc", "BPPFunc")) %dopar% {
+     library(survival)
+      library(rjags)
+      library(dplyr)
 
-        incProgress(1/NRep)
-      }
+      # Compute treatment times
+      HRStar <- sample(treatmentSamplesDF[,2], 1)
+      bigT <- sample(treatmentSamplesDF[,1], 1)
       
-    })
+      # Simulate control and treatment data
+      dataCombined <- SimDTEDataSet(numPatients, lambdac, bigT, HRStar, recTime)  
+      
+      # Perform futility look at different Information Fractions
+      finalDF <- CensFunc(dataCombined, numEvents)
+      
+      test <- survdiff(Surv(survival_time, status) ~ group, data = finalDF$dataCombined)
+      coxmodel <- coxph(Surv(survival_time, status) ~ group, data = finalDF$dataCombined)
+      deltad <- as.numeric(exp(coef(coxmodel)))
+      
+      BPPOutcome <- BPPFunc(dataCombined, numPatients, numEvents * IFBayesian, numEvents, recTime)
+      
+      # Print progress message
+      #cat("Iteration", i, "completed.\n")
+      
+      return(BPPOutcome$BPP)
+    }
     
-    
-    
+    stopCluster(cl)  # Stop the cluster
     
     output$BayesianPlot <- renderPlot({
-      
-      
       hist(BPPVec, xlab = "Bayesian Predictive Probability", freq = F)
     })
-    
-    
-    
-    
   })
+  
+  
+  
   
   
 }
