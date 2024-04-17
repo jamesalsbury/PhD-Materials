@@ -8,6 +8,11 @@ library(magrittr)
 library(future.apply)
 library(doParallel)
 library(foreach)
+library(shiny)
+library(future)
+library(promises)
+library(ipc)
+
 
 source("functions.R")
 
@@ -239,7 +244,7 @@ server <- function(input, output, session) {
     iaTimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
     stopDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
     falselyStop <- rep(NA, length(futilityVec))
-    correctlystop <- rep(NA, length(futilityVec))
+    correctlyStop <- rep(NA, length(futilityVec))
     falselyContinue <- rep(NA, length(futilityVec))
     correctlyContinue <- rep(NA, length(futilityVec))
     
@@ -279,12 +284,12 @@ server <- function(input, output, session) {
       indices <- which(iterationArray[1, k, ] == 0)
       selected_layers <- iterationArray[,,indices]
       if (length(dim(selected_layers))==2){
-        correctlystop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1])
+        correctlyStop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1])
       } else {
         if (dim(selected_layers)[3]==0){
-          correctlystop[k] <- NA
+          correctlyStop[k] <- NA
         } else{
-          correctlystop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1, ])
+          correctlyStop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1, ])
         }
       }
     }
@@ -329,11 +334,17 @@ server <- function(input, output, session) {
                              Assurance = colMeans(powerDF),
                              Stop = 1-colMeans(stopDF),
                              falselyStop = falselyStop,
-                             correctlyStop = correctlystop,
+                             correctlyStop = correctlyStop,
                              falselyContinue = falselyContinue,
                              correctlyContinue = correctlyContinue,
                              Duration = colMeans(durationDF),
                              SS = colMeans(ssDF))
+    
+    sens <- correctlyContinue/(correctlyContinue+falselyContinue)
+    spec <- correctlyStop/(correctlyStop+falselyStop)
+    
+    print(sens)
+    print(spec)
     
     colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop",
                               "Falsely Stop", "Correctly Stop", "Falsely Continue", "Correctly Continue",
@@ -344,8 +355,6 @@ server <- function(input, output, session) {
       futilityDF
     }, digits = 3)
     
-   x <<- futilityDF
-
     output$finalAssTable <- renderTable({
       
       FinalAss <- mean(iterationArray[1, length(futilityVec)+1, ])
@@ -393,7 +402,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 500
+    NRep <- 5
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
@@ -451,6 +460,7 @@ server <- function(input, output, session) {
       PercentStop <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
       PercentStopLook1 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
       PercentStopLook2 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      falselyStopLook1 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
       FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
       
       
@@ -499,12 +509,30 @@ server <- function(input, output, session) {
       }
       
       
+      print(iterationArray)
+      
+      # #Calculating falsely stopping
+      # for (k in 1:length(futilityVec)){
+      #   indices <- which(iterationArray[1, k, ] == 0)
+      #   selected_layers <- iterationArray[,,indices]
+      #   if (length(dim(selected_layers))==2){
+      #     falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1])
+      #   } else {
+      #     if (dim(selected_layers)[3]==0){
+      #       falselyStop[k] <- NA
+      #     } else{
+      #       falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1, ])
+      #     }
+      #   }
+      # }
+      
+      
       PowerArray <- apply(PowerArray, c(1, 2), mean, na.rm = TRUE)
       SSArray <- apply(SSArray, c(1, 2), mean, na.rm = TRUE)
       DurationArray <- apply(DurationArray, c(1, 2), mean, na.rm = TRUE)
       
-      x <<- PowerArray
-      y <<- DurationArray
+      # x <<- PowerArray
+      # y <<- DurationArray
       
       
       output$twoLooksAss <- renderTable({
@@ -692,12 +720,14 @@ server <- function(input, output, session) {
   # Bayesian Logic ---------------------------------
   
   
-  # Set up parallel processing
-  cl <- makeCluster(detectCores())  # Use all available cores
+  #Parallel: # Set up parallel processing
+    cl <- makeCluster(detectCores())  # Use all available cores
   registerDoParallel(cl)
   
+  #print(cl)
+  
   observeEvent(input$calcFutilityBayesian, {
-    NRep <- 100
+    NRep <- 50
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -713,10 +743,10 @@ server <- function(input, output, session) {
                                               cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
     
     BPPVec <- foreach(i = 1:NRep, .combine = c, .export = c("SimDTEDataSet", "CensFunc", "BPPFunc")) %dopar% {
-     library(survival)
+      library(survival)
       library(rjags)
       library(dplyr)
-
+      
       # Compute treatment times
       HRStar <- sample(treatmentSamplesDF[,2], 1)
       bigT <- sample(treatmentSamplesDF[,1], 1)
