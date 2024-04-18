@@ -103,6 +103,14 @@ ui <- fluidPage(
                    tableOutput("PercentStopLook1Table"),
                    hidden(uiOutput("PercentStopLook2Text")),
                    tableOutput("PercentStopLook2Table"),
+                   hidden(uiOutput("falselyStopLook1Text")),
+                   tableOutput("falselyStopLook1Table"),
+                   hidden(uiOutput("correctlyStopLook1Text")),
+                   tableOutput("correctlyStopLook1Table"),
+                   hidden(uiOutput("falselyContinueLook1Text")),
+                   tableOutput("falselyContinueLook1Table"),
+                   hidden(uiOutput("correctlyContinueLook1Text")),
+                   tableOutput("correctlyContinueLook1Table"),
                    tableOutput("finalAssTable2Looks"),
                    plotOutput("twoLooksPlotDuration"),
                    plotOutput("twoLooksPlotSS")
@@ -191,7 +199,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$calcFutilityOneLook, {
-    NRep <- 500
+    NRep <- 50
     futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
     iterationArray <- array(NA,  dim = c(3, length(futilityVec)+1, NRep))
@@ -402,7 +410,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 5
+    NRep <- 500
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
@@ -460,7 +468,10 @@ server <- function(input, output, session) {
       PercentStop <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
       PercentStopLook1 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
       PercentStopLook2 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      falselyStopLook1 <- array(0,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
+      falselyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+      correctlyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+      falselyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+      correctlyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
       FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
       
       
@@ -508,32 +519,91 @@ server <- function(input, output, session) {
         } 
       }
       
+    
       
-      print(iterationArray)
+      #Calculating falsely stopping at Look 1
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            selected_layers <- iterationArray[,,Look1Power==0]
+            if (length(dim(selected_layers))==2){
+              falselyStopLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                falselyStopLook1[i,j] <- NA
+              } else{
+                falselyStopLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
       
-      # #Calculating falsely stopping
-      # for (k in 1:length(futilityVec)){
-      #   indices <- which(iterationArray[1, k, ] == 0)
-      #   selected_layers <- iterationArray[,,indices]
-      #   if (length(dim(selected_layers))==2){
-      #     falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1])
-      #   } else {
-      #     if (dim(selected_layers)[3]==0){
-      #       falselyStop[k] <- NA
-      #     } else{
-      #       falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1, ])
-      #     }
-      #   }
-      # }
+      #Calculating correctly stopping at Look 1
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            selected_layers <- iterationArray[,,Look1Power==0]
+            if (length(dim(selected_layers))==2){
+              correctlyStopLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                correctlyStopLook1[i,j] <- NA
+              } else{
+                correctlyStopLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
+      
+      #Calculating falsely continuing at Look 1
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            selected_layers <- iterationArray[,,Look1Power==1]
+            if (length(dim(selected_layers))==2){
+              falselyContinueLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                falselyContinueLook1[i,j] <- NA
+              } else{
+                falselyContinueLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
+      
+      #Calculating correctly continuing at Look 1
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            selected_layers <- iterationArray[,,Look1Power==1]
+            if (length(dim(selected_layers))==2){
+              correctlyContinueLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                correctlyContinueLook1[i,j] <- NA
+              } else{
+                correctlyContinueLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
+      
+      
+      
       
       
       PowerArray <- apply(PowerArray, c(1, 2), mean, na.rm = TRUE)
       SSArray <- apply(SSArray, c(1, 2), mean, na.rm = TRUE)
       DurationArray <- apply(DurationArray, c(1, 2), mean, na.rm = TRUE)
-      
-      # x <<- PowerArray
-      # y <<- DurationArray
-      
       
       output$twoLooksAss <- renderTable({
         
@@ -637,6 +707,34 @@ server <- function(input, output, session) {
       }, rownames = T)
       
       
+      output$falselyStopLook1Table <- renderTable({
+        
+        falselyStopLook1
+        
+        
+      }, rownames = T)
+      
+      output$correctlyStopLook1Table <- renderTable({
+        
+        correctlyStopLook1
+        
+        
+      }, rownames = T)
+      
+      output$falselyContinueLook1Table <- renderTable({
+        
+        falselyContinueLook1
+        
+        
+      }, rownames = T)
+      
+      output$correctlyContinueLook1Table <- renderTable({
+        
+        correctlyContinueLook1
+        
+        
+      }, rownames = T)
+      
       
       
       output$finalAssTable2Looks <- renderTable({
@@ -700,6 +798,22 @@ server <- function(input, output, session) {
     output$PercentStopLook2Text <- renderUI({
       p(HTML("<b>% stop at Look 2</b>"))
     })
+    
+    output$falselyStopLook1Text <- renderUI({
+      p(HTML("<b>% falsely stop at Look 1</b>"))
+    })
+    
+    output$correctlyStopLook1Text <- renderUI({
+      p(HTML("<b>% correctly stop at Look 1</b>"))
+    })
+    
+    output$falselyContinueLook1Text <- renderUI({
+      p(HTML("<b>% falsely continue at Look 1</b>"))
+    })
+    
+    output$correctlyContinueLook1Text <- renderUI({
+      p(HTML("<b>% correctly continue at Look 1</b>"))
+    })
   
     
     shinyjs::show("AssText")
@@ -710,6 +824,12 @@ server <- function(input, output, session) {
     shinyjs::show("PercentStopText")
     shinyjs::show("PercentStopLook1Text")
     shinyjs::show("PercentStopLook2Text")
+    shinyjs::show("falselyStopLook1Text")
+    shinyjs::show("correctlyStopLook1Text")
+    shinyjs::show("falselyContinueLook1Text")
+    shinyjs::show("correctlyContinueLook1Text")
+    
+    
     
     
     
