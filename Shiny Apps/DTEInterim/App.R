@@ -1,17 +1,16 @@
 library(shiny)
 library(shinyjs)
-library(ggplot2)
-library(survival)
-library(dplyr)
-library(rjags)
-library(magrittr)
-library(future.apply)
+ library(survival)
 library(doParallel)
-library(foreach)
-library(shiny)
-library(future)
-library(promises)
-library(ipc)
+# library(ggplot2)
+# library(dplyr)
+# library(rjags)
+# library(magrittr)
+# library(future.apply)
+#library(foreach)
+# library(future)
+# library(promises)
+# library(ipc)
 
 
 source("functions.R")
@@ -111,6 +110,14 @@ ui <- fluidPage(
                    tableOutput("falselyContinueLook1Table"),
                    hidden(uiOutput("correctlyContinueLook1Text")),
                    tableOutput("correctlyContinueLook1Table"),
+                   hidden(uiOutput("falselyStopLook2Text")),
+                   tableOutput("falselyStopLook2Table"),
+                   hidden(uiOutput("correctlyStopLook2Text")),
+                   tableOutput("correctlyStopLook2Table"),
+                   hidden(uiOutput("falselyContinueLook2Text")),
+                   tableOutput("falselyContinueLook2Table"),
+                   hidden(uiOutput("correctlyContinueLook2Text")),
+                   tableOutput("correctlyContinueLook2Table"),
                    tableOutput("finalAssTable2Looks"),
                    plotOutput("twoLooksPlotDuration"),
                    plotOutput("twoLooksPlotSS")
@@ -814,7 +821,22 @@ server <- function(input, output, session) {
     output$correctlyContinueLook1Text <- renderUI({
       p(HTML("<b>% correctly continue at Look 1</b>"))
     })
-  
+    
+    output$falselyStopLook2Text <- renderUI({
+      p(HTML("<b>% falsely stop at Look 1</b>"))
+    })
+    
+    output$correctlyStopLook2Text <- renderUI({
+      p(HTML("<b>% correctly stop at Look 1</b>"))
+    })
+    
+    output$falselyContinueLook2Text <- renderUI({
+      p(HTML("<b>% falsely continue at Look 1</b>"))
+    })
+    
+    output$correctlyContinueLook2Text <- renderUI({
+      p(HTML("<b>% correctly continue at Look 1</b>"))
+    })
     
     shinyjs::show("AssText")
     shinyjs::show("SSText")
@@ -828,6 +850,10 @@ server <- function(input, output, session) {
     shinyjs::show("correctlyStopLook1Text")
     shinyjs::show("falselyContinueLook1Text")
     shinyjs::show("correctlyContinueLook1Text")
+    shinyjs::show("falselyStopLook2Text")
+    shinyjs::show("correctlyStopLook2Text")
+    shinyjs::show("falselyContinueLook2Text")
+    shinyjs::show("correctlyContinueLook2Text")
     
     
     
@@ -862,10 +888,8 @@ server <- function(input, output, session) {
     treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
     
-    BPPVec <- foreach(i = 1:NRep, .combine = c, .export = c("SimDTEDataSet", "CensFunc", "BPPFunc")) %dopar% {
-      library(survival)
-      library(rjags)
-      library(dplyr)
+    BPPVec <- foreach(i = 1:NRep, .combine = c, .export = c("SimDTEDataSet", "CensFunc", "BPPFunc"),
+                      .packages = c("survival", "rjags", "dplyr")) %dopar% {
       
       # Compute treatment times
       HRStar <- sample(treatmentSamplesDF[,2], 1)
