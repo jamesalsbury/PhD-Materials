@@ -428,11 +428,35 @@ server <- function(input, output, session) {
   })
   
   
+  # observe({
+  #   # Get the value from the textbox
+  #   TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+  #   TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+  #   
+  #   if ()
+  #   # Check if the value meets your condition
+  #   if (!is.na(text_value) && text_value > 10) {
+  #     # Disable the button if the condition is met
+  #     shinyjs::disable("button")
+  #   } else {
+  #     # Enable the button if the condition is not met
+  #     shinyjs::enable("button")
+  #   }
+  # })
+  
+  
   observeEvent(input$calcFutilityTwoLooks, {
     NRep <- 5
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+    
+    print(TwoLooksSeq1)
+    print(TwoLooksSeq2)
+    
+    
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
+    
+    print(TwoLooksCombined)
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
