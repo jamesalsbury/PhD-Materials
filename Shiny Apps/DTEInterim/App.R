@@ -84,6 +84,7 @@ ui <- fluidPage(
                    numericInput("TwoLooksHR2", "Stop if observed HR > ", value = 1)),
                    textOutput("TwoLooksText1"),
                    textOutput("TwoLooksText2"),
+                   hidden(textOutput("twoLooksErrorMessage")),
                    actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -165,7 +166,7 @@ server <- function(input, output, session) {
 
       # Enable the action button when a file is selected
       shinyjs::enable("calcFutilityOneLook")
-      shinyjs::enable("calcFutilityTwoLooks")
+      #shinyjs::enable("calcFutilityTwoLooks")
       shinyjs::enable("calcFutilityBayesian")
 
        
@@ -428,21 +429,51 @@ server <- function(input, output, session) {
   })
   
   
-  # observe({
-  #   # Get the value from the textbox
-  #   TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
-  #   TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
-  #   
-  #   if ()
-  #   # Check if the value meets your condition
-  #   if (!is.na(text_value) && text_value > 10) {
-  #     # Disable the button if the condition is met
-  #     shinyjs::disable("button")
-  #   } else {
-  #     # Enable the button if the condition is not met
-  #     shinyjs::enable("button")
-  #   }
-  # })
+  observe({
+    # Get the value from the textbox
+    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+
+    errorMessage <- NULL
+    
+    if (TwoLooksSeq1[1] > TwoLooksSeq2[1]){
+      print("yes1")
+      errorMessage <- "Your first interim analysis needs to be IA1"
+    }
+    
+    if (TwoLooksSeq1[length(TwoLooksSeq1)] > TwoLooksSeq2[length(TwoLooksSeq2)]){
+      print("yes2")
+      if(is.null(errorMessage)){
+        errorMessage <- "Your last interim analysis needs to be IA2"
+      } else {
+        errorMessage <- "Your first interim analysis needs to be IA1 AND your last interim analysis needs to be IA2"
+      }
+      
+    }
+    
+    if (!is.null(errorMessage)){
+      shinyjs::show("twoLooksErrorMessage")
+      output$twoLooksErrorMessage <- renderText({
+        errorMessage
+      })
+      if (!is.null(file)) {
+    } else{
+      shinyjs::hide("twoLooksErrorMessage")
+    }
+    
+
+   })
+  
+  
+    # Read the uploaded file into treatmentSamplesDF
+    data$treatmentSamplesDF <-  readRDS(inFile$datapath)
+    
+    # Enable the action button when a file is selected
+    shinyjs::enable("calcFutilityOneLook")
+    #shinyjs::enable("calcFutilityTwoLooks")
+  
+  
+  
   
   
   observeEvent(input$calcFutilityTwoLooks, {
