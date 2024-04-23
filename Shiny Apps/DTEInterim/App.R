@@ -17,6 +17,15 @@ source("functions.R")
 
 # UI definition
 ui <- fluidPage(
+  
+  tags$style(HTML("
+    .error-message {
+      color: red;
+      display: none;
+    }
+  ")),
+  
+  
   withMathJax(),
   shinyjs::useShinyjs(),
   
@@ -84,7 +93,7 @@ ui <- fluidPage(
                    numericInput("TwoLooksHR2", "Stop if observed HR > ", value = 1)),
                    textOutput("TwoLooksText1"),
                    textOutput("TwoLooksText2"),
-                   hidden(textOutput("twoLooksErrorMessage")),
+                   div(id = "twoLooksErrorMessage", class = "error-message", textOutput("twoLooksErrorMessage")),
                    actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -120,7 +129,18 @@ ui <- fluidPage(
                    tableOutput("falselyContinueLook2Table"),
                    hidden(uiOutput("correctlyContinueLook2Text")),
                    tableOutput("correctlyContinueLook2Table"),
+                   hidden(uiOutput("falselyStopTotalText")),
+                   tableOutput("falselyStopTotalTable"),
+                   hidden(uiOutput("correctlyStopTotalText")),
+                   tableOutput("correctlyStopTotalTable"),
+                   hidden(uiOutput("falselyContinueTotalText")),
+                   tableOutput("falselyContinueTotalTable"),
+                   hidden(uiOutput("correctlyContinueTotalText")),
+                   tableOutput("correctlyContinueTotalTable"),
                    tableOutput("finalAssTable2Looks"),
+                   plotOutput("rocCurveTwoLooks1"),
+                   plotOutput("rocCurveTwoLooks2"),
+                   plotOutput("rocCurveTwoLooksTotal"),
                    plotOutput("twoLooksPlotDuration"),
                    plotOutput("twoLooksPlotSS")
                    
@@ -160,14 +180,14 @@ server <- function(input, output, session) {
   
   observeEvent(input$samplesFile, {
     inFile  <- input$samplesFile
-    if (!is.null(file)) {
+    if (!is.null(inFile)) {
       # Read the uploaded file into treatmentSamplesDF
       data$treatmentSamplesDF <-  readRDS(inFile$datapath)
 
       # Enable the action button when a file is selected
-      shinyjs::enable("calcFutilityOneLook")
-      #shinyjs::enable("calcFutilityTwoLooks")
-      shinyjs::enable("calcFutilityBayesian")
+      # shinyjs::enable("calcFutilityOneLook")
+      # shinyjs::enable("calcFutilityTwoLooks")
+      # shinyjs::enable("calcFutilityBayesian")
 
        
       output$TDist <- renderPlot({
@@ -430,60 +450,60 @@ server <- function(input, output, session) {
   
   
   observe({
-    # Get the value from the textbox
-    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
-    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
-
-    errorMessage <- NULL
-    
-    if (TwoLooksSeq1[1] > TwoLooksSeq2[1]){
-      print("yes1")
-      errorMessage <- "Your first interim analysis needs to be IA1"
+    if (is.null(data$treatmentSamplesDF)) {
+      updateActionButton(session, "calcFutilityTwoLooks", disabled = TRUE)
+    } else {
+      updateActionButton(session, "calcFutilityTwoLooks", disabled = FALSE)
     }
+  })
+  
+  
+  observe({
     
-    if (TwoLooksSeq1[length(TwoLooksSeq1)] > TwoLooksSeq2[length(TwoLooksSeq2)]){
-      print("yes2")
-      if(is.null(errorMessage)){
-        errorMessage <- "Your last interim analysis needs to be IA2"
-      } else {
-        errorMessage <- "Your first interim analysis needs to be IA1 AND your last interim analysis needs to be IA2"
+   # Get the value from the textbox
+      TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+      TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+
+      errorMessage <- NULL
+
+      if (TwoLooksSeq1[1] >= TwoLooksSeq2[1]){
+        errorMessage <- "Your first interim analysis needs to be IA1"
       }
-      
-    }
-    
-    if (!is.null(errorMessage)){
-      shinyjs::show("twoLooksErrorMessage")
-      output$twoLooksErrorMessage <- renderText({
-        errorMessage
-      })
-      if (!is.null(file)) {
-    } else{
-      shinyjs::hide("twoLooksErrorMessage")
-    }
-    
 
-   })
-  
-  
-    # Read the uploaded file into treatmentSamplesDF
-    data$treatmentSamplesDF <-  readRDS(inFile$datapath)
+      if (TwoLooksSeq1[length(TwoLooksSeq1)] >= TwoLooksSeq2[length(TwoLooksSeq2)]){
+        if(is.null(errorMessage)){
+          errorMessage <- "Your last interim analysis needs to be IA2"
+        } else {
+          errorMessage <- "Your first interim analysis needs to be IA1 AND your last interim analysis needs to be IA2"
+        }
+
+      }
     
-    # Enable the action button when a file is selected
-    shinyjs::enable("calcFutilityOneLook")
-    #shinyjs::enable("calcFutilityTwoLooks")
+    
+      if (!is.null(errorMessage)){
+        shinyjs::show("twoLooksErrorMessage")
+        output$twoLooksErrorMessage <- renderText({
+            errorMessage
+        })
+        updateActionButton(session, "calcFutilityTwoLooks", disabled = TRUE)
+      } else {
+        shinyjs::hide("twoLooksErrorMessage")
+        if (!is.null(data$treatmentSamplesDF)){
+          updateActionButton(session, "calcFutilityTwoLooks", disabled = F)
+          
+        }
+        
+      }
+    
+  })
   
-  
-  
+
   
   
   observeEvent(input$calcFutilityTwoLooks, {
     NRep <- 5
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
-    
-    print(TwoLooksSeq1)
-    print(TwoLooksSeq2)
-    
     
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
     
@@ -552,8 +572,11 @@ server <- function(input, output, session) {
       correctlyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
       falselyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
       correctlyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+      falselyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+      correctlyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+      falselyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+      correctlyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
       FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
-      
       
 
       for (l in 1:NRep){
@@ -769,6 +792,85 @@ server <- function(input, output, session) {
         }
       }
       
+      #Calculating falsely stopping at all
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+            selected_layers <- iterationArray[,,Look1Power==0|Look2Power==0]
+            if (length(dim(selected_layers))==2){
+              falselyStopTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                falselyStopTotal[i,j] <- NA
+              } else{
+                falselyStopTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
+      
+      #Calculating correctly stopping at all
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+            selected_layers <- iterationArray[,,Look1Power==0|Look2Power==0]
+            if (length(dim(selected_layers))==2){
+              correctlyStopTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                correctlyStopTotal[i,j] <- NA
+              } else{
+                correctlyStopTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
+      
+      #Calculating falsely continuing at all
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+            selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
+            if (length(dim(selected_layers))==2){
+              falselyContinueTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                falselyContinueTotal[i,j] <- NA
+              } else{
+                falselyContinueTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
+      
+      #Calculating correctly continuing at Look 2
+      for(i in 1:length(TwoLooksSeq2)) {
+        for(j in 1:length(TwoLooksSeq1)) {
+          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+            Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+            selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
+            if (length(dim(selected_layers))==2){
+              correctlyContinueTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+            } else {
+              if (dim(selected_layers)[3]==0){
+                correctlyContinueTotal[i,j] <- NA
+              } else{
+                correctlyContinueTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+              }
+            }
+          } 
+        }
+      }
       
       
       
@@ -959,6 +1061,46 @@ server <- function(input, output, session) {
         
       }, rownames = T)
       
+      output$falselyStopTotalTable <- renderTable({
+        
+        colnames(falselyStopTotal) <- TwoLooksSeq1
+        rownames(falselyStopTotal) <- TwoLooksSeq2
+        
+        falselyStopTotal
+        
+        
+      }, rownames = T)
+      
+      output$correctlyStopTotalTable <- renderTable({
+        
+        colnames(correctlyStopTotal) <- TwoLooksSeq1
+        rownames(correctlyStopTotal) <- TwoLooksSeq2
+        
+        correctlyStopTotal
+        
+        
+      }, rownames = T)
+      
+      output$falselyContinueTotalTable <- renderTable({
+        
+        colnames(falselyContinueTotal) <- TwoLooksSeq1
+        rownames(falselyContinueTotal) <- TwoLooksSeq2
+        
+        falselyContinueTotal
+        
+        
+      }, rownames = T)
+      
+      output$correctlyContinueTotalTable <- renderTable({
+        
+        colnames(correctlyContinueTotal) <- TwoLooksSeq1
+        rownames(correctlyContinueTotal) <- TwoLooksSeq2
+        
+        correctlyContinueTotal
+        
+        
+      }, rownames = T)
+      
       
       
       output$finalAssTable2Looks <- renderTable({
@@ -974,6 +1116,46 @@ server <- function(input, output, session) {
         
         FinalAss
       }, digits = 3)
+      
+      output$rocCurveTwoLooks1 <- renderPlot({
+        
+        spec <- 1 - correctlyStopLook1/(correctlyStopLook1 + falselyStopLook1)
+        sens <- correctlyContinueLook1/(correctlyContinueLook1 + falselyContinueLook1)
+        
+        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
+        abline(a = 0, b = 1, lty = 2)
+        
+        
+
+        
+
+      })
+        
+      
+      output$rocCurveTwoLooks2 <- renderPlot({
+        
+        
+        spec <- 1 - correctlyStopLook2/(correctlyStopLook2 + falselyStopLook2)
+        sens <- correctlyContinueLook2/(correctlyContinueLook2 + falselyContinueLook2)
+        
+        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
+        abline(a = 0, b = 1, lty = 2)
+        
+        
+      })
+      
+      output$rocCurveTwoLooksTotal <- renderPlot({
+        
+        spec <- 1 - correctlyStopTotal/(correctlyStopTotal + falselyStopTotal)
+        sens <- correctlyContinueTotal/(correctlyContinueTotal + falselyContinueTotal)
+        
+        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
+        abline(a = 0, b = 1, lty = 2)
+        
+        
+        
+      })
+        
       
       output$twoLooksPlotDuration <- renderPlot({
         
@@ -1053,6 +1235,22 @@ server <- function(input, output, session) {
       p(HTML("<b>% correctly continue at Look 2</b>"))
     })
     
+    output$falselyStopTotalText <- renderUI({
+      p(HTML("<b>% falsely stop at all</b>"))
+    })
+    
+    output$correctlyStopTotalText <- renderUI({
+      p(HTML("<b>% correctly stop at all</b>"))
+    })
+    
+    output$falselyContinueTotalText <- renderUI({
+      p(HTML("<b>% falsely continue at all</b>"))
+    })
+    
+    output$correctlyContinueTotalText <- renderUI({
+      p(HTML("<b>% correctly continue at all</b>"))
+    })
+    
     shinyjs::show("AssText")
     shinyjs::show("SSText")
     shinyjs::show("DurationText")
@@ -1069,7 +1267,10 @@ server <- function(input, output, session) {
     shinyjs::show("correctlyStopLook2Text")
     shinyjs::show("falselyContinueLook2Text")
     shinyjs::show("correctlyContinueLook2Text")
-    
+    shinyjs::show("falselyStopTotalText")
+    shinyjs::show("correctlyStopTotalText")
+    shinyjs::show("falselyContinueTotalText")
+    shinyjs::show("correctlyContinueTotalText")
     
     
     
