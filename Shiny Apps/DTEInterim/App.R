@@ -184,11 +184,6 @@ server <- function(input, output, session) {
       # Read the uploaded file into treatmentSamplesDF
       data$treatmentSamplesDF <-  readRDS(inFile$datapath)
 
-      # Enable the action button when a file is selected
-      # shinyjs::enable("calcFutilityOneLook")
-      # shinyjs::enable("calcFutilityTwoLooks")
-      # shinyjs::enable("calcFutilityBayesian")
-
        
       output$TDist <- renderPlot({
         SHELF::plotfit(data$treatmentSamplesDF$fit1, d = data$treatmentSamplesDF$d[1])
@@ -199,24 +194,27 @@ server <- function(input, output, session) {
       })
 
       output$P_S <- renderText({
-
         paste0("P_S is: ", data$treatmentSamplesDF$P_S)
-
-
       })
 
       output$P_DTE <- renderText({
-
         paste0("P_DTE is: ", data$treatmentSamplesDF$P_DTE)
-        
-
-
       })
-      
-      
-      
     }
   })
+  
+  observe({
+    if (is.null(data$treatmentSamplesDF)) {
+      updateActionButton(session, "calcFutilityOneLook", disabled = TRUE)
+      updateActionButton(session, "calcFutilityTwoLooks", disabled = TRUE)
+      updateActionButton(session, "calcFutilityBayesian", disabled = TRUE)
+    } else {
+      updateActionButton(session, "calcFutilityOneLook", disabled = FALSE)
+      updateActionButton(session, "calcFutilityTwoLooks", disabled = FALSE)
+      updateActionButton(session, "calcFutilityBayesian", disabled = FALSE)
+    }
+  })
+  
   
   
   # One Look Logic ---------------------------------
@@ -448,15 +446,7 @@ server <- function(input, output, session) {
     return(value)
   })
   
-  
-  observe({
-    if (is.null(data$treatmentSamplesDF)) {
-      updateActionButton(session, "calcFutilityTwoLooks", disabled = TRUE)
-    } else {
-      updateActionButton(session, "calcFutilityTwoLooks", disabled = FALSE)
-    }
-  })
-  
+
   
   observe({
     
@@ -501,13 +491,12 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 5
+    NRep <- 1
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
-    
-    print(TwoLooksCombined)
+  
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -519,6 +508,8 @@ server <- function(input, output, session) {
     
     dimnames(iterationArray) <- list(c("Power", "Duration", "Sample Size"), c(TwoLooksCombined, "Final"), 1:NRep)
     
+    proposedDF <- data.frame(matrix(NA, ncol = 9, nrow = NRep))
+    
 
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
@@ -529,6 +520,10 @@ server <- function(input, output, session) {
         
         #Simulate control and treatment data
         dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
+        
+        #Do the proposed rule on this data set
+        proposedDF[i,] <- proposedRuleFunc(dataCombined, input$numEvents, 3, 2/3) 
+        
         
         #Perform futility look at different Information Fractions
         finalDF <- CensFunc(dataCombined, input$numEvents)
@@ -1122,6 +1117,13 @@ server <- function(input, output, session) {
         spec <- 1 - correctlyStopLook1/(correctlyStopLook1 + falselyStopLook1)
         sens <- correctlyContinueLook1/(correctlyContinueLook1 + falselyContinueLook1)
         
+        
+        spec[is.na(spec)] <- NaN
+        sens[is.na(sens)] <- NaN
+        
+        spec <- unlist(spec)
+        sens <- unlist(sens)
+        
         plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
         abline(a = 0, b = 1, lty = 2)
         
@@ -1138,6 +1140,12 @@ server <- function(input, output, session) {
         spec <- 1 - correctlyStopLook2/(correctlyStopLook2 + falselyStopLook2)
         sens <- correctlyContinueLook2/(correctlyContinueLook2 + falselyContinueLook2)
         
+        spec[is.na(spec)] <- NaN
+        sens[is.na(sens)] <- NaN
+        
+        spec <- unlist(spec)
+        sens <- unlist(sens)
+        
         plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
         abline(a = 0, b = 1, lty = 2)
         
@@ -1148,6 +1156,12 @@ server <- function(input, output, session) {
         
         spec <- 1 - correctlyStopTotal/(correctlyStopTotal + falselyStopTotal)
         sens <- correctlyContinueTotal/(correctlyContinueTotal + falselyContinueTotal)
+        
+        spec[is.na(spec)] <- NaN
+        sens[is.na(sens)] <- NaN
+        
+        spec <- unlist(spec)
+        sens <- unlist(sens)
         
         plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
         abline(a = 0, b = 1, lty = 2)
