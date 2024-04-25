@@ -2,7 +2,7 @@ library(shiny)
 library(shinyjs)
  library(survival)
 library(doParallel)
-# library(ggplot2)
+library(ggplot2)
 # library(dplyr)
 # library(rjags)
 # library(magrittr)
@@ -138,6 +138,7 @@ ui <- fluidPage(
                    hidden(uiOutput("correctlyContinueTotalText")),
                    tableOutput("correctlyContinueTotalTable"),
                    tableOutput("finalAssTable2Looks"),
+                   tableOutput("proposedTable2Looks"),
                    plotOutput("rocCurveTwoLooks1"),
                    plotOutput("rocCurveTwoLooks2"),
                    plotOutput("rocCurveTwoLooksTotal"),
@@ -491,12 +492,11 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 1
+    NRep <- 500
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
-  
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -509,6 +509,10 @@ server <- function(input, output, session) {
     dimnames(iterationArray) <- list(c("Power", "Duration", "Sample Size"), c(TwoLooksCombined, "Final"), 1:NRep)
     
     proposedDF <- data.frame(matrix(NA, ncol = 9, nrow = NRep))
+    
+    colnames(proposedDF) <- c("Look1Power", "Look2Power", "FinalLookPower", 
+                              "Look1SS", "Look2SS", "FinalLookSS",
+                              "Look1Duration", "Look2Duration", "FinalLookDuration")
     
 
     withProgress(message = 'Calculating', value = 0, {
@@ -573,6 +577,12 @@ server <- function(input, output, session) {
       correctlyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
       FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
       
+      #Do proposed rule logic
+      proposedDF$power <- proposedDF$Look1Power*proposedDF$Look2Power*proposedDF$FinalLookPower
+      proposedDF$SS <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1SS, ifelse(proposedDF$Look2Power==0, 
+                                                                                   proposedDF$Look2SS, proposedDF$FinalLookSS))
+      proposedDF$Duration <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1Duration, ifelse(proposedDF$Look2Power==0, 
+                                                                                               proposedDF$Look2Duration, proposedDF$FinalLookDuration))
 
       for (l in 1:NRep){
         for(i in 1:length(TwoLooksSeq2)) {
@@ -1112,6 +1122,20 @@ server <- function(input, output, session) {
         FinalAss
       }, digits = 3)
       
+      output$proposedTable2Looks <- renderTable({
+        
+        
+        FinalProposedDF <- data.frame(Assurance = mean(proposedDF$power),
+                                      Duration = mean(proposedDF$Duration),
+                                      SS = mean(proposedDF$SS))
+          
+          colnames(FinalProposedDF) <- c("Assurance", "Duration", "Sample Size")
+        
+          FinalProposedDF
+        
+        
+      }, digits = 3)
+      
       output$rocCurveTwoLooks1 <- renderPlot({
         
         spec <- 1 - correctlyStopLook1/(correctlyStopLook1 + falselyStopLook1)
@@ -1299,8 +1323,7 @@ server <- function(input, output, session) {
     cl <- makeCluster(detectCores())  # Use all available cores
   registerDoParallel(cl)
   
-  #print(cl)
-  
+
   observeEvent(input$calcFutilityBayesian, {
     NRep <- 50
     
@@ -1336,16 +1359,42 @@ server <- function(input, output, session) {
       
       BPPOutcome <- BPPFunc(dataCombined, numPatients, numEvents * IFBayesian, numEvents, recTime)
       
-      # Print progress message
-      #cat("Iteration", i, "completed.\n")
+      Success <- (test$chisq > qchisq(0.95, 1) & deltad<1)
       
-      return(BPPOutcome$BPP)
+      return(list(BPP = BPPOutcome$BPP, Success = Success))
     }
     
     stopCluster(cl)  # Stop the cluster
     
     output$BayesianPlot <- renderPlot({
-      hist(BPPVec, xlab = "Bayesian Predictive Probability", freq = F)
+      
+      unregister_dopar <- function() {
+        env <- foreach:::.foreachGlobals
+        rm(list=ls(name=env), pos=env)
+      }
+      # print(BPPVec)
+      # 
+      BPPVec <- data.frame(BPP = unlist(BPPVec[seq(1, length(BPPVec), by = 2)]),
+                           Success = unlist(BPPVec[seq(2, length(BPPVec), by = 2)]))
+      # 
+      # 
+      # print(BPPVec)                     
+      
+      
+      #plot(BPPVec$BPP, BPPVec$Success)
+      
+     # x <<- BPPVec
+       
+      #BPPVec <- data.frame(BPP = BPPVec$BPP, Success = BPPVec$Success)
+      
+     # print(BPPVec)
+      
+      # Plotting histogram colored by ColorVar
+      ggplot(BPPVec, aes(x = BPP, fill = Success)) +
+        geom_histogram(position = "identity", alpha = 0.5) 
+        
+      
+      #hist(BPPVec$B, xlab = "Bayesian Predictive Probability", freq = F)
     })
   })
   
