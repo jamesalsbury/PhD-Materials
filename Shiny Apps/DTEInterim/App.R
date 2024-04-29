@@ -3,6 +3,7 @@ library(shinyjs)
  library(survival)
 library(doParallel)
 library(ggplot2)
+library(DT)
 # library(dplyr)
 # library(rjags)
 # library(magrittr)
@@ -411,20 +412,23 @@ server <- function(input, output, session) {
       sens <- correctlyContinue/(correctlyContinue+falselyContinue)
       spec <- correctlyStop/(correctlyStop+falselyStop)
       
-      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
+      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate", 
+           main  = "ROC curve")
       abline(a = 0, b = 1, lty = 2)
       
     })
     
     output$oneLookPlotDuration <- renderPlot({
       
-      plot(futilityDF$Assurance, futilityDF$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration")
+      plot(futilityDF$Assurance, futilityDF$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
+           main = "Assurance vs Duration for the different stopping rules")
       
     })
     
     output$oneLookPlotSS <- renderPlot({
       
-      plot(futilityDF$Assurance, futilityDF$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size")
+      plot(futilityDF$Assurance, futilityDF$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
+           main = "Assurance vs Sample Size for the different stopping rules")
       
     })
     
@@ -492,11 +496,13 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 500
+    NRep <- 5
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
+    
+    print(TwoLooksCombined)
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -555,6 +561,8 @@ server <- function(input, output, session) {
       
     })
       
+    print("yes1")
+    
       PowerArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
       DurationArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
       SSArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
@@ -577,6 +585,8 @@ server <- function(input, output, session) {
       correctlyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
       FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
       
+      print("yes2")
+      
       #Do proposed rule logic
       proposedDF$power <- proposedDF$Look1Power*proposedDF$Look2Power*proposedDF$FinalLookPower
       proposedDF$SS <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1SS, ifelse(proposedDF$Look2Power==0, 
@@ -584,14 +594,30 @@ server <- function(input, output, session) {
       proposedDF$Duration <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1Duration, ifelse(proposedDF$Look2Power==0, 
                                                                                                proposedDF$Look2Duration, proposedDF$FinalLookDuration))
 
+      
+      print(length(TwoLooksSeq2))
+      print(length(TwoLooksSeq1))
+      print(length(TwoLooksCombined))
+      print(iterationArray)
+      
+      
+      
       for (l in 1:NRep){
         for(i in 1:length(TwoLooksSeq2)) {
           for(j in 1:length(TwoLooksSeq1)) {
             if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+              cat("l is: ", l)
+              cat("i in: ", i)
+              cat("j is: ", j)
               Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+              cat("Look1Power: ", Look1Power)
               Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+              cat("Look2Power: ", Look2Power)
               FinalPower <- iterationArray[1, length(TwoLooksCombined)+1, l]
+              cat("Final Power: ", FinalPower)
               PowerArray[i,j, l] <- Look1Power*Look2Power*FinalPower
+              
+             # cat("l is ", l)
               
               #Sample size and duration logic
               
@@ -606,6 +632,7 @@ server <- function(input, output, session) {
                 SSArray[i,j,l] <- iterationArray[3,length(TwoLooksCombined)+1, l]
               }
               
+              print("yes4")
               #Interim analysis time logic
               IATime1[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
               IATime2[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
@@ -636,6 +663,8 @@ server <- function(input, output, session) {
           }
         } 
       }
+      
+      print("yes3")
     
     
       
