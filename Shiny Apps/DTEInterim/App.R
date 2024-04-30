@@ -502,8 +502,7 @@ server <- function(input, output, session) {
     
     TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
     
-    print(TwoLooksCombined)
-    
+
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
@@ -561,31 +560,28 @@ server <- function(input, output, session) {
       
     })
       
-    print("yes1")
-    
-      PowerArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      DurationArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      SSArray <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      IATime1 <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      IATime2 <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      PercentStop <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      PercentStopLook1 <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      PercentStopLook2 <- array(NA,  dim = c(length(TwoLooksSeq1), length(TwoLooksSeq2), NRep))
-      falselyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      correctlyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      falselyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      correctlyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      falselyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      correctlyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      falselyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      correctlyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      falselyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      correctlyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      falselyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
-      correctlyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq1), ncol = length(TwoLooksSeq2)))
+
+      PowerArray <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      DurationArray <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      SSArray <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      IATime1 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      IATime2 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      PercentStop <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      PercentStopLook1 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      PercentStopLook2 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
+      falselyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      correctlyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      falselyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      correctlyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      falselyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      correctlyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      falselyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      correctlyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      falselyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      correctlyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      falselyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+      correctlyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
       FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
-      
-      print("yes2")
       
       #Do proposed rule logic
       proposedDF$power <- proposedDF$Look1Power*proposedDF$Look2Power*proposedDF$FinalLookPower
@@ -593,34 +589,19 @@ server <- function(input, output, session) {
                                                                                    proposedDF$Look2SS, proposedDF$FinalLookSS))
       proposedDF$Duration <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1Duration, ifelse(proposedDF$Look2Power==0, 
                                                                                                proposedDF$Look2Duration, proposedDF$FinalLookDuration))
-
-      
-      print(length(TwoLooksSeq2))
-      print(length(TwoLooksSeq1))
-      print(length(TwoLooksCombined))
-      print(iterationArray)
-      
-      
       
       for (l in 1:NRep){
         for(i in 1:length(TwoLooksSeq2)) {
           for(j in 1:length(TwoLooksSeq1)) {
             if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-              cat("l is: ", l)
-              cat("i in: ", i)
-              cat("j is: ", j)
               Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
-              cat("Look1Power: ", Look1Power)
               Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
-              cat("Look2Power: ", Look2Power)
               FinalPower <- iterationArray[1, length(TwoLooksCombined)+1, l]
-              cat("Final Power: ", FinalPower)
               PowerArray[i,j, l] <- Look1Power*Look2Power*FinalPower
               
-             # cat("l is ", l)
+            
               
               #Sample size and duration logic
-              
               if (Look1Power==0){
                 DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
                 SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
@@ -628,11 +609,12 @@ server <- function(input, output, session) {
                 DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
                 SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
               } else {
+                
                 DurationArray[i,j,l] <- iterationArray[2,length(TwoLooksCombined)+1, l]
                 SSArray[i,j,l] <- iterationArray[3,length(TwoLooksCombined)+1, l]
               }
               
-              print("yes4")
+             
               #Interim analysis time logic
               IATime1[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
               IATime2[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
@@ -664,8 +646,6 @@ server <- function(input, output, session) {
         } 
       }
       
-      print("yes3")
-    
     
       
       #Calculating falsely stopping at Look 1
