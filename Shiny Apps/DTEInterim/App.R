@@ -138,7 +138,9 @@ ui <- fluidPage(
                    tableOutput("falselyContinueTotalTable"),
                    hidden(uiOutput("correctlyContinueTotalText")),
                    tableOutput("correctlyContinueTotalTable"),
+                   hidden(uiOutput("finalAssTable2LooksText")),
                    tableOutput("finalAssTable2Looks"),
+                   hidden(uiOutput("proposedTable2LooksText")),
                    tableOutput("proposedTable2Looks"),
                    plotOutput("rocCurveTwoLooks1"),
                    plotOutput("rocCurveTwoLooks2"),
@@ -496,7 +498,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcFutilityTwoLooks, {
-    NRep <- 5
+    NRep <- 500
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
@@ -887,6 +889,22 @@ server <- function(input, output, session) {
       }
       
       
+      #Making the proposed DF correctly
+      FinalProposedDF <- data.frame(Assurance = mean(proposedDF$power),
+                                    Duration = mean(proposedDF$Duration),
+                                    SS = mean(proposedDF$SS))
+      
+      colnames(FinalProposedDF) <- c("Assurance", "Duration", "Sample Size")
+      
+      
+      #Making the No Look DF correctly
+      FinalAss <- mean(iterationArray[1, length(TwoLooksCombined)+1, ])
+      FinalDuration <- mean(iterationArray[2, length(TwoLooksCombined)+1, ])
+      FinalSS <- mean(iterationArray[3, length(TwoLooksCombined)+1, ])
+      
+      FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+      
+      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
       
       
       PowerArray <- apply(PowerArray, c(1, 2), mean, na.rm = TRUE)
@@ -1119,14 +1137,6 @@ server <- function(input, output, session) {
       
       output$finalAssTable2Looks <- renderTable({
         
-        FinalAss <- mean(iterationArray[1, length(TwoLooksCombined)+1, ])
-        FinalDuration <- mean(iterationArray[2, length(TwoLooksCombined)+1, ])
-        FinalSS <- mean(iterationArray[3, length(TwoLooksCombined)+1, ])
-        
-        
-        FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-        
-        colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
         
         FinalAss
       }, digits = 3)
@@ -1134,11 +1144,7 @@ server <- function(input, output, session) {
       output$proposedTable2Looks <- renderTable({
         
         
-        FinalProposedDF <- data.frame(Assurance = mean(proposedDF$power),
-                                      Duration = mean(proposedDF$Duration),
-                                      SS = mean(proposedDF$SS))
-          
-          colnames(FinalProposedDF) <- c("Assurance", "Duration", "Sample Size")
+
         
           FinalProposedDF
         
@@ -1157,7 +1163,8 @@ server <- function(input, output, session) {
         spec <- unlist(spec)
         sens <- unlist(sens)
         
-        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
+        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
+             xlab = "False Positive Rate", main = "ROC curve for Look 1")
         abline(a = 0, b = 1, lty = 2)
         
         
@@ -1179,7 +1186,8 @@ server <- function(input, output, session) {
         spec <- unlist(spec)
         sens <- unlist(sens)
         
-        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
+        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
+             xlab = "False Positive Rate",  main = "ROC curve for Look 2")
         abline(a = 0, b = 1, lty = 2)
         
         
@@ -1196,7 +1204,8 @@ server <- function(input, output, session) {
         spec <- unlist(spec)
         sens <- unlist(sens)
         
-        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate")
+        plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
+             xlab = "False Positive Rate",  main = "ROC curve for both looks (combined)")
         abline(a = 0, b = 1, lty = 2)
         
         
@@ -1206,14 +1215,27 @@ server <- function(input, output, session) {
       
       output$twoLooksPlotDuration <- renderPlot({
         
-        plot(PowerArray, DurationArray, xlab = "Assurance", ylab = "Duration", xlim = c(0,1))
+        plot(PowerArray, DurationArray, xlab = "Assurance", ylab = "Duration", xlim = c(0,1),
+             main = "Assurance vs Duration for the different stopping rules")
+        
+        
+        
+        points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue")
+        
+        points(FinalAss$Assurance, FinalAss$Duration, col = "red")
         
       })
       
       output$twoLooksPlotSS <- renderPlot({
         
-        plot(PowerArray, SSArray,  xlab = "Assurance", ylab = "Sample size", xlim = c(0,1))
+        plot(PowerArray, SSArray,  xlab = "Assurance", ylab = "Sample size", xlim = c(0,1),
+             main = "Assurance vs Sample Size for the different stopping rules")
         
+        points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue")
+        
+        points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red")
+        
+
       })
         
     
@@ -1298,6 +1320,16 @@ server <- function(input, output, session) {
       p(HTML("<b>% correctly continue at all</b>"))
     })
     
+    output$finalAssTable2LooksText <- renderUI({
+      p(HTML("<b>OC with no looks</b>"))
+    })
+    
+    output$proposedTable2LooksText <- renderUI({
+      p(HTML("<b>OC for the proposed rule</b>"))
+    })
+    
+    
+    
     shinyjs::show("AssText")
     shinyjs::show("SSText")
     shinyjs::show("DurationText")
@@ -1318,6 +1350,8 @@ server <- function(input, output, session) {
     shinyjs::show("correctlyStopTotalText")
     shinyjs::show("falselyContinueTotalText")
     shinyjs::show("correctlyContinueTotalText")
+    shinyjs::show("finalAssTable2LooksText")
+    shinyjs::show("proposedTable2LooksText")
     
     
     
