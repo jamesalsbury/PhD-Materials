@@ -48,7 +48,7 @@ interimLookFunc <- function(dataCombined, observedHR){
   return(Outcome)
 }
 
-BPPFunc <- function(dataset, numPatients, numIAEvents, numFinalEvents, recTime){
+BPPFunc <- function(dataset, numPatients, numIAEvents, numFinalEvents, recTime, targetEff){
   
   BPPOutcome <- CensFunc(dataset, numIAEvents)
   
@@ -106,6 +106,9 @@ tPatientsLeft <- numPatients - sum(dataCombined$group=="Treatment")
 HRoutput <- as.numeric(unlist(output[,1]))
 bigToutput <- as.numeric(unlist(output[,2]))
 lambda2output <- as.numeric(unlist(output[,3]))
+
+#Calculate the proportion of values lower than the target effect
+propEffect <- mean(HRoutput<targetEff)
 
 BPPVec <- rep(NA, 50)
 
@@ -228,7 +231,7 @@ for (j in 1:50){
   
 }
 
-return(list(BPP = mean(BPPVec), BPPSS = nrow(dataCombined), BPPCensTime = BPPOutcome$censTime))
+return(list(BPP = mean(BPPVec), BPPSS = nrow(dataCombined), BPPCensTime = BPPOutcome$censTime, propEffect = propEffect))
 
 }
 

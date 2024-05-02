@@ -35,8 +35,8 @@ ui <- fluidPage(
   
   mainPanel(
     tabsetPanel(
-      # Data UI ---------------------------------
-      tabPanel("Data", 
+      # Design UI ---------------------------------
+      tabPanel("Design", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    numericInput("numPatients", 'Number of Patients (in each group, 1:1)', value=340, min=0),
@@ -54,6 +54,21 @@ ui <- fluidPage(
                  )
                )
       ),
+      
+      # No Look UI ---------------------------------
+      
+      tabPanel("No Look", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   actionButton("calcFutilityNoLook", label  = "Calculate", disabled = T)
+                 ), 
+                 mainPanel = mainPanel(
+                   tableOutput("finalAssTableNoLook"),
+                   
+                 )
+               )
+      ),
+      
       # One Look UI ---------------------------------
       
       tabPanel("One Look", 
@@ -159,10 +174,13 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    numericInput("IFBayesian", "Information Fraction", value = 0.5),
+                   numericInput("tEffBayesian", "Target Effect", value = 0.8),
                    actionButton("calcFutilityBayesian", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    plotOutput("BayesianPlot"),
+                   plotOutput("BayesianEffPlot"),
+                   plotOutput("BayesianBPPvTE"),
                    tableOutput("BayesianSS"),
                    tableOutput("BayesianDuration")
                    
@@ -178,7 +196,7 @@ ui <- fluidPage(
 # Server logic
 server <- function(input, output, session) {
   
-  # Data Logic ---------------------------------
+  # Design Logic ---------------------------------
   
   data <- reactiveValues(treatmentSamplesDF = NULL)
   
@@ -209,14 +227,98 @@ server <- function(input, output, session) {
   
   observe({
     if (is.null(data$treatmentSamplesDF)) {
+      updateActionButton(session, "calcFutilityNoLook", disabled = TRUE)
       updateActionButton(session, "calcFutilityOneLook", disabled = TRUE)
       updateActionButton(session, "calcFutilityTwoLooks", disabled = TRUE)
       updateActionButton(session, "calcFutilityBayesian", disabled = TRUE)
     } else {
+      updateActionButton(session, "calcFutilityNoLook", disabled = FALSE)
       updateActionButton(session, "calcFutilityOneLook", disabled = FALSE)
       updateActionButton(session, "calcFutilityTwoLooks", disabled = FALSE)
       updateActionButton(session, "calcFutilityBayesian", disabled = FALSE)
     }
+  })
+  
+  # No Look Logic ---------------------------------
+  
+  
+  observeEvent(input$calcFutilityNoLook, {
+    NRep <- 500
+    
+    iterationArray <- array(NA,  dim = c(3, 1, NRep))
+    
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    
+    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    
+    withProgress(message = 'Calculating', value = 0, {
+      for (i in 1:NRep){
+        
+        #Compute treatment times
+        HRStar <- sample(treatmentSamplesDF[,2], 1)
+        bigT <- sample(treatmentSamplesDF[,1], 1)
+        
+        #Simulate control and treatment data
+        dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
+        
+        #Perform futility look at different Information Fractions
+        finalDF <- CensFunc(dataCombined, input$numEvents)
+        test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+        coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+        deltad <- as.numeric(exp(coef(coxmodel)))
+        
+        iterationArray[1, 1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        iterationArray[2, 1, i] <- finalDF$censTime
+        iterationArray[3, 1, i] <- finalDF$SS
+        
+        incProgress(1/NRep)
+      }
+    })
+   
+    
+    output$finalAssTableNoLook <- renderTable({
+      
+      FinalAss <- mean(iterationArray[1, 1, ])
+      FinalDuration <- mean(iterationArray[2, 1, ])
+      FinalSS <- mean(iterationArray[3, 1, ])
+      
+      
+      FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+      
+      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+      
+      FinalAss
+    }, digits = 3)
+    
+    output$oneLookROCPlot <- renderPlot({
+      
+      sens <- correctlyContinue/(correctlyContinue+falselyContinue)
+      spec <- correctlyStop/(correctlyStop+falselyStop)
+      
+      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate", 
+           main  = "ROC curve")
+      abline(a = 0, b = 1, lty = 2)
+      
+    })
+    
+    output$oneLookPlotDuration <- renderPlot({
+      
+      plot(futilityDF$Assurance, futilityDF$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
+           main = "Assurance vs Duration for the different stopping rules")
+      
+    })
+    
+    output$oneLookPlotSS <- renderPlot({
+      
+      plot(futilityDF$Assurance, futilityDF$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
+           main = "Assurance vs Sample Size for the different stopping rules")
+      
+    })
+    
+    
+    
   })
   
   
@@ -1362,12 +1464,14 @@ server <- function(input, output, session) {
   # Bayesian Logic ---------------------------------
   
   
-  #Parallel: # Set up parallel processing
-    cl <- makeCluster(detectCores())  # Use all available cores
-  registerDoParallel(cl)
   
 
   observeEvent(input$calcFutilityBayesian, {
+    
+    #Parallel: # Set up parallel processing
+    cl <- makeCluster(detectCores())  # Use all available cores
+    registerDoParallel(cl)
+    
     NRep <- 50
     
     conc.probs <- matrix(0, 2, 2)
@@ -1379,6 +1483,7 @@ server <- function(input, output, session) {
     recTime <- input$recTime
     numEvents <- input$numEvents
     IFBayesian <- input$IFBayesian
+    tEffBayesian <- input$tEffBayesian
     
     treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
@@ -1400,47 +1505,62 @@ server <- function(input, output, session) {
       coxmodel <- coxph(Surv(survival_time, status) ~ group, data = finalDF$dataCombined)
       deltad <- as.numeric(exp(coef(coxmodel)))
       
-      BPPOutcome <- BPPFunc(dataCombined, numPatients, numEvents * IFBayesian, numEvents, recTime)
+      BPPOutcome <- BPPFunc(dataCombined, numPatients, numEvents * IFBayesian, numEvents, recTime, tEffBayesian)
       
       Success <- (test$chisq > qchisq(0.95, 1) & deltad<1)
       
-      return(list(BPP = BPPOutcome$BPP, Success = Success))
+      return(list(BPP = BPPOutcome$BPP, Success = Success, propEffect = BPPOutcome$propEffect))
     }
     
     stopCluster(cl)  # Stop the cluster
     
+    BPPVec <- data.frame(BPP = unlist(BPPVec[seq(1, length(BPPVec), by = 3)]),
+                         Success = unlist(BPPVec[seq(2, length(BPPVec), by = 3)]),
+                         propEffect = unlist(BPPVec[seq(3, length(BPPVec), by = 3)]))
+    
+    
+    
     output$BayesianPlot <- renderPlot({
       
-      unregister_dopar <- function() {
-        env <- foreach:::.foreachGlobals
-        rm(list=ls(name=env), pos=env)
-      }
-      # print(BPPVec)
-      # 
-      BPPVec <- data.frame(BPP = unlist(BPPVec[seq(1, length(BPPVec), by = 2)]),
-                           Success = unlist(BPPVec[seq(2, length(BPPVec), by = 2)]))
-      # 
-      # 
-      # print(BPPVec)                     
+      # unregister_dopar <- function() {
+      #   env <- foreach:::.foreachGlobals
+      #   rm(list=ls(name=env), pos=env)
+      # }
       
       
-      #plot(BPPVec$BPP, BPPVec$Success)
-      
-     # x <<- BPPVec
-       
-      #BPPVec <- data.frame(BPP = BPPVec$BPP, Success = BPPVec$Success)
-      
-     # print(BPPVec)
       
       # Plotting histogram colored by ColorVar
       ggplot(BPPVec, aes(x = BPP, fill = Success)) +
         geom_histogram(position = "identity", alpha = 0.5) 
         
       
-      #hist(BPPVec$B, xlab = "Bayesian Predictive Probability", freq = F)
     })
+
+  
+  
+  output$BayesianEffPlot <- renderPlot({
+    
+    
+    # Plotting histogram colored by ColorVar
+    ggplot(BPPVec, aes(x = propEffect, fill = Success)) +
+      geom_histogram(position = "identity", alpha = 0.5) 
+    
   })
   
+  output$BayesianBPPvTE <- renderPlot({
+    
+    
+    plot(BPPVec$BPP, BPPVec$propEffect, xlim = c(0,1), ylim = c(0,1),
+         xlab = "BPP", ylab = "Proportion less than target effect")
+    abline(a = 0, b = 1, lty = 2)
+    
+  })
+  
+  
+  
+  
+  
+})
   
   
   
