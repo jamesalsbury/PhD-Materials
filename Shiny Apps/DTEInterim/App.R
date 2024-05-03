@@ -83,11 +83,16 @@ ui <- fluidPage(
                    actionButton("calcFutilityOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
-                  tableOutput("futilityTable"),
-                  tableOutput("finalAssTable"),
-                  plotOutput("oneLookROCPlot"),
-                  plotOutput("oneLookPlotDuration"),
-                  plotOutput("oneLookPlotSS")
+                   tabsetPanel(
+                     tabPanel("Tables",
+                              tableOutput("futilityTable"),
+                              tableOutput("finalAssTable")),
+                     tabPanel("Plots",
+                              plotOutput("oneLookPlotDuration"),
+                              plotOutput("oneLookPlotSS"),
+                              plotOutput("oneLookROCPlot"))
+                   ),
+                  
                  )
                )
       ),
@@ -113,55 +118,61 @@ ui <- fluidPage(
                    actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
-                   hidden(uiOutput("AssText")),
-                   tableOutput("twoLooksAss"),
-                   hidden(uiOutput("SSText")),
-                   tableOutput("twoLooksSS"),
-                   hidden(uiOutput("DurationText")),
-                   tableOutput("twoLooksDuration"),
-                   hidden(uiOutput("IATime1Text")),
-                   tableOutput("IATime1Table"),
-                   hidden(uiOutput("IATime2Text")),
-                   tableOutput("IATime2Table"),
-                   hidden(uiOutput("PercentStopText")),
-                   tableOutput("PercentStopTable"),
-                   hidden(uiOutput("PercentStopLook1Text")),
-                   tableOutput("PercentStopLook1Table"),
-                   hidden(uiOutput("PercentStopLook2Text")),
-                   tableOutput("PercentStopLook2Table"),
-                   hidden(uiOutput("falselyStopLook1Text")),
-                   tableOutput("falselyStopLook1Table"),
-                   hidden(uiOutput("correctlyStopLook1Text")),
-                   tableOutput("correctlyStopLook1Table"),
-                   hidden(uiOutput("falselyContinueLook1Text")),
-                   tableOutput("falselyContinueLook1Table"),
-                   hidden(uiOutput("correctlyContinueLook1Text")),
-                   tableOutput("correctlyContinueLook1Table"),
-                   hidden(uiOutput("falselyStopLook2Text")),
-                   tableOutput("falselyStopLook2Table"),
-                   hidden(uiOutput("correctlyStopLook2Text")),
-                   tableOutput("correctlyStopLook2Table"),
-                   hidden(uiOutput("falselyContinueLook2Text")),
-                   tableOutput("falselyContinueLook2Table"),
-                   hidden(uiOutput("correctlyContinueLook2Text")),
-                   tableOutput("correctlyContinueLook2Table"),
-                   hidden(uiOutput("falselyStopTotalText")),
-                   tableOutput("falselyStopTotalTable"),
-                   hidden(uiOutput("correctlyStopTotalText")),
-                   tableOutput("correctlyStopTotalTable"),
-                   hidden(uiOutput("falselyContinueTotalText")),
-                   tableOutput("falselyContinueTotalTable"),
-                   hidden(uiOutput("correctlyContinueTotalText")),
-                   tableOutput("correctlyContinueTotalTable"),
-                   hidden(uiOutput("finalAssTable2LooksText")),
-                   tableOutput("finalAssTable2Looks"),
-                   hidden(uiOutput("proposedTable2LooksText")),
-                   tableOutput("proposedTable2Looks"),
-                   plotOutput("rocCurveTwoLooks1"),
-                   plotOutput("rocCurveTwoLooks2"),
-                   plotOutput("rocCurveTwoLooksTotal"),
-                   plotOutput("twoLooksPlotDuration"),
-                   plotOutput("twoLooksPlotSS")
+                   tabsetPanel(
+                     tabPanel("Tables",
+                              hidden(uiOutput("AssText")),
+                              tableOutput("twoLooksAss"),
+                              hidden(uiOutput("SSText")),
+                              tableOutput("twoLooksSS"),
+                              hidden(uiOutput("DurationText")),
+                              tableOutput("twoLooksDuration"),
+                              hidden(uiOutput("IATime1Text")),
+                              tableOutput("IATime1Table"),
+                              hidden(uiOutput("IATime2Text")),
+                              tableOutput("IATime2Table"),
+                              hidden(uiOutput("PercentStopText")),
+                              tableOutput("PercentStopTable"),
+                              hidden(uiOutput("PercentStopLook1Text")),
+                              tableOutput("PercentStopLook1Table"),
+                              hidden(uiOutput("PercentStopLook2Text")),
+                              tableOutput("PercentStopLook2Table"),
+                              hidden(uiOutput("falselyStopLook1Text")),
+                              tableOutput("falselyStopLook1Table"),
+                              hidden(uiOutput("correctlyStopLook1Text")),
+                              tableOutput("correctlyStopLook1Table"),
+                              hidden(uiOutput("falselyContinueLook1Text")),
+                              tableOutput("falselyContinueLook1Table"),
+                              hidden(uiOutput("correctlyContinueLook1Text")),
+                              tableOutput("correctlyContinueLook1Table"),
+                              hidden(uiOutput("falselyStopLook2Text")),
+                              tableOutput("falselyStopLook2Table"),
+                              hidden(uiOutput("correctlyStopLook2Text")),
+                              tableOutput("correctlyStopLook2Table"),
+                              hidden(uiOutput("falselyContinueLook2Text")),
+                              tableOutput("falselyContinueLook2Table"),
+                              hidden(uiOutput("correctlyContinueLook2Text")),
+                              tableOutput("correctlyContinueLook2Table"),
+                              hidden(uiOutput("falselyStopTotalText")),
+                              tableOutput("falselyStopTotalTable"),
+                              hidden(uiOutput("correctlyStopTotalText")),
+                              tableOutput("correctlyStopTotalTable"),
+                              hidden(uiOutput("falselyContinueTotalText")),
+                              tableOutput("falselyContinueTotalTable"),
+                              hidden(uiOutput("correctlyContinueTotalText")),
+                              tableOutput("correctlyContinueTotalTable"),
+                              hidden(uiOutput("finalAssTable2LooksText")),
+                              tableOutput("finalAssTable2Looks"),
+                              hidden(uiOutput("proposedTable2LooksText")),
+                              tableOutput("proposedTable2Looks")),
+                     tabPanel("Plots",
+                              plotOutput("twoLooksPlotDuration"),
+                              plotOutput("twoLooksPlotSS"),
+                              plotOutput("rocCurveTwoLooks1"),
+                              plotOutput("rocCurveTwoLooks2"),
+                              plotOutput("rocCurveTwoLooksTotal"))
+                   ),
+                   
+                   
                    
                  )
                )
@@ -492,22 +503,21 @@ server <- function(input, output, session) {
                                "Duration", "Sample Size")
     
     
+    
+    #Calculating the no look table
+    FinalAss <- mean(iterationArray[1, length(futilityVec)+1, ])
+    FinalDuration <- mean(iterationArray[2, length(futilityVec)+1, ])
+    FinalSS <- mean(iterationArray[3, length(futilityVec)+1, ])
+    FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+    
+    
     output$futilityTable <- renderTable({
       futilityDF
     }, digits = 3)
     
     
     output$finalAssTable <- renderTable({
-      
-      FinalAss <- mean(iterationArray[1, length(futilityVec)+1, ])
-      FinalDuration <- mean(iterationArray[2, length(futilityVec)+1, ])
-      FinalSS <- mean(iterationArray[3, length(futilityVec)+1, ])
-      
-      
-      FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-      
-      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
-      
       FinalAss
     }, digits = 3)
     
@@ -526,13 +536,15 @@ server <- function(input, output, session) {
       
       plot(futilityDF$Assurance, futilityDF$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
            main = "Assurance vs Duration for the different stopping rules")
-      
+      points(FinalAss$Assurance, FinalAss$Duration, col = "red")
+
     })
     
     output$oneLookPlotSS <- renderPlot({
       
       plot(futilityDF$Assurance, futilityDF$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
            main = "Assurance vs Sample Size for the different stopping rules")
+      points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red")
       
     })
     
