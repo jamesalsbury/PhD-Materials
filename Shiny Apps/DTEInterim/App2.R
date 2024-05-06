@@ -5,6 +5,7 @@ library(doParallel)
 library(ggplot2)
 library(DT)
 library(rhandsontable)
+library(rpact)
 # library(dplyr)
 # library(rjags)
 # library(magrittr)
@@ -80,7 +81,7 @@ ui <- fluidPage(
                      numericInput("OneLookUB", "to:", value = 0.8),
                      numericInput("OneLookBy", "by:", value = 0.1),
                      textOutput("OneLookText")),
-                   selectInput("sidedOneLook", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
+                   #selectInput("sidedOneLook", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
                    rHandsontableOutput("spendingOneLook"),
                    actionButton("calcFutilityOneLook", label  = "Calculate", disabled = T)
                  ), 
@@ -90,6 +91,7 @@ ui <- fluidPage(
                               tableOutput("futilityTable"),
                               tableOutput("finalAssTable")),
                      tabPanel("Plots",
+                              plotOutput("oneLookBoundaries"),
                               plotOutput("oneLookPlotDuration"),
                               plotOutput("oneLookPlotSS"),
                               plotOutput("oneLookROCPlot"))
@@ -115,7 +117,7 @@ ui <- fluidPage(
                    textOutput("TwoLooksText1"),
                    textOutput("TwoLooksText2"),
                    div(id = "twoLooksErrorMessage", class = "error-message", textOutput("twoLooksErrorMessage")),
-                   selectInput("sidedTwoLooks", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
+                   #selectInput("sidedTwoLooks", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
                    rHandsontableOutput("spendingTwoLooks"),
                    actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
                  ), 
@@ -167,6 +169,7 @@ ui <- fluidPage(
                               hidden(uiOutput("proposedTable2LooksText")),
                               tableOutput("proposedTable2Looks")),
                      tabPanel("Plots",
+                              plotOutput("twoLooksBoundaries"),
                               plotOutput("twoLooksPlotDuration"),
                               plotOutput("twoLooksPlotSS"),
                               plotOutput("rocCurveTwoLooks1"),
@@ -356,6 +359,22 @@ server <- function(input, output, session) {
     rhandsontable(initial_data, rowHeaders = FALSE)  %>%
       hot_col(col = "Stage", readOnly = TRUE)
   })
+  
+  observeEvent(input$spendingOneLook, {
+    values <- hot_to_r(input$spendingOneLook)
+  
+    design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                       informationRates = c(0.5, 1), 
+                                       userAlphaSpending = as.numeric(values[,2]), 
+                                       typeBetaSpending = "bsUser",
+                                       userBetaSpending = as.numeric(values[,3]))
+    
+    output$oneLookBoundaries <- renderPlot({
+      plot(design)
+    })
+    
+  })
+  
   
   observeEvent(input$calcFutilityOneLook, {
     NRep <- 500
@@ -582,6 +601,33 @@ server <- function(input, output, session) {
     return(value)
   })
   
+  output$spendingTwoLooks <- renderRHandsontable({
+    initial_data <- data.frame(
+      Stage = 1:3,
+      alphaspending = c("0.0083", "0.0167", "0.0250"),
+      betaspending = c("0.0667", "0.1333", "0.2000")
+    )
+    
+    colnames(initial_data) <- c("Stage", "Alpha spending", "Beta spending")
+    
+    rhandsontable(initial_data, rowHeaders = FALSE)  %>%
+      hot_col(col = "Stage", readOnly = TRUE)
+  })
+  
+  observeEvent(input$spendingTwoLooks, {
+    values <- hot_to_r(input$spendingTwoLooks)
+    
+    design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                       informationRates = c(1/3, 2/3, 1), 
+                                       userAlphaSpending = as.numeric(values[,2]), 
+                                       typeBetaSpending = "bsUser",
+                                       userBetaSpending = as.numeric(values[,3]))
+    
+    output$twoLooksBoundaries <- renderPlot({
+      plot(design)
+    })
+    
+  })
   
   
   observe({
@@ -1549,16 +1595,11 @@ server <- function(input, output, session) {
     
     output$BayesianPlot <- renderPlot({
       
-      # unregister_dopar <- function() {
-      #   env <- foreach:::.foreachGlobals
-      #   rm(list=ls(name=env), pos=env)
-      # }
-      
-      
-      
+
       # Plotting histogram colored by ColorVar
       ggplot(BPPVec, aes(x = BPP, fill = Success)) +
-        geom_histogram(position = "identity", alpha = 0.5) 
+        geom_histogram(position = "identity", alpha = 0.5) +
+        scale_x_continuous(limits = c(0, 1)) + xlab("Bayesian Predictive Probability")
       
       
     })
@@ -1570,7 +1611,9 @@ server <- function(input, output, session) {
       
       # Plotting histogram colored by ColorVar
       ggplot(BPPVec, aes(x = propEffect, fill = Success)) +
-        geom_histogram(position = "identity", alpha = 0.5) 
+        geom_histogram(position = "identity", alpha = 0.5) +
+        scale_x_continuous(limits = c(0, 1)) + xlab("Proportion less than target effect")
+      
       
     })
     
@@ -1578,7 +1621,7 @@ server <- function(input, output, session) {
       
       
       plot(BPPVec$BPP, BPPVec$propEffect, xlim = c(0,1), ylim = c(0,1),
-           xlab = "BPP", ylab = "Proportion less than target effect")
+           xlab = "Bayesian Predictive Probability", ylab = "Proportion less than target effect")
       abline(a = 0, b = 1, lty = 2)
       
     })
