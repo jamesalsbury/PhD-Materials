@@ -291,3 +291,12 @@ proposedRuleFunc <- function(dataCombined, numEventsRequired, monthsDelay, propE
   
 }
 
+GSDFunc <- function(dataCombined, futBound, effBound){
+  
+  coxmodel <- coxph(formula = surv_obj ~ group, data = data)
+  y <- coef(summary(coxmodel))[,4]
+  
+  
+  
+}
+

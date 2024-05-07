@@ -77,8 +77,8 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    wellPanel(
-                     numericInput("OneLookLB", "IA1, from:", value = 0.2),
-                     numericInput("OneLookUB", "to:", value = 0.8),
+                     numericInput("OneLookLB", "IA1, from:", value = 0.5),
+                     numericInput("OneLookUB", "to:", value = 0.5),
                      numericInput("OneLookBy", "by:", value = 0.1),
                      textOutput("OneLookText")),
                    #selectInput("sidedOneLook", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
