@@ -33,7 +33,7 @@ ui <- fluidPage(
   shinyjs::useShinyjs(),
   
   # Application title
-  titlePanel("Bayesian Futility Analyses: Delayed Treatment Effects"),
+  titlePanel("Bayesian Interim Analyses: Delayed Treatment Effects"),
   
   mainPanel(
     tabsetPanel(
@@ -62,7 +62,7 @@ ui <- fluidPage(
       tabPanel("No Look", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
-                   actionButton("calcFutilityNoLook", label  = "Calculate", disabled = T)
+                   actionButton("calcNoLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    tableOutput("finalAssTableNoLook"),
@@ -77,19 +77,19 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    wellPanel(
-                     numericInput("OneLookLB", "IA1, from:", value = 0.5),
-                     numericInput("OneLookUB", "to:", value = 0.5),
-                     numericInput("OneLookBy", "by:", value = 0.1),
+                     numericInput("OneLookLB", "IA1, from:", value = 0.25),
+                     numericInput("OneLookUB", "to:", value = 0.75),
+                     numericInput("OneLookBy", "by:", value = 0.25),
                      textOutput("OneLookText")),
                    #selectInput("sidedOneLook", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
                    rHandsontableOutput("spendingOneLook"),
-                   actionButton("calcFutilityOneLook", label  = "Calculate", disabled = T)
+                   actionButton("calcOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    tabsetPanel(
                      tabPanel("Tables",
-                              tableOutput("futilityTable"),
-                              tableOutput("finalAssTable")),
+                              tableOutput("IATableOneLook"),
+                              tableOutput("noIATableOneLook")),
                      tabPanel("Plots",
                               plotOutput("oneLookBoundaries"),
                               plotOutput("oneLookPlotDuration"),
@@ -119,7 +119,7 @@ ui <- fluidPage(
                    div(id = "twoLooksErrorMessage", class = "error-message", textOutput("twoLooksErrorMessage")),
                    #selectInput("sidedTwoLooks", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
                    rHandsontableOutput("spendingTwoLooks"),
-                   actionButton("calcFutilityTwoLooks", label  = "Calculate", disabled = T)
+                   actionButton("calcTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    tabsetPanel(
@@ -191,7 +191,7 @@ ui <- fluidPage(
                  sidebarPanel = sidebarPanel(
                    numericInput("IFBayesian", "Information Fraction", value = 0.5),
                    numericInput("tEffBayesian", "Target Effect", value = 0.8),
-                   actionButton("calcFutilityBayesian", label  = "Calculate", disabled = T)
+                   actionButton("calcBayesian", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    plotOutput("BayesianPlot"),
@@ -243,22 +243,22 @@ server <- function(input, output, session) {
   
   observe({
     if (is.null(data$treatmentSamplesDF)) {
-      updateActionButton(session, "calcFutilityNoLook", disabled = TRUE)
-      updateActionButton(session, "calcFutilityOneLook", disabled = TRUE)
-      updateActionButton(session, "calcFutilityTwoLooks", disabled = TRUE)
-      updateActionButton(session, "calcFutilityBayesian", disabled = TRUE)
+      updateActionButton(session, "calcNoLook", disabled = TRUE)
+      updateActionButton(session, "calcOneLook", disabled = TRUE)
+      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
+      updateActionButton(session, "calcBayesian", disabled = TRUE)
     } else {
-      updateActionButton(session, "calcFutilityNoLook", disabled = FALSE)
-      updateActionButton(session, "calcFutilityOneLook", disabled = FALSE)
-      updateActionButton(session, "calcFutilityTwoLooks", disabled = FALSE)
-      updateActionButton(session, "calcFutilityBayesian", disabled = FALSE)
+      updateActionButton(session, "calcNoLook", disabled = FALSE)
+      updateActionButton(session, "calcOneLook", disabled = FALSE)
+      updateActionButton(session, "calcTwoLooks", disabled = FALSE)
+      updateActionButton(session, "calcBayesian", disabled = FALSE)
     }
   })
   
   # No Look Logic ---------------------------------
   
   
-  observeEvent(input$calcFutilityNoLook, {
+  observeEvent(input$calcNoLook, {
     NRep <- 500
     
     iterationArray <- array(NA,  dim = c(3, 1, NRep))
@@ -279,7 +279,7 @@ server <- function(input, output, session) {
         #Simulate control and treatment data
         dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
         
-        #Perform futility look at different Information Fractions
+        #Perform looks at different Information Fractions
         finalDF <- CensFunc(dataCombined, input$numEvents)
         test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
@@ -321,14 +321,14 @@ server <- function(input, output, session) {
     
     output$oneLookPlotDuration <- renderPlot({
       
-      plot(futilityDF$Assurance, futilityDF$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
+      plot(IADFOneLook$Assurance, IADFOneLook$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
            main = "Assurance vs Duration for the different stopping rules")
       
     })
     
     output$oneLookPlotSS <- renderPlot({
       
-      plot(futilityDF$Assurance, futilityDF$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
+      plot(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
            main = "Assurance vs Sample Size for the different stopping rules")
       
     })
@@ -376,11 +376,35 @@ server <- function(input, output, session) {
   })
   
   
-  observeEvent(input$calcFutilityOneLook, {
-    NRep <- 500
-    futilityVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
+  observeEvent(input$calcOneLook, {
+    NRep <- 10
     
-    iterationArray <- array(NA,  dim = c(3, length(futilityVec)+1, NRep))
+    IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
+    
+    iterationList <- vector("list", length = length(IAVec)+1)
+    
+    values <- hot_to_r(input$spendingOneLook)
+    
+    for (k in 1:length(IAVec)){
+      
+      iterationList[[k]]$IF <- c(IAVec[k], 1) 
+      
+      design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                         informationRates = iterationList[[k]]$IF,
+                                         userAlphaSpending = as.numeric(values[,2]), 
+                                         typeBetaSpending = "bsUser",
+                                         userBetaSpending = as.numeric(values[,3]))
+      
+      iterationList[[k]]$EffBounds <- design$criticalValues
+      iterationList[[k]]$futBounds <- design$futilityBounds
+      iterationList[[k]]$Power <- rep(NA, NRep)
+      iterationList[[k]]$Duration <- rep(NA, NRep)
+      iterationList[[k]]$SS <- rep(NA, NRep)
+      iterationList[[k]]$ZScore1 <- rep(NA, NRep)
+      iterationList[[k]]$ZScore2 <- rep(NA, NRep)
+      
+      
+    }
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -398,24 +422,28 @@ server <- function(input, output, session) {
         #Simulate control and treatment data
         dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
         
-        #Perform futility look at different Information Fractions
+        #Perform looks at different Information Fractions
         finalDF <- CensFunc(dataCombined, input$numEvents)
         test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         deltad <- as.numeric(exp(coef(coxmodel)))
         
-        iterationArray[1, length(futilityVec)+1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        iterationArray[2, length(futilityVec)+1, i] <- finalDF$censTime
-        iterationArray[3, length(futilityVec)+1, i] <- finalDF$SS
+        iterationList[[length(iterationList)]]$Power[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        iterationList[[length(iterationList)]]$Duration[i] <- finalDF$censTime
+        iterationList[[length(iterationList)]]$SS[i] <- finalDF$SS
         
-        
-        for (k in 1:length(futilityVec)){
-          futilityCens <- CensFunc(dataCombined, input$numEvents*futilityVec[k])
-          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$OneLookHR)
+
+
+        for (k in 1:length(IAVec)){
           
-          iterationArray[1, k, i] <- futilityLook
-          iterationArray[2, k, i] <- futilityCens$censTime
-          iterationArray[3, k, i] <- futilityCens$SS
+          GSDOC <- GSDOneIAFunc(dataCombined, iterationList[[k]]$futBounds, 
+                                iterationList[[k]]$EffBounds, iterationList[[k]]$IF, input$numEvents) 
+          
+          iterationList[[k]]$Power[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy", "Successful"), 1, 0)
+          iterationList[[k]]$Duration[i] <- GSDOC$Duration
+          iterationList[[k]]$SS[i] <- GSDOC$SS
+          iterationList[[k]]$ZScore1[i] <- GSDOC$IA1ZScore
+          iterationList[[k]]$ZScore2[i] <- GSDOC$IA2ZScore
           
         }
         
@@ -423,136 +451,147 @@ server <- function(input, output, session) {
       }
     })
     
+    print(iterationList)
     
-    powerDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
-    durationDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
-    ssDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
-    iaTimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
-    stopDF <- data.frame(matrix(NA, nrow = NRep, ncol = futilityVec))
-    falselyStop <- rep(NA, length(futilityVec))
-    correctlyStop <- rep(NA, length(futilityVec))
-    falselyContinue <- rep(NA, length(futilityVec))
-    correctlyContinue <- rep(NA, length(futilityVec))
+    x<<-iterationList
     
-    
-    for (i in 1:NRep){
-      for (k in 1:length(futilityVec)){
-        powerDF[i, k] <- iterationArray[1,k,i]*iterationArray[1,length(futilityVec)+1,i]
-        iaTimeDF[i,k] <- iterationArray[2,k,i]
-        stopDF[i,k] <- iterationArray[1,k,i]
-        
-        if (iterationArray[1,k,i]==0){
-          durationDF[i, k] <- iterationArray[2,k,i]
-          ssDF[i, k] <- iterationArray[3,k,i]
-        } else {
-          durationDF[i, k] <- iterationArray[2,length(futilityVec)+1,i]
-          ssDF[i, k] <- iterationArray[3,length(futilityVec)+1,i]
-        }
-      }
-    }
-    
-    #Calculating falsely stopping
-    for (k in 1:length(futilityVec)){
-      indices <- which(iterationArray[1, k, ] == 0)
-      selected_layers <- iterationArray[,,indices]
-      if (length(dim(selected_layers))==2){
-        falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1])
-      } else {
-        if (dim(selected_layers)[3]==0){
-          falselyStop[k] <- NA
-        } else{
-          falselyStop[k] <- mean(selected_layers[1, length(futilityVec)+1, ])
-        }
-      }
-    }
-    
-    #Calculating correctly stopping
-    for (k in 1:length(futilityVec)){
-      indices <- which(iterationArray[1, k, ] == 0)
-      selected_layers <- iterationArray[,,indices]
-      if (length(dim(selected_layers))==2){
-        correctlyStop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1])
-      } else {
-        if (dim(selected_layers)[3]==0){
-          correctlyStop[k] <- NA
-        } else{
-          correctlyStop[k] <- 1-mean(selected_layers[1, length(futilityVec)+1, ])
-        }
-      }
-    }
-    
-    #Calculating falsely continuing
-    for (k in 1:length(futilityVec)){
-      indices <- which(iterationArray[1, k, ] == 1)
-      selected_layers <- iterationArray[,,indices]
-      if (length(dim(selected_layers))==2){
-        falselyContinue[k] <- 1-mean(selected_layers[1, length(futilityVec)+1])
-      } else {
-        if (dim(selected_layers)[3]==0){
-          falselyContinue[k] <- NA
-        } else{
-          falselyContinue[k] <- 1-mean(selected_layers[1, length(futilityVec)+1, ])
-        }
-      }
-    }
-    
-    #Calculating correctly continuing
-    for (k in 1:length(futilityVec)){
-      indices <- which(iterationArray[1, k, ] == 1)
-      selected_layers <- iterationArray[,,indices]
-      if (length(dim(selected_layers))==2){
-        correctlyContinue[k] <- mean(selected_layers[1, length(futilityVec)+1])
-      } else {
-        if (dim(selected_layers)[3]==0){
-          correctlyContinue[k] <- NA
-        } else{
-          correctlyContinue[k] <- mean(selected_layers[1, length(futilityVec)+1, ])
-        }
-      }
-    }
+    powerDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
+    durationDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
+    ssDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
+    iaTimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
+    stopDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
+    falselyStop <- rep(NA, length(IAVec))
+    correctlyStop <- rep(NA, length(IAVec))
+    falselyContinue <- rep(NA, length(IAVec))
+    correctlyContinue <- rep(NA, length(IAVec))
     
     
+    # for (i in 1:NRep){
+    #   for (k in 1:length(IAVec)){
+    #     powerDF[i, k] <- iterationArray[1,k,i]*iterationArray[1,length(IAVec)+1,i]
+    #     iaTimeDF[i,k] <- iterationArray[2,k,i]
+    #     stopDF[i,k] <- iterationArray[1,k,i]
+    #     
+    #     if (iterationArray[1,k,i]==0){
+    #       durationDF[i, k] <- iterationArray[2,k,i]
+    #       ssDF[i, k] <- iterationArray[3,k,i]
+    #     } else {
+    #       durationDF[i, k] <- iterationArray[2,length(IAVec)+1,i]
+    #       ssDF[i, k] <- iterationArray[3,length(IAVec)+1,i]
+    #     }
+    #   }
+    # }
+    
+    # #Calculating falsely stopping
+    # for (k in 1:length(IAVec)){
+    #   indices <- which(iterationArray[1, k, ] == 0)
+    #   selected_layers <- iterationArray[,,indices]
+    #   if (length(dim(selected_layers))==2){
+    #     falselyStop[k] <- mean(selected_layers[1, length(IAVec)+1])
+    #   } else {
+    #     if (dim(selected_layers)[3]==0){
+    #       falselyStop[k] <- NA
+    #     } else{
+    #       falselyStop[k] <- mean(selected_layers[1, length(IAVec)+1, ])
+    #     }
+    #   }
+    # }
+    # 
+    # #Calculating correctly stopping
+    # for (k in 1:length(IAVec)){
+    #   indices <- which(iterationArray[1, k, ] == 0)
+    #   selected_layers <- iterationArray[,,indices]
+    #   if (length(dim(selected_layers))==2){
+    #     correctlyStop[k] <- 1-mean(selected_layers[1, length(IAVec)+1])
+    #   } else {
+    #     if (dim(selected_layers)[3]==0){
+    #       correctlyStop[k] <- NA
+    #     } else{
+    #       correctlyStop[k] <- 1-mean(selected_layers[1, length(IAVec)+1, ])
+    #     }
+    #   }
+    # }
+    # 
+    # #Calculating falsely continuing
+    # for (k in 1:length(IAVec)){
+    #   indices <- which(iterationArray[1, k, ] == 1)
+    #   selected_layers <- iterationArray[,,indices]
+    #   if (length(dim(selected_layers))==2){
+    #     falselyContinue[k] <- 1-mean(selected_layers[1, length(IAVec)+1])
+    #   } else {
+    #     if (dim(selected_layers)[3]==0){
+    #       falselyContinue[k] <- NA
+    #     } else{
+    #       falselyContinue[k] <- 1-mean(selected_layers[1, length(IAVec)+1, ])
+    #     }
+    #   }
+    # }
+    # 
+    # #Calculating correctly continuing
+    # for (k in 1:length(IAVec)){
+    #   indices <- which(iterationArray[1, k, ] == 1)
+    #   selected_layers <- iterationArray[,,indices]
+    #   if (length(dim(selected_layers))==2){
+    #     correctlyContinue[k] <- mean(selected_layers[1, length(IAVec)+1])
+    #   } else {
+    #     if (dim(selected_layers)[3]==0){
+    #       correctlyContinue[k] <- NA
+    #     } else{
+    #       correctlyContinue[k] <- mean(selected_layers[1, length(IAVec)+1, ])
+    #     }
+    #   }
+    # }
+    # 
     
     
     
     
-    futilityDF <- data.frame(IF = futilityVec,
-                             IATime = colMeans(iaTimeDF),
-                             Assurance = colMeans(powerDF),
-                             Stop = 1-colMeans(stopDF),
-                             falselyStop = falselyStop,
-                             correctlyStop = correctlyStop,
-                             falselyContinue = falselyContinue,
-                             correctlyContinue = correctlyContinue,
-                             FPR = 1 - correctlyStop/(correctlyStop+falselyStop),
-                             TPR = correctlyContinue/(correctlyContinue+falselyContinue),
-                             Duration = colMeans(durationDF),
-                             SS = colMeans(ssDF))
+    
+    # IADFOneLook <- data.frame(IF = IAVec,
+    #                          IATime = colMeans(iaTimeDF),
+    #                          Assurance = c(lapply(iterationList, function(sublist) mean(sublist$Power))),
+    #                          Stop = 1-colMeans(stopDF),
+    #                          falselyStop = falselyStop,
+    #                          correctlyStop = correctlyStop,
+    #                          falselyContinue = falselyContinue,
+    #                          correctlyContinue = correctlyContinue,
+    #                          FPR = 1 - correctlyStop/(correctlyStop+falselyStop),
+    #                          TPR = correctlyContinue/(correctlyContinue+falselyContinue),
+    #                          Duration = colMeans(durationDF),
+    #                          SS = colMeans(ssDF))
+    
+    
+    Assurance<- unlist(lapply(iterationList, function(sublist) mean(sublist$Power)))
+    
+    IADFOneLook <- data.frame(IF = IAVec,
+                              Assurance = Assurance[1:(length(Assurance)-1)])
+    
+   # print(IADFOneLook)
+    
     
     #Continuing is positive!
     
-    colnames(futilityDF) <- c("Information Fraction", "IA Time", "Assurance", "% stop",
-                              "Falsely Stop", "Correctly Stop", "Falsely Continue", "Correctly Continue",
-                              "False Positive Rate", "True Positive Rate",
-                              "Duration", "Sample Size")
+    #colnames(IADFOneLook) <- c("Information Fraction", "IA Time", "Assurance", "% stop",
+                           #   "Falsely Stop", "Correctly Stop", "Falsely Continue", "Correctly Continue",
+                           #   "False Positive Rate", "True Positive Rate",
+                          #    "Duration", "Sample Size")
     
     
     
     #Calculating the no look table
-    FinalAss <- mean(iterationArray[1, length(futilityVec)+1, ])
-    FinalDuration <- mean(iterationArray[2, length(futilityVec)+1, ])
-    FinalSS <- mean(iterationArray[3, length(futilityVec)+1, ])
-    FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+    # FinalAss <- mean(iterationArray[1, length(IAVec)+1, ])
+    # FinalDuration <- mean(iterationArray[2, length(IAVec)+1, ])
+    # FinalSS <- mean(iterationArray[3, length(IAVec)+1, ])
+    # FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+    # colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
-    
-    output$futilityTable <- renderTable({
-      futilityDF
+    output$IATableOneLook <- renderTable({
+      IADFOneLook
     }, digits = 3)
     
     
-    output$finalAssTable <- renderTable({
-      FinalAss
+    output$noIATableOneLook <- renderTable({
+      #FinalAss
     }, digits = 3)
     
     output$oneLookROCPlot <- renderPlot({
@@ -568,7 +607,7 @@ server <- function(input, output, session) {
     
     output$oneLookPlotDuration <- renderPlot({
       
-      plot(futilityDF$Assurance, futilityDF$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
+      plot(IADFOneLook$Assurance, IADFOneLook$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
            main = "Assurance vs Duration for the different stopping rules")
       points(FinalAss$Assurance, FinalAss$Duration, col = "red")
       
@@ -576,7 +615,7 @@ server <- function(input, output, session) {
     
     output$oneLookPlotSS <- renderPlot({
       
-      plot(futilityDF$Assurance, futilityDF$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
+      plot(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
            main = "Assurance vs Sample Size for the different stopping rules")
       points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red")
       
@@ -657,11 +696,11 @@ server <- function(input, output, session) {
       output$twoLooksErrorMessage <- renderText({
         errorMessage
       })
-      updateActionButton(session, "calcFutilityTwoLooks", disabled = TRUE)
+      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
     } else {
       shinyjs::hide("twoLooksErrorMessage")
       if (!is.null(data$treatmentSamplesDF)){
-        updateActionButton(session, "calcFutilityTwoLooks", disabled = F)
+        updateActionButton(session, "calcTwoLooks", disabled = F)
         
       }
       
@@ -672,7 +711,7 @@ server <- function(input, output, session) {
   
   
   
-  observeEvent(input$calcFutilityTwoLooks, {
+  observeEvent(input$calcTwoLooks, {
     NRep <- 500
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
@@ -711,7 +750,7 @@ server <- function(input, output, session) {
         proposedDF[i,] <- proposedRuleFunc(dataCombined, input$numEvents, 3, 2/3) 
         
         
-        #Perform futility look at different Information Fractions
+        #Perform looks at different Information Fractions
         finalDF <- CensFunc(dataCombined, input$numEvents)
         test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
@@ -723,12 +762,15 @@ server <- function(input, output, session) {
         
         
         for (k in 1:length(TwoLooksCombined)){
-          futilityCens <- CensFunc(dataCombined, input$numEvents*TwoLooksCombined[k])
-          futilityLook <- interimLookFunc(futilityCens$dataCombined, input$OneLookHR)
+          IADF <- CensFunc(dataCombined, input$numEvents*TwoLooksCombined[k])
           
-          iterationArray[1, k, i] <- futilityLook
-          iterationArray[2, k, i] <- futilityCens$censTime
-          iterationArray[3, k, i] <- futilityCens$SS
+          
+          
+          IADFOutcome <- interimLookFunc(IADF$dataCombined, input$OneLookHR)
+          
+          iterationArray[1, k, i] <- IADFOutcome
+          iterationArray[2, k, i] <- IADF$censTime
+          iterationArray[3, k, i] <- IADF$SS
           
         }
         
@@ -1539,7 +1581,7 @@ server <- function(input, output, session) {
   
   
   
-  observeEvent(input$calcFutilityBayesian, {
+  observeEvent(input$calcBayesian, {
     
     #Parallel: # Set up parallel processing
     cl <- makeCluster(detectCores())  # Use all available cores
@@ -1571,7 +1613,7 @@ server <- function(input, output, session) {
                         # Simulate control and treatment data
                         dataCombined <- SimDTEDataSet(numPatients, lambdac, bigT, HRStar, recTime)  
                         
-                        # Perform futility look at different Information Fractions
+                        # Perform looks at different Information Fractions
                         finalDF <- CensFunc(dataCombined, numEvents)
                         
                         test <- survdiff(Surv(survival_time, status) ~ group, data = finalDF$dataCombined)

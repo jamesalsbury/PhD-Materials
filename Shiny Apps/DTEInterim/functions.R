@@ -291,12 +291,52 @@ proposedRuleFunc <- function(dataCombined, numEventsRequired, monthsDelay, propE
   
 }
 
-GSDFunc <- function(dataCombined, futBound, effBound){
-  
-  coxmodel <- coxph(formula = surv_obj ~ group, data = data)
-  y <- coef(summary(coxmodel))[,4]
-  
-  
-  
+# Define a function to compute Cox model and extract relevant information
+computeCox <- function(data, events) {
+  censDF <- CensFunc(data, events)
+  coxmodel <- coxph(Surv(survival_time, status) ~ group, data = censDF$dataCombined)
+  SS <- censDF$SS
+  Duration <- censDF$censTime
+  ZScore <- abs(coef(summary(coxmodel))[, 4])
+  list(SS = SS, Duration = Duration, ZScore = ZScore)
 }
+
+GSDOneIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
+  
+  # Compute first and final IA
+  IA1 <- computeCox(dataCombined, numEvents * IF[1])
+  IA2 <- computeCox(dataCombined, numEvents * IF[2])
+  
+  # Determine outcome based on ZScores
+  Outcome <- ifelse(IA1$ZScore > critValues[1], "Efficacy", 
+                    ifelse(IA1$ZScore < futBound, "Futility", 
+                           ifelse(IA2$ZScore > critValues[2], "Successful", "Unsuccessful")))
+  
+  # Determine SS and Duration based on outcome
+  SS <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$SS, IA2$SS)
+  Duration <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$Duration, IA2$Duration)
+  
+  return(list(Outcome = Outcome, SS = SS, Duration = Duration, IA1ZScore = IA1$ZScore, IA2ZScore = IA2$ZScore))
+}
+
+
+# GSDFinalFunc <- function(dataCombined, critValue){
+#   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = dataCombined)
+#   ZScore <- coef(summary(coxmodel))[,4]
+#   Outcome <- ifelse(ZScore > critValue, "Successful", "Unsuccesful")
+#   return(list(Outcome = Outcome))
+# }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
