@@ -377,11 +377,15 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcOneLook, {
-    NRep <- 10
+    NRep <- 5
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
-    iterationList <- vector("list", length = length(IAVec)+1)
+    iterationList <- vector("list", length = length(IAVec))
+    
+    noLooksDF <- data.frame(Power = numeric(NRep),
+                            Duration = numeric(NRep),
+                            SS = numeric(NRep))
     
     values <- hot_to_r(input$spendingOneLook)
     
@@ -397,10 +401,7 @@ server <- function(input, output, session) {
       
       iterationList[[k]]$EffBounds <- design$criticalValues
       iterationList[[k]]$futBounds <- design$futilityBounds
-      iterationList[[k]]$Power <- rep(NA, NRep)
-      iterationList[[k]]$Duration <- rep(NA, NRep)
-      iterationList[[k]]$SS <- rep(NA, NRep)
-      iterationList[[k]]$IA1Time <- rep(NA, NRep)
+      
       
     }
     
@@ -426,11 +427,10 @@ server <- function(input, output, session) {
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         deltad <- as.numeric(exp(coef(coxmodel)))
         
-        iterationList[[length(iterationList)]]$Power[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        iterationList[[length(iterationList)]]$Duration[i] <- finalDF$censTime
-        iterationList[[length(iterationList)]]$SS[i] <- finalDF$SS
+        noLooksDF$Power[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        noLooksDF$Duration[i] <- finalDF$censTime
+        noLooksDF$SS[i] <- finalDF$SS
         
-
 
         for (k in 1:length(IAVec)){
           
@@ -441,6 +441,12 @@ server <- function(input, output, session) {
           iterationList[[k]]$Duration[i] <- GSDOC$Duration
           iterationList[[k]]$SS[i] <- GSDOC$SS
           iterationList[[k]]$IA1Time[i] <- GSDOC$IA1Time
+          iterationList[[k]]$Outcome[i] <- GSDOC$Outcome
+          iterationList[[k]]$Stop[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy", "Futility"), 1, 0)
+          iterationList[[k]]$StopEff[i] <- ifelse(GSDOC$Outcome == "Efficacy", 1, 0)
+          iterationList[[k]]$StopFut[i] <- ifelse(GSDOC$Outcome == "Futility", 1, 0)
+          iterationList[[k]]$Truth[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+          
           
         }
         
@@ -448,101 +454,63 @@ server <- function(input, output, session) {
       }
     })
     
-    print(iterationList)
-    
-    x<<-iterationList
-    
-    powerDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
-    durationDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
-    ssDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
-    iaTimeDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
-    stopDF <- data.frame(matrix(NA, nrow = NRep, ncol = IAVec))
     falselyStop <- rep(NA, length(IAVec))
     correctlyStop <- rep(NA, length(IAVec))
     falselyContinue <- rep(NA, length(IAVec))
     correctlyContinue <- rep(NA, length(IAVec))
-    
-    
-    # for (i in 1:NRep){
-    #   for (k in 1:length(IAVec)){
-    #     powerDF[i, k] <- iterationArray[1,k,i]*iterationArray[1,length(IAVec)+1,i]
-    #     iaTimeDF[i,k] <- iterationArray[2,k,i]
-    #     stopDF[i,k] <- iterationArray[1,k,i]
-    #     
-    #     if (iterationArray[1,k,i]==0){
-    #       durationDF[i, k] <- iterationArray[2,k,i]
-    #       ssDF[i, k] <- iterationArray[3,k,i]
-    #     } else {
-    #       durationDF[i, k] <- iterationArray[2,length(IAVec)+1,i]
-    #       ssDF[i, k] <- iterationArray[3,length(IAVec)+1,i]
-    #     }
-    #   }
-    # }
-    
-    # #Calculating falsely stopping
-    # for (k in 1:length(IAVec)){
-    #   indices <- which(iterationArray[1, k, ] == 0)
-    #   selected_layers <- iterationArray[,,indices]
-    #   if (length(dim(selected_layers))==2){
-    #     falselyStop[k] <- mean(selected_layers[1, length(IAVec)+1])
-    #   } else {
-    #     if (dim(selected_layers)[3]==0){
-    #       falselyStop[k] <- NA
-    #     } else{
-    #       falselyStop[k] <- mean(selected_layers[1, length(IAVec)+1, ])
-    #     }
-    #   }
-    # }
-    # 
-    # #Calculating correctly stopping
-    # for (k in 1:length(IAVec)){
-    #   indices <- which(iterationArray[1, k, ] == 0)
-    #   selected_layers <- iterationArray[,,indices]
-    #   if (length(dim(selected_layers))==2){
-    #     correctlyStop[k] <- 1-mean(selected_layers[1, length(IAVec)+1])
-    #   } else {
-    #     if (dim(selected_layers)[3]==0){
-    #       correctlyStop[k] <- NA
-    #     } else{
-    #       correctlyStop[k] <- 1-mean(selected_layers[1, length(IAVec)+1, ])
-    #     }
-    #   }
-    # }
-    # 
-    # #Calculating falsely continuing
-    # for (k in 1:length(IAVec)){
-    #   indices <- which(iterationArray[1, k, ] == 1)
-    #   selected_layers <- iterationArray[,,indices]
-    #   if (length(dim(selected_layers))==2){
-    #     falselyContinue[k] <- 1-mean(selected_layers[1, length(IAVec)+1])
-    #   } else {
-    #     if (dim(selected_layers)[3]==0){
-    #       falselyContinue[k] <- NA
-    #     } else{
-    #       falselyContinue[k] <- 1-mean(selected_layers[1, length(IAVec)+1, ])
-    #     }
-    #   }
-    # }
-    # 
-    # #Calculating correctly continuing
-    # for (k in 1:length(IAVec)){
-    #   indices <- which(iterationArray[1, k, ] == 1)
-    #   selected_layers <- iterationArray[,,indices]
-    #   if (length(dim(selected_layers))==2){
-    #     correctlyContinue[k] <- mean(selected_layers[1, length(IAVec)+1])
-    #   } else {
-    #     if (dim(selected_layers)[3]==0){
-    #       correctlyContinue[k] <- NA
-    #     } else{
-    #       correctlyContinue[k] <- mean(selected_layers[1, length(IAVec)+1, ])
-    #     }
-    #   }
-    # }
-    # 
-    
-    
-    
-    
+    falselyStopEff <- rep(NA, length(IAVec))
+    correctlyStopEff <- rep(NA, length(IAVec))
+    falselyContinueEff <- rep(NA, length(IAVec))
+    correctlyContinueEff <- rep(NA, length(IAVec))
+    falselyStopFut <- rep(NA, length(IAVec))
+    correctlyStopFut <- rep(NA, length(IAVec))
+    falselyContinueFut <- rep(NA, length(IAVec))
+    correctlyContinueFut <- rep(NA, length(IAVec))
+   
+   for (k in 1:length(IAVec)){
+     
+     IndVec <- which(iterationList[[k]]$Stop==1)
+     
+     if (length(IndVec)!=0){
+     
+     OutcomeVec <- iterationList[[k]]$Outcome[IndVec]
+     TruthVec <- iterationList[[k]]$Truth[IndVec]
+     
+     correctlyStopSum <- 0
+     
+     for (i in 1:length(IndVec)){
+       if ((OutcomeVec[i]=="Efficacy"&TruthVec[i]==1)|OutcomeVec[i]=="Futility"&TruthVec[i]==0){
+         correctlyStopSum <- correctlyStopSum + 1
+       }
+     }
+     
+     correctlyStopEffSum <- 0
+     
+     for (i in 1:length(IndVec)){
+       if (OutcomeVec[i]=="Efficacy"&TruthVec[i]==1){
+         correctlyStopEffSum <- correctlyStopEffSum + 1
+       }
+     }
+     
+     correctlyStopFutSum <- 0
+     
+     for (i in 1:length(IndVec)){
+       if (OutcomeVec[i]=="Futility"&TruthVec[i]==0){
+         correctlyStopFutSum <- correctlyStopFutSum + 1
+       }
+     }
+     
+     correctlyStop[k] <- correctlyStopSum/length(IndVec)
+     correctlyStopEff[k] <- correctlyStopEffSum/length(IndVec)
+     correctlyStopFut[k] <- correctlyStopFutSum/length(IndVec)
+     
+     } else{
+       correctlyStop[k] <- NA
+       correctlyStopEff[k] <- NA
+       correctlyStopFut[k] <- NA
+   }}
+   
+
     
     # IADFOneLook <- data.frame(IF = IAVec,
     #                          IATime = colMeans(iaTimeDF),
@@ -560,10 +528,16 @@ server <- function(input, output, session) {
 
     
     IADFOneLook <- data.frame(IF = IAVec,
-                              IATime = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$IA1Time))),
-                              Assurance = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$Power))),
-                              Duration = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$Duration))),
-                              SS = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$SS))))
+                              IATime = unlist(lapply(iterationList, function(x) mean(x$IA1Time))),
+                              Assurance = unlist(lapply(iterationList, function(x) mean(x$Power))),
+                              Duration = unlist(lapply(iterationList, function(x) mean(x$Duration))),
+                              SS = unlist(lapply(iterationList, function(x) mean(x$SS))),
+                              Stop = unlist(lapply(iterationList, function(x) mean(x$Stop))),
+                              StopEff = unlist(lapply(iterationList, function(x) mean(x$StopEff))),
+                              StopFut = unlist(lapply(iterationList, function(x) mean(x$StopFut))),
+                              correctlyStop = correctlyStop,
+                              correctlyStopEff = correctlyStopEff,
+                              correctlyStopFut = correctlyStopFut)
                               
     
 
@@ -576,16 +550,7 @@ server <- function(input, output, session) {
                           #    "Duration", "Sample Size")
     
     
-    
-    #Calculating the no look table
-    # FinalAss <- mean(iterationArray[1, length(IAVec)+1, ])
-    # FinalDuration <- mean(iterationArray[2, length(IAVec)+1, ])
-    # FinalSS <- mean(iterationArray[3, length(IAVec)+1, ])
-    FinalAss <- data.frame(Assurance = unlist(lapply(iterationList[length(IAVec)+1], function(x) mean(x$Power))),
-                           Duration = unlist(lapply(iterationList[length(IAVec)+1], function(x) mean(x$Duration))),
-                           SS = unlist(lapply(iterationList[length(IAVec)+1], function(x) mean(x$SS))))
-    
-    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+    FinalAss <- t(colMeans(noLooksDF))
     
     output$IATableOneLook <- renderTable({
       IADFOneLook
@@ -593,6 +558,8 @@ server <- function(input, output, session) {
     
     
     output$noIATableOneLook <- renderTable({
+      FinalAss <- as.data.frame(FinalAss)
+      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
       FinalAss
     }, digits = 3)
     
@@ -711,15 +678,43 @@ server <- function(input, output, session) {
   })
   
   
-  
-  
   observeEvent(input$calcTwoLooks, {
-    NRep <- 500
+    NRep <- 5
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
-    TwoLooksCombined <- unique(c(round(TwoLooksSeq1, 2), round(TwoLooksSeq2, 2)))
+    iterationList <- vector("list", length = sum(outer(TwoLooksSeq1, TwoLooksSeq2, "<")))
     
+    noLooksDF <- data.frame(Power = numeric(NRep),
+                            Duration = numeric(NRep),
+                            SS = numeric(NRep))
+    
+    values <- hot_to_r(input$spendingTwoLooks)
+    
+    myCount <- 1
+    
+    for (j in 1:length(TwoLooksSeq1)){
+      for (k in 1:length(TwoLooksSeq2)){
+        if (TwoLooksSeq1[j]<TwoLooksSeq2[k]){
+        
+        iterationList[[myCount]]$IF <- c(TwoLooksSeq1[j], TwoLooksSeq2[k], 1) 
+        
+        design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                           informationRates = iterationList[[myCount]]$IF,
+                                           userAlphaSpending = as.numeric(values[,2]), 
+                                           typeBetaSpending = "bsUser",
+                                           userBetaSpending = as.numeric(values[,3]))
+        
+        iterationList[[myCount]]$EffBounds <- design$criticalValues
+        iterationList[[myCount]]$futBounds <- design$futilityBounds
+        
+        myCount <- myCount + 1
+        
+        }
+      }
+    }
+    
+   # print(iterationList)
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -727,9 +722,6 @@ server <- function(input, output, session) {
     treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
     
-    iterationArray <- array(NA,  dim = c(3, length(TwoLooksCombined)+1, NRep))
-    
-    dimnames(iterationArray) <- list(c("Power", "Duration", "Sample Size"), c(TwoLooksCombined, "Final"), 1:NRep)
     
     proposedDF <- data.frame(matrix(NA, ncol = 9, nrow = NRep))
     
@@ -758,22 +750,26 @@ server <- function(input, output, session) {
         coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
         deltad <- as.numeric(exp(coef(coxmodel)))
         
-        iterationArray[1, length(TwoLooksCombined)+1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        iterationArray[2, length(TwoLooksCombined)+1, i] <- finalDF$censTime
-        iterationArray[3, length(TwoLooksCombined)+1, i] <- finalDF$SS
+        noLooksDF$Power[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+        noLooksDF$Duration[i] <- finalDF$censTime
+        noLooksDF$SS[i] <- finalDF$SS
         
         
-        for (k in 1:length(TwoLooksCombined)){
-          IADF <- CensFunc(dataCombined, input$numEvents*TwoLooksCombined[k])
+        for (k in 1:length(iterationList)){
           
+          GSDOC <- GSDTwoIAFunc(dataCombined, iterationList[[k]]$futBounds, 
+                                iterationList[[k]]$EffBounds, iterationList[[k]]$IF, input$numEvents) 
           
-          
-          IADFOutcome <- interimLookFunc(IADF$dataCombined, input$OneLookHR)
-          
-          iterationArray[1, k, i] <- IADFOutcome
-          iterationArray[2, k, i] <- IADF$censTime
-          iterationArray[3, k, i] <- IADF$SS
-          
+          iterationList[[k]]$Power[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy1", "Efficacy2", "Successful"), 1, 0)
+          iterationList[[k]]$Duration[i] <- GSDOC$Duration
+          iterationList[[k]]$SS[i] <- GSDOC$SS
+          iterationList[[k]]$IA1Time[i] <- GSDOC$IA1Time
+          iterationList[[k]]$IA2Time[i] <- GSDOC$IA2Time
+          iterationList[[k]]$Outcome[i] <- GSDOC$Outcome
+          iterationList[[k]]$Stop[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy1", "Futility1", "Efficacy2", "Futility2"), 1, 0)
+          iterationList[[k]]$StopEff[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy1", "Efficacy2"), 1, 0)
+          iterationList[[k]]$StopFut[i] <- ifelse(GSDOC$Outcome %in% c("Futility1", "Futility2"), 1, 0)
+          iterationList[[k]]$Truth[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
         }
         
         incProgress(1/NRep)

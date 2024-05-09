@@ -15,7 +15,7 @@ SimDTEDataSet <- function(n, lambdac, bigT, HRStar, recTime) {
   
   #Add on a random recruitment time
   dataCombined$recTime <- runif(n*2, 0, recTime)
-  
+  z
   #Calculate the pseudo time of the event
   dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
   
@@ -297,7 +297,7 @@ computeCox <- function(data, events) {
   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = censDF$dataCombined)
   SS <- censDF$SS
   Duration <- censDF$censTime
-  ZScore <- abs(coef(summary(coxmodel))[, 4])
+  ZScore <- -(coef(summary(coxmodel))[, 4])
   list(SS = SS, Duration = Duration, ZScore = ZScore)
 }
 
@@ -319,13 +319,28 @@ GSDOneIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
   return(list(Outcome = Outcome, SS = SS, Duration = Duration, IA1Time = IA1$Duration))
 }
 
+GSDTwoIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
+  
+  # Compute first and final IA
+  IA1 <- computeCox(dataCombined, numEvents * IF[1])
+  IA2 <- computeCox(dataCombined, numEvents * IF[2])
+  IA3 <- computeCox(dataCombined, numEvents * IF[3])
+  
+  
+  # Determine outcome based on ZScores
+  Outcome <- ifelse(IA1$ZScore > critValues[1], "Efficacy1", 
+                    ifelse(IA1$ZScore < futBound[1], "Futility1", 
+                           ifelse(IA2$ZScore > critValues[2], "Efficacy2",
+                                  ifelse(IA2$ZScore < futBound[2], "Futility2", 
+                                         ifelse(IA3$ZScore > critValues[3], "Successful", "Unsuccessful")))))
+  
+  # Determine SS and Duration based on outcome
+  SS <- ifelse(Outcome %in% c("Efficacy1", "Futility1"), IA1$SS, ifelse(Outcome %in% c("Efficacy2", "Futility2"), IA2$SS, IA3$SS))
+  Duration <- ifelse(Outcome %in% c("Efficacy1", "Futility1"), IA1$Duration, ifelse(Outcome %in% c("Efficacy2", "Futility2"), IA2$Duration, IA3$Duration))
+  
+  return(list(Outcome = Outcome, SS = SS, Duration = Duration, IA1Time = IA1$Duration, IA2Time = IA2$Duration))
+}
 
-# GSDFinalFunc <- function(dataCombined, critValue){
-#   coxmodel <- coxph(Surv(survival_time, status) ~ group, data = dataCombined)
-#   ZScore <- coef(summary(coxmodel))[,4]
-#   Outcome <- ifelse(ZScore > critValue, "Successful", "Unsuccesful")
-#   return(list(Outcome = Outcome))
-# }
 
 
 
