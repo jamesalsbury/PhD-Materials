@@ -15,7 +15,7 @@ SimDTEDataSet <- function(n, lambdac, bigT, HRStar, recTime) {
   
   #Add on a random recruitment time
   dataCombined$recTime <- runif(n*2, 0, recTime)
-  z
+  
   #Calculate the pseudo time of the event
   dataCombined$pseudoTime <- dataCombined$time + dataCombined$recTime
   
