@@ -400,9 +400,7 @@ server <- function(input, output, session) {
       iterationList[[k]]$Power <- rep(NA, NRep)
       iterationList[[k]]$Duration <- rep(NA, NRep)
       iterationList[[k]]$SS <- rep(NA, NRep)
-      iterationList[[k]]$ZScore1 <- rep(NA, NRep)
-      iterationList[[k]]$ZScore2 <- rep(NA, NRep)
-      
+      iterationList[[k]]$IA1Time <- rep(NA, NRep)
       
     }
     
@@ -442,8 +440,7 @@ server <- function(input, output, session) {
           iterationList[[k]]$Power[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy", "Successful"), 1, 0)
           iterationList[[k]]$Duration[i] <- GSDOC$Duration
           iterationList[[k]]$SS[i] <- GSDOC$SS
-          iterationList[[k]]$ZScore1[i] <- GSDOC$IA1ZScore
-          iterationList[[k]]$ZScore2[i] <- GSDOC$IA2ZScore
+          iterationList[[k]]$IA1Time[i] <- GSDOC$IA1Time
           
         }
         
@@ -560,14 +557,16 @@ server <- function(input, output, session) {
     #                          Duration = colMeans(durationDF),
     #                          SS = colMeans(ssDF))
     
-    
-    Assurance<- unlist(lapply(iterationList, function(sublist) mean(sublist$Power)))
+
     
     IADFOneLook <- data.frame(IF = IAVec,
-                              Assurance = Assurance[1:(length(Assurance)-1)])
+                              IATime = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$IA1Time))),
+                              Assurance = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$Power))),
+                              Duration = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$Duration))),
+                              SS = unlist(lapply(iterationList[1:length(IAVec)], function(x) mean(x$SS))))
+                              
     
-   # print(IADFOneLook)
-    
+
     
     #Continuing is positive!
     
@@ -582,8 +581,11 @@ server <- function(input, output, session) {
     # FinalAss <- mean(iterationArray[1, length(IAVec)+1, ])
     # FinalDuration <- mean(iterationArray[2, length(IAVec)+1, ])
     # FinalSS <- mean(iterationArray[3, length(IAVec)+1, ])
-    # FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-    # colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+    FinalAss <- data.frame(Assurance = unlist(lapply(iterationList[length(IAVec)+1], function(x) mean(x$Power))),
+                           Duration = unlist(lapply(iterationList[length(IAVec)+1], function(x) mean(x$Duration))),
+                           SS = unlist(lapply(iterationList[length(IAVec)+1], function(x) mean(x$SS))))
+    
+    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
     output$IATableOneLook <- renderTable({
       IADFOneLook
@@ -591,7 +593,7 @@ server <- function(input, output, session) {
     
     
     output$noIATableOneLook <- renderTable({
-      #FinalAss
+      FinalAss
     }, digits = 3)
     
     output$oneLookROCPlot <- renderPlot({
@@ -1569,7 +1571,6 @@ server <- function(input, output, session) {
     shinyjs::show("correctlyContinueTotalText")
     shinyjs::show("finalAssTable2LooksText")
     shinyjs::show("proposedTable2LooksText")
-    
     
     
     

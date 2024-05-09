@@ -316,7 +316,7 @@ GSDOneIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
   SS <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$SS, IA2$SS)
   Duration <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$Duration, IA2$Duration)
   
-  return(list(Outcome = Outcome, SS = SS, Duration = Duration, IA1ZScore = IA1$ZScore, IA2ZScore = IA2$ZScore))
+  return(list(Outcome = Outcome, SS = SS, Duration = Duration, IA1Time = IA1$Duration))
 }
 
 
