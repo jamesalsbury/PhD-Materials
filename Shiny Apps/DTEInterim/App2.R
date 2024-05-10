@@ -377,7 +377,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcOneLook, {
-    NRep <- 5
+    NRep <- 500
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
@@ -469,16 +469,16 @@ server <- function(input, output, session) {
    
    for (k in 1:length(IAVec)){
      
-     IndVec <- which(iterationList[[k]]$Stop==1)
+     IndStopVec <- which(iterationList[[k]]$Stop==1)
      
-     if (length(IndVec)!=0){
+     if (length(IndStopVec)!=0){
      
-     OutcomeVec <- iterationList[[k]]$Outcome[IndVec]
-     TruthVec <- iterationList[[k]]$Truth[IndVec]
+     OutcomeVec <- iterationList[[k]]$Outcome[IndStopVec]
+     TruthVec <- iterationList[[k]]$Truth[IndStopVec]
      
      correctlyStopSum <- 0
      
-     for (i in 1:length(IndVec)){
+     for (i in 1:length(IndStopVec)){
        if ((OutcomeVec[i]=="Efficacy"&TruthVec[i]==1)|OutcomeVec[i]=="Futility"&TruthVec[i]==0){
          correctlyStopSum <- correctlyStopSum + 1
        }
@@ -486,7 +486,7 @@ server <- function(input, output, session) {
      
      correctlyStopEffSum <- 0
      
-     for (i in 1:length(IndVec)){
+     for (i in 1:length(IndStopVec)){
        if (OutcomeVec[i]=="Efficacy"&TruthVec[i]==1){
          correctlyStopEffSum <- correctlyStopEffSum + 1
        }
@@ -494,21 +494,126 @@ server <- function(input, output, session) {
      
      correctlyStopFutSum <- 0
      
-     for (i in 1:length(IndVec)){
+     for (i in 1:length(IndStopVec)){
        if (OutcomeVec[i]=="Futility"&TruthVec[i]==0){
          correctlyStopFutSum <- correctlyStopFutSum + 1
        }
      }
      
-     correctlyStop[k] <- correctlyStopSum/length(IndVec)
-     correctlyStopEff[k] <- correctlyStopEffSum/length(IndVec)
-     correctlyStopFut[k] <- correctlyStopFutSum/length(IndVec)
+     falselyStopSum <- 0
+     for (i in 1:length(IndStopVec)){
+       if ((OutcomeVec[i]=="Efficacy"&TruthVec[i]==0)|OutcomeVec[i]=="Futility"&TruthVec[i]==1){
+         falselyStopSum <- falselyStopSum + 1
+       }
+     }
+     
+     falselyStopEffSum <- 0
+     for (i in 1:length(IndStopVec)){
+       if (OutcomeVec[i]=="Efficacy"&TruthVec[i]==0){
+         falselyStopEffSum <- falselyStopEffSum + 1
+       }
+     }
+     
+     falselyStopFutSum <- 0
+     for (i in 1:length(IndStopVec)){
+       if (OutcomeVec[i]=="Futility"&TruthVec[i]==1){
+         falselyStopFutSum <- falselyStopFutSum + 1
+       }
+     }
+     
+     
+     correctlyStop[k] <- correctlyStopSum/length(IndStopVec)
+     correctlyStopEff[k] <- correctlyStopEffSum/length(IndStopVec)
+     correctlyStopFut[k] <- correctlyStopFutSum/length(IndStopVec)
+     falselyStop[k] <- falselyStopSum/length(IndStopVec)
+     falselyStopEff[k] <- falselyStopEffSum/length(IndStopVec)
+     falselyStopFut[k] <- falselyStopFutSum/length(IndStopVec)
      
      } else{
+       
        correctlyStop[k] <- NA
        correctlyStopEff[k] <- NA
        correctlyStopFut[k] <- NA
-   }}
+       falselyStop[k] <- NA
+       falselyStopEff[k] <- NA
+       falselyStopFut[k] <- NA
+     }
+     
+     IndContinueVec <- which(iterationList[[k]]$Stop==0)
+     
+     
+     if (length(IndContinueVec)!=0){
+       
+       OutcomeVec <- iterationList[[k]]$Outcome[IndContinueVec]
+       TruthVec <- iterationList[[k]]$Truth[IndContinueVec]
+       
+       correctlyContinueSum <- 0
+       
+       for (i in 1:length(IndContinueVec)){
+         if ((OutcomeVec[i]=="Successful"&TruthVec[i]==1)|OutcomeVec[i]=="Unsuccessful"&TruthVec[i]==0){
+           correctlyContinueSum <- correctlyContinueSum + 1
+         }
+       }
+       
+       correctlyContinueEffSum <- 0
+       
+       for (i in 1:length(IndContinueVec)){
+         if (OutcomeVec[i]=="Successful"&TruthVec[i]==1){
+           correctlyContinueEffSum <- correctlyContinueEffSum + 1
+         }
+       }
+       
+       correctlyContinueFutSum <- 0
+       
+       for (i in 1:length(IndContinueVec)){
+         if (OutcomeVec[i]=="Unsuccessful"&TruthVec[i]==0){
+           correctlyContinueFutSum <- correctlyContinueFutSum + 1
+         }
+       }
+       
+       falselyContinueSum <- 0
+       for (i in 1:length(IndContinueVec)){
+         if ((OutcomeVec[i]=="Successful"&TruthVec[i]==0)|OutcomeVec[i]=="Unsuccessful"&TruthVec[i]==1){
+           falselyContinueSum <- falselyContinueSum + 1
+         }
+       }
+       
+       falselyContinueEffSum <- 0
+       for (i in 1:length(IndContinueVec)){
+         if (OutcomeVec[i]=="Successful"&TruthVec[i]==0){
+           falselyContinueEffSum <- falselyContinueEffSum + 1
+         }
+       }
+       
+       falselyContinueFutSum <- 0
+       for (i in 1:length(IndContinueVec)){
+         if (OutcomeVec[i]=="Unsuccessful"&TruthVec[i]==1){
+           falselyContinueFutSum <- falselyContinueFutSum + 1
+         }
+       }
+       
+       
+       correctlyContinue[k] <- correctlyContinueSum/length(IndContinueVec)
+       correctlyContinueEff[k] <- correctlyContinueEffSum/length(IndContinueVec)
+       correctlyContinueFut[k] <- correctlyContinueFutSum/length(IndContinueVec)
+       falselyContinue[k] <- falselyContinueSum/length(IndContinueVec)
+       falselyContinueEff[k] <- falselyContinueEffSum/length(IndContinueVec)
+       falselyContinueFut[k] <- falselyContinueFutSum/length(IndContinueVec)
+       
+     } else{
+       
+       correctlyContinue[k] <- NA
+       correctlyContinueEff[k] <- NA
+       correctlyContinueFut[k] <- NA
+       falselyContinue[k] <- NA
+       falselyContinueEff[k] <- NA
+       falselyContinueFut[k] <- NA
+     }
+     
+     
+
+     
+     }
    
 
     
@@ -537,18 +642,26 @@ server <- function(input, output, session) {
                               StopFut = unlist(lapply(iterationList, function(x) mean(x$StopFut))),
                               correctlyStop = correctlyStop,
                               correctlyStopEff = correctlyStopEff,
-                              correctlyStopFut = correctlyStopFut)
+                              correctlyStopFut = correctlyStopFut,
+                             # falselyStop = falselyStop,
+                             # falselyStopEff = falselyStopEff,
+                             # falselyStopFut = falselyStopFut,
+                              correctlyContinue = correctlyContinue)
+                             # correctlyContinueEff = correctlyContinueEff,
+                             # correctlyContinueFut = correctlyContinueFut
+                             # falselyContinue = falselyContinue, 
+                             # falselyContinueEff = falselyContinueEff,
+                             # falselyContinueFut = falselyContinueFut)
                               
     
-
     
     #Continuing is positive!
     
-    #colnames(IADFOneLook) <- c("Information Fraction", "IA Time", "Assurance", "% stop",
-                           #   "Falsely Stop", "Correctly Stop", "Falsely Continue", "Correctly Continue",
-                           #   "False Positive Rate", "True Positive Rate",
-                          #    "Duration", "Sample Size")
-    
+    colnames(IADFOneLook) <- c("Information Fraction", "Interim Analysis Time", "Assurance", "Duration", "Sample Size",
+                              "Stop", "Stop for Efficacy", "Stop for Futility",
+                              "Correctly Stop", "Correctly Stop for Efficacy", "Correctly Stop for Futility",
+                              "Correctly Continue")
+                             
     
     FinalAss <- t(colMeans(noLooksDF))
     
@@ -563,16 +676,16 @@ server <- function(input, output, session) {
       FinalAss
     }, digits = 3)
     
-    output$oneLookROCPlot <- renderPlot({
-      
-      sens <- correctlyContinue/(correctlyContinue+falselyContinue)
-      spec <- correctlyStop/(correctlyStop+falselyStop)
-      
-      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate", 
-           main  = "ROC curve")
-      abline(a = 0, b = 1, lty = 2)
-      
-    })
+    # output$oneLookROCPlot <- renderPlot({
+    #   
+    #   sens <- correctlyContinue/(correctlyContinue+falselyContinue)
+    #   spec <- correctlyStop/(correctlyStop+falselyStop)
+    #   
+    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate", 
+    #        main  = "ROC curve")
+    #   abline(a = 0, b = 1, lty = 2)
+    #   
+    # })
     
     output$oneLookPlotDuration <- renderPlot({
       
@@ -767,6 +880,8 @@ server <- function(input, output, session) {
           iterationList[[k]]$IA2Time[i] <- GSDOC$IA2Time
           iterationList[[k]]$Outcome[i] <- GSDOC$Outcome
           iterationList[[k]]$Stop[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy1", "Futility1", "Efficacy2", "Futility2"), 1, 0)
+          iterationList[[k]]$StopLook1 <- ifelse(GSDOC$Outcome %in% c("Efficacy1", "Futility1"), 1, 0)
+          iterationList[[k]]$StopLook2 <- ifelse(GSDOC$Outcome %in% c("Efficacy2", "Futility2"), 1, 0)
           iterationList[[k]]$StopEff[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy1", "Efficacy2"), 1, 0)
           iterationList[[k]]$StopFut[i] <- ifelse(GSDOC$Outcome %in% c("Futility1", "Futility2"), 1, 0)
           iterationList[[k]]$Truth[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
@@ -778,28 +893,29 @@ server <- function(input, output, session) {
     })
     
     
-    PowerArray <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    DurationArray <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    SSArray <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    IATime1 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    IATime2 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    PercentStop <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    PercentStopLook1 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    PercentStopLook2 <- array(NA,  dim = c(length(TwoLooksSeq2), length(TwoLooksSeq1), NRep))
-    falselyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    correctlyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    falselyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    correctlyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    falselyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    correctlyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    falselyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    correctlyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    falselyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    correctlyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    falselyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    correctlyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    FinalPowerDF <- data.frame(matrix(NA, nrow = NRep, ncol = 3))
+    print(iterationList)
     
+    PowerArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    DurationArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    SSArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    IATime1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    IATime2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStop <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # falselyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # correctlyStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # falselyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # correctlyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # falselyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # correctlyStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # falselyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # correctlyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # falselyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # correctlyStopTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # falselyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    # correctlyContinueTotal <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+
     #Do proposed rule logic
     proposedDF$power <- proposedDF$Look1Power*proposedDF$Look2Power*proposedDF$FinalLookPower
     proposedDF$SS <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1SS, ifelse(proposedDF$Look2Power==0, 
@@ -807,302 +923,327 @@ server <- function(input, output, session) {
     proposedDF$Duration <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1Duration, ifelse(proposedDF$Look2Power==0, 
                                                                                              proposedDF$Look2Duration, proposedDF$FinalLookDuration))
     
-    for (l in 1:NRep){
-      for(i in 1:length(TwoLooksSeq2)) {
-        for(j in 1:length(TwoLooksSeq1)) {
-          if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-            Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
-            Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
-            FinalPower <- iterationArray[1, length(TwoLooksCombined)+1, l]
-            PowerArray[i,j, l] <- Look1Power*Look2Power*FinalPower
-            
-            
-            
-            #Sample size and duration logic
-            if (Look1Power==0){
-              DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
-              SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
-            } else if (Look2Power==0){
-              DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
-              SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
-            } else {
-              
-              DurationArray[i,j,l] <- iterationArray[2,length(TwoLooksCombined)+1, l]
-              SSArray[i,j,l] <- iterationArray[3,length(TwoLooksCombined)+1, l]
-            }
-            
-            
-            #Interim analysis time logic
-            IATime1[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
-            IATime2[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
-            
-            #Percentage stop logic
-            
-            PercentStop[i,j,l] <- 0
-            PercentStopLook1[i,j,l] <- 0
-            PercentStopLook2[i,j,l] <- 0
-            
-            if (Look1Power==0 || Look2Power==0){
-              PercentStop[i,j,l] <- 1
-            } 
-            
-            if (Look1Power==0){
-              PercentStopLook1[i,j,l] <- 1
-            } else if (Look2Power==0){
-              PercentStopLook2[i,j,l] <- 1
-            }
-            # 
-            # if (Look1Power==1){
-            #   PercentStopLook1[i,j,l] <- 0
-            # } else if (Look2Power==1){
-            #   PercentStopLook2[i,j,l] <- 0
-            # }
-          } 
+    
+    
+    myCount <- 1
+    
+    for (j in 1:length(TwoLooksSeq1)){
+      for (k in 1:length(TwoLooksSeq2)){
+        if (TwoLooksSeq1[j]<TwoLooksSeq2[k]){
+          
+          PowerArray[k,j] <- mean(iterationList[[myCount]]$Power)
+          DurationArray[k,j] <- mean(iterationList[[myCount]]$Duration)
+          SSArray[k,j] <- mean(iterationList[[myCount]]$SS)
+          IATime1[k,j] <- mean(iterationList[[myCount0]]$IA1Time)
+          IATime2[k,j] <- mean(iterationList[[myCount]]$IA2Time)
+          PercentStop[k,j] <- mean(iterationList[[myCount]]$Stop)
+          PercentStopLook1[k,j] <- mean(iterationList[[myCount]]$StopLook1)
+          PercentStopLook2[k,j] <- mean(iterationList[[myCount]]$StopLook2)
+          
+          myCount <- myCount + 1
           
         }
-      } 
-    }
-    
-    
-    
-    #Calculating falsely stopping at Look 1
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          selected_layers <- iterationArray[,,Look1Power==0]
-          if (length(dim(selected_layers))==2){
-            falselyStopLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              falselyStopLook1[i,j] <- NA
-            } else{
-              falselyStopLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating correctly stopping at Look 1
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          selected_layers <- iterationArray[,,Look1Power==0]
-          if (length(dim(selected_layers))==2){
-            correctlyStopLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              correctlyStopLook1[i,j] <- NA
-            } else{
-              correctlyStopLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating falsely continuing at Look 1
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          selected_layers <- iterationArray[,,Look1Power==1]
-          if (length(dim(selected_layers))==2){
-            falselyContinueLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              falselyContinueLook1[i,j] <- NA
-            } else{
-              falselyContinueLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating correctly continuing at Look 1
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          selected_layers <- iterationArray[,,Look1Power==1]
-          if (length(dim(selected_layers))==2){
-            correctlyContinueLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              correctlyContinueLook1[i,j] <- NA
-            } else{
-              correctlyContinueLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
       }
     }
     
     
     
-    #Calculating falsely stopping at Look 2
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==1&Look2Power==0]
-          if (length(dim(selected_layers))==2){
-            falselyStopLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              falselyStopLook2[i,j] <- NA
-            } else{
-              falselyStopLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
+    # for (l in 1:NRep){
+    #   for(i in 1:length(TwoLooksSeq2)) {
+    #     for(j in 1:length(TwoLooksSeq1)) {
+    #       if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #         Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+    #         Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+    #         FinalPower <- iterationArray[1, length(TwoLooksCombined)+1, l]
+    #         PowerArray[i,j, l] <- Look1Power*Look2Power*FinalPower
+    #         
+    #         
+    #         
+    #         #Sample size and duration logic
+    #         if (Look1Power==0){
+    #           DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+    #           SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+    #         } else if (Look2Power==0){
+    #           DurationArray[i,j,l] <- iterationArray[2,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+    #           SSArray[i,j,l] <- iterationArray[3,which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+    #         } else {
+    #           
+    #           DurationArray[i,j,l] <- iterationArray[2,length(TwoLooksCombined)+1, l]
+    #           SSArray[i,j,l] <- iterationArray[3,length(TwoLooksCombined)+1, l]
+    #         }
+    #         
+    #         
+    #         #Interim analysis time logic
+    #         IATime1[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), l]
+    #         IATime2[i,j,l] <- iterationArray[2, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), l]
+    #         
+    #         #Percentage stop logic
+    #         
+    #         PercentStop[i,j,l] <- 0
+    #         PercentStopLook1[i,j,l] <- 0
+    #         PercentStopLook2[i,j,l] <- 0
+    #         
+    #         if (Look1Power==0 || Look2Power==0){
+    #           PercentStop[i,j,l] <- 1
+    #         } 
+    #         
+    #         if (Look1Power==0){
+    #           PercentStopLook1[i,j,l] <- 1
+    #         } else if (Look2Power==0){
+    #           PercentStopLook2[i,j,l] <- 1
+    #         }
+    #         # 
+    #         # if (Look1Power==1){
+    #         #   PercentStopLook1[i,j,l] <- 0
+    #         # } else if (Look2Power==1){
+    #         #   PercentStopLook2[i,j,l] <- 0
+    #         # }
+    #       } 
+    #       
+    #     }
+    #   } 
+    # }
     
-    #Calculating correctly stopping at Look 2
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==1&Look2Power==0]
-          if (length(dim(selected_layers))==2){
-            correctlyStopLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              correctlyStopLook2[i,j] <- NA
-            } else{
-              correctlyStopLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
     
-    #Calculating falsely continuing at Look 2
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
-          if (length(dim(selected_layers))==2){
-            falselyContinueLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              falselyContinueLook2[i,j] <- NA
-            } else{
-              falselyContinueLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating correctly continuing at Look 2
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
-          if (length(dim(selected_layers))==2){
-            correctlyContinueLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              correctlyContinueLook2[i,j] <- NA
-            } else{
-              correctlyContinueLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating falsely stopping at all
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==0|Look2Power==0]
-          if (length(dim(selected_layers))==2){
-            falselyStopTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              falselyStopTotal[i,j] <- NA
-            } else{
-              falselyStopTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating correctly stopping at all
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==0|Look2Power==0]
-          if (length(dim(selected_layers))==2){
-            correctlyStopTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              correctlyStopTotal[i,j] <- NA
-            } else{
-              correctlyStopTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating falsely continuing at all
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
-          if (length(dim(selected_layers))==2){
-            falselyContinueTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              falselyContinueTotal[i,j] <- NA
-            } else{
-              falselyContinueTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
-    #Calculating correctly continuing at Look 2
-    for(i in 1:length(TwoLooksSeq2)) {
-      for(j in 1:length(TwoLooksSeq1)) {
-        if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
-          Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
-          Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
-          selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
-          if (length(dim(selected_layers))==2){
-            correctlyContinueTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
-          } else {
-            if (dim(selected_layers)[3]==0){
-              correctlyContinueTotal[i,j] <- NA
-            } else{
-              correctlyContinueTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
-            }
-          }
-        } 
-      }
-    }
-    
+    # 
+    # #Calculating falsely stopping at Look 1
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==0]
+    #       if (length(dim(selected_layers))==2){
+    #         falselyStopLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           falselyStopLook1[i,j] <- NA
+    #         } else{
+    #           falselyStopLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating correctly stopping at Look 1
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==0]
+    #       if (length(dim(selected_layers))==2){
+    #         correctlyStopLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           correctlyStopLook1[i,j] <- NA
+    #         } else{
+    #           correctlyStopLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating falsely continuing at Look 1
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1]
+    #       if (length(dim(selected_layers))==2){
+    #         falselyContinueLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           falselyContinueLook1[i,j] <- NA
+    #         } else{
+    #           falselyContinueLook1[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating correctly continuing at Look 1
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1]
+    #       if (length(dim(selected_layers))==2){
+    #         correctlyContinueLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           correctlyContinueLook1[i,j] <- NA
+    #         } else{
+    #           correctlyContinueLook1[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # 
+    # 
+    # #Calculating falsely stopping at Look 2
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1&Look2Power==0]
+    #       if (length(dim(selected_layers))==2){
+    #         falselyStopLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           falselyStopLook2[i,j] <- NA
+    #         } else{
+    #           falselyStopLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating correctly stopping at Look 2
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1&Look2Power==0]
+    #       if (length(dim(selected_layers))==2){
+    #         correctlyStopLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           correctlyStopLook2[i,j] <- NA
+    #         } else{
+    #           correctlyStopLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating falsely continuing at Look 2
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
+    #       if (length(dim(selected_layers))==2){
+    #         falselyContinueLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           falselyContinueLook2[i,j] <- NA
+    #         } else{
+    #           falselyContinueLook2[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating correctly continuing at Look 2
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
+    #       if (length(dim(selected_layers))==2){
+    #         correctlyContinueLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           correctlyContinueLook2[i,j] <- NA
+    #         } else{
+    #           correctlyContinueLook2[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating falsely stopping at all
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==0|Look2Power==0]
+    #       if (length(dim(selected_layers))==2){
+    #         falselyStopTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           falselyStopTotal[i,j] <- NA
+    #         } else{
+    #           falselyStopTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating correctly stopping at all
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==0|Look2Power==0]
+    #       if (length(dim(selected_layers))==2){
+    #         correctlyStopTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           correctlyStopTotal[i,j] <- NA
+    #         } else{
+    #           correctlyStopTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating falsely continuing at all
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
+    #       if (length(dim(selected_layers))==2){
+    #         falselyContinueTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           falselyContinueTotal[i,j] <- NA
+    #         } else{
+    #           falselyContinueTotal[i,j] <- 1- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
+    # #Calculating correctly continuing at Look 2
+    # for(i in 1:length(TwoLooksSeq2)) {
+    #   for(j in 1:length(TwoLooksSeq1)) {
+    #     if(TwoLooksSeq1[j] < TwoLooksSeq2[i]) {
+    #       Look1Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq1[j])), ]
+    #       Look2Power <- iterationArray[1, which(colnames(iterationArray) == as.character(TwoLooksSeq2[i])), ]
+    #       selected_layers <- iterationArray[,,Look1Power==1&Look2Power==1]
+    #       if (length(dim(selected_layers))==2){
+    #         correctlyContinueTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1])
+    #       } else {
+    #         if (dim(selected_layers)[3]==0){
+    #           correctlyContinueTotal[i,j] <- NA
+    #         } else{
+    #           correctlyContinueTotal[i,j] <- mean(selected_layers[1, length(TwoLooksCombined)+1,])
+    #         }
+    #       }
+    #     } 
+    #   }
+    # }
+    # 
     
     #Making the proposed DF correctly
     FinalProposedDF <- data.frame(Assurance = mean(proposedDF$power),
@@ -1112,19 +1253,7 @@ server <- function(input, output, session) {
     colnames(FinalProposedDF) <- c("Assurance", "Duration", "Sample Size")
     
     
-    #Making the No Look DF correctly
-    FinalAss <- mean(iterationArray[1, length(TwoLooksCombined)+1, ])
-    FinalDuration <- mean(iterationArray[2, length(TwoLooksCombined)+1, ])
-    FinalSS <- mean(iterationArray[3, length(TwoLooksCombined)+1, ])
-    
-    FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-    
-    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
-    
-    
-    PowerArray <- apply(PowerArray, c(1, 2), mean, na.rm = TRUE)
-    SSArray <- apply(SSArray, c(1, 2), mean, na.rm = TRUE)
-    DurationArray <- apply(DurationArray, c(1, 2), mean, na.rm = TRUE)
+    FinalAss <- t(colMeans(noLooksDF))
     
     output$twoLooksAss <- renderTable({
       
@@ -1352,14 +1481,13 @@ server <- function(input, output, session) {
     
     output$finalAssTable2Looks <- renderTable({
       
-      
+
+      FinalAss <- as.data.frame(FinalAss)
+      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
       FinalAss
     }, digits = 3)
     
     output$proposedTable2Looks <- renderTable({
-      
-      
-      
       
       FinalProposedDF
       
