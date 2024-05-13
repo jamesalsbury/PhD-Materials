@@ -17,6 +17,10 @@ library(rpact)
 
 
 source("functions.R")
+selectedOptionsIATableOneLookVec <- c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
+                                      "Stop", "Stop for Efficacy", "Stop for Futility",
+                                      "Correctly Stop", "Correctly Stop for Efficacy", "Correctly Stop for Futility",
+                                      "Correctly Continue")
 
 # UI definition
 ui <- fluidPage(
@@ -73,6 +77,7 @@ ui <- fluidPage(
       
       # One Look UI ---------------------------------
       
+      
       tabPanel("One Look", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
@@ -81,13 +86,16 @@ ui <- fluidPage(
                      numericInput("OneLookUB", "to:", value = 0.75),
                      numericInput("OneLookBy", "by:", value = 0.25),
                      textOutput("OneLookText")),
-                   #selectInput("sidedOneLook", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
                    rHandsontableOutput("spendingOneLook"),
                    actionButton("calcOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    tabsetPanel(
                      tabPanel("Tables",
+                              hidden(selectizeInput("selectedOptionsIATableOneLook", "Selected Metrics", 
+                                             choices = selectedOptionsIATableOneLookVec, 
+                                             selected = c("Assurance", "Duration", "Sample Size"),
+                                             multiple = TRUE)), 
                               tableOutput("IATableOneLook"),
                               tableOutput("noIATableOneLook")),
                      tabPanel("Plots",
@@ -202,10 +210,25 @@ ui <- fluidPage(
                    
                  )
                )
+      ),
+      
+      # Report UI ---------------------------------
+      
+      tabPanel("Report", 
+               sidebarLayout(
+                 sidebarPanel = sidebarPanel(
+                   
+                 ), 
+                 mainPanel = mainPanel(
+                   
+                   
+                 )
+               )
       )
       
       
-    ), style='width: 1000px; height: 600px'
+      
+    ), style='width: 1200px; height: 1000px'
   )
 )
 
@@ -377,7 +400,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcOneLook, {
-    NRep <- 500
+    NRep <- 50
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
@@ -616,20 +639,6 @@ server <- function(input, output, session) {
      }
    
 
-    
-    # IADFOneLook <- data.frame(IF = IAVec,
-    #                          IATime = colMeans(iaTimeDF),
-    #                          Assurance = c(lapply(iterationList, function(sublist) mean(sublist$Power))),
-    #                          Stop = 1-colMeans(stopDF),
-    #                          falselyStop = falselyStop,
-    #                          correctlyStop = correctlyStop,
-    #                          falselyContinue = falselyContinue,
-    #                          correctlyContinue = correctlyContinue,
-    #                          FPR = 1 - correctlyStop/(correctlyStop+falselyStop),
-    #                          TPR = correctlyContinue/(correctlyContinue+falselyContinue),
-    #                          Duration = colMeans(durationDF),
-    #                          SS = colMeans(ssDF))
-    
 
     
     IADFOneLook <- data.frame(IF = IAVec,
@@ -667,6 +676,10 @@ server <- function(input, output, session) {
     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
     output$IATableOneLook <- renderTable({
+      
+      
+      IADFOneLook <- subset(IADFOneLook, select = c("Information Fraction", input$selectedOptionsIATableOneLook))
+
       IADFOneLook
     }, digits = 3)
     
@@ -689,6 +702,7 @@ server <- function(input, output, session) {
     output$oneLookPlotDuration <- renderPlot({
       
       plot(IADFOneLook$Assurance, IADFOneLook$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
+           ylim = c(min(IADFOneLook$Duration), FinalAss$Duration),
            main = "Assurance vs Duration for the different stopping rules")
       points(FinalAss$Assurance, FinalAss$Duration, col = "red")
       
@@ -696,7 +710,8 @@ server <- function(input, output, session) {
     
     output$oneLookPlotSS <- renderPlot({
       
-      plot(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
+      plot(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, xlab = "Assurance", xlim = c(0,1),
+           ylab = "Sample size", ylim = c(min(IADFOneLook$`Sample Size`), FinalAss$`Sample Size`),
            main = "Assurance vs Sample Size for the different stopping rules")
       points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red")
       
@@ -1553,41 +1568,41 @@ server <- function(input, output, session) {
     
     output$twoLooksPlotDuration <- renderPlot({
       
-      plot(0, 0, type = "n", ylim = range(c(DurationArray, na.rm = TRUE), FinalProposedDF$Duration), xlim = c(0, 1),
+      plot(0, 0, type = "n", ylim = c(min(DurationArray, na.rm = TRUE), FinalAss$Duration), xlim = c(0, 1),
            xlab = "Power", ylab = "Sample Size")
       
       # Add points for each pair of corresponding elements
       for (i in 1:nrow(PowerArray)) {
         for (j in 1:ncol(DurationArray)) {
           if (!is.na(PowerArray[i, j]) && !is.na(DurationArray[i, j])) {
-            points(PowerArray[i, j], DurationArray[i, j], col = "yellow", pch = 16)
+            points(PowerArray[i, j], DurationArray[i, j], col = "black", pch = 19)
           }
         }
       }
       
-      points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue")
+      points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue", pch = 19)
       
-      points(FinalAss$Assurance, FinalAss$Duration, col = "red")
+      points(FinalAss$Assurance, FinalAss$Duration, col = "red", pch = 19)
       
     })
     
     output$twoLooksPlotSS <- renderPlot({
       
-      plot(0, 0, type = "n", ylim = range(c(SSArray, na.rm = TRUE), FinalProposedDF$`Sample Size`), xlim = c(0, 1),
+      plot(0, 0, type = "n", ylim = c(min(SSArray, na.rm = TRUE), FinalAss$`Sample Size`), xlim = c(0, 1),
            xlab = "Power", ylab = "Sample Size")
       
       # Add points for each pair of corresponding elements
       for (i in 1:nrow(PowerArray)) {
         for (j in 1:ncol(SSArray)) {
           if (!is.na(PowerArray[i, j]) && !is.na(SSArray[i, j])) {
-            points(PowerArray[i, j], SSArray[i, j], col = "yellow", pch = 16)
+            points(PowerArray[i, j], SSArray[i, j], col = "black", pch = 19)
           }
         }
       }
       
-      points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue")
+      points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue", pch = 19)
       
-      points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red")
+      points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red", pch = 19)
       
       
     })
