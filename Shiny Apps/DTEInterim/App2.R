@@ -82,11 +82,14 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    wellPanel(
-                     numericInput("OneLookLB", "IA1, from:", value = 0.25),
-                     numericInput("OneLookUB", "to:", value = 0.75),
-                     numericInput("OneLookBy", "by:", value = 0.25),
+                     fluidRow(
+                       column(4, numericInput("OneLookLB", "IA1, from:", value = 0.25)),
+                       column(4, numericInput("OneLookUB", "to:", value = 0.75)),
+                       column(4, numericInput("OneLookBy", "by:", value = 0.25))
+                     ),
                      textOutput("OneLookText")),
-                   rHandsontableOutput("spendingOneLook"),
+                   wellPanel(
+                   rHandsontableOutput("spendingOneLook")),
                    actionButton("calcOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -99,6 +102,7 @@ ui <- fluidPage(
                               tableOutput("IATableOneLook"),
                               tableOutput("noIATableOneLook")),
                      tabPanel("Plots",
+                              selectInput("oneLookBoundaryIA", "Choose the IF", choices = NULL),
                               plotOutput("oneLookBoundaries"),
                               plotOutput("oneLookPlotDuration"),
                               plotOutput("oneLookPlotSS"),
@@ -115,18 +119,22 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    wellPanel(
-                     numericInput("TwoLooksLB1", "IA1, from:", value = 0.2),
-                     numericInput("TwoLooksUB1", "to:", value = 0.8),
-                     numericInput("TwoLooksBy1", "by:", value = 0.2)),
-                   wellPanel(
-                     numericInput("TwoLooksLB2", "IA2, from:", value = 0.3),
-                     numericInput("TwoLooksUB2", "to:", value = 0.9),
-                     numericInput("TwoLooksBy2", "by:", value = 0.2)),
+                     fluidRow(
+                       column(4, numericInput("TwoLooksLB1", "IA1, from:", value = 0.2)),
+                       column(4, numericInput("TwoLooksUB1", "to:", value = 0.8)),
+                       column(4, numericInput("TwoLooksBy1", "by:", value = 0.2))
+                     ),
+                     fluidRow(
+                       column(4, numericInput("TwoLooksLB2", "IA2, from:", value = 0.3)),
+                       column(4, numericInput("TwoLooksUB2", "to:", value = 0.9)),
+                       column(4, numericInput("TwoLooksBy2", "by:", value = 0.2))
+                     ),
                    textOutput("TwoLooksText1"),
                    textOutput("TwoLooksText2"),
-                   div(id = "twoLooksErrorMessage", class = "error-message", textOutput("twoLooksErrorMessage")),
+                   div(id = "twoLooksErrorMessage", class = "error-message", textOutput("twoLooksErrorMessage"))),
                    #selectInput("sidedTwoLooks", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
-                   rHandsontableOutput("spendingTwoLooks"),
+                   wellPanel(
+                   rHandsontableOutput("spendingTwoLooks")),
                    actionButton("calcTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -177,6 +185,7 @@ ui <- fluidPage(
                               hidden(uiOutput("proposedTable2LooksText")),
                               tableOutput("proposedTable2Looks")),
                      tabPanel("Plots",
+                              selectInput("twoLooksBoundaryIA", "Choose the IFs", choices = NULL),
                               plotOutput("twoLooksBoundaries"),
                               plotOutput("twoLooksPlotDuration"),
                               plotOutput("twoLooksPlotSS"),
@@ -366,7 +375,7 @@ server <- function(input, output, session) {
   
   output$OneLookText <- renderText({
     OneLookSeq <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
-    value <- paste0("We look at: ", paste(OneLookSeq, collapse = " "))
+    value <- paste0("We perform IA1 at: ", paste(OneLookSeq, collapse = ", "))
     return(value)
   })
   
@@ -383,22 +392,30 @@ server <- function(input, output, session) {
       hot_col(col = "Stage", readOnly = TRUE)
   })
   
-  observeEvent(input$spendingOneLook, {
-    values <- hot_to_r(input$spendingOneLook)
+  observe({
+    updateSelectInput(session, "oneLookBoundaryIA", choices = seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy))
+  })
   
-    design <- getDesignGroupSequential(typeOfDesign = "asUser", 
-                                       informationRates = c(0.5, 1), 
+  observeEvent(c(input$spendingOneLook, input$oneLookBoundaryIA), {
+    
+    values <- hot_to_r(input$spendingOneLook)
+    
+    if (!is.null(values)){
+       design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                       informationRates = c(as.numeric(input$oneLookBoundaryIA), 1),
                                        userAlphaSpending = as.numeric(values[,2]), 
                                        typeBetaSpending = "bsUser",
                                        userBetaSpending = as.numeric(values[,3]))
     
-    output$oneLookBoundaries <- renderPlot({
-      plot(design)
-    })
-    
+      output$oneLookBoundaries <- renderPlot({
+        plot(design)
+      })
+    } 
+
+
   })
-  
-  
+    
+
   observeEvent(input$calcOneLook, {
     NRep <- 50
     
@@ -634,11 +651,8 @@ server <- function(input, output, session) {
      }
      
      
-
-     
      }
    
-
 
     
     IADFOneLook <- data.frame(IF = IAVec,
@@ -661,8 +675,10 @@ server <- function(input, output, session) {
                              # falselyContinue = falselyContinue, 
                              # falselyContinueEff = falselyContinueEff,
                              # falselyContinueFut = falselyContinueFut)
+    
+    shinyjs::show("selectedOptionsIATableOneLook")
+    
                               
-
     #Continuing is positive!
     
     colnames(IADFOneLook) <- c("Information Fraction", "Interim Analysis Time", "Assurance", "Duration", "Sample Size",
@@ -676,7 +692,6 @@ server <- function(input, output, session) {
     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
     output$IATableOneLook <- renderTable({
-      
       
       IADFOneLook <- subset(IADFOneLook, select = c("Information Fraction", input$selectedOptionsIATableOneLook))
 
@@ -703,8 +718,10 @@ server <- function(input, output, session) {
       
       plot(IADFOneLook$Assurance, IADFOneLook$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
            ylim = c(min(IADFOneLook$Duration), FinalAss$Duration),
-           main = "Assurance vs Duration for the different stopping rules")
-      points(FinalAss$Assurance, FinalAss$Duration, col = "red")
+           main = "Assurance vs Duration for the different stopping rules", pch = 19)
+      points(FinalAss$Assurance, FinalAss$Duration, col = "red", pch = 19)
+      
+      legend("topleft", legend = c("Chosen Rules", "No IA"), col = c("black", "red"), pch = 19)
       
     })
     
@@ -712,11 +729,12 @@ server <- function(input, output, session) {
       
       plot(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, xlab = "Assurance", xlim = c(0,1),
            ylab = "Sample size", ylim = c(min(IADFOneLook$`Sample Size`), FinalAss$`Sample Size`),
-           main = "Assurance vs Sample Size for the different stopping rules")
-      points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red")
+           main = "Assurance vs Sample Size for the different stopping rules", pch = 19)
+      points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red", pch = 19)
+      legend("topleft", legend = c("Chosen Rules", "No IA"), col = c("black", "red"), pch = 19)
+      
       
     })
-    
     
     
   })
@@ -726,13 +744,13 @@ server <- function(input, output, session) {
   
   output$TwoLooksText1 <- renderText({
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
-    value <- paste0("We perform IA1 at: ", paste(TwoLooksSeq1, collapse = " "))
+    value <- paste0("We perform IA1 at: ", paste(TwoLooksSeq1, collapse = ", "))
     return(value)
   })
   
   output$TwoLooksText2 <- renderText({
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
-    value <- paste0("We perform IA2 at: ", paste(TwoLooksSeq2, collapse = " "))
+    value <- paste0("We perform IA2 at: ", paste(TwoLooksSeq2, collapse = ", "))
     return(value)
   })
   
@@ -749,18 +767,45 @@ server <- function(input, output, session) {
       hot_col(col = "Stage", readOnly = TRUE)
   })
   
-  observeEvent(input$spendingTwoLooks, {
+  observe({
+    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+    
+    TwoLooksBoundaryIAChoices <- vector("list", length = sum(outer(TwoLooksSeq1, TwoLooksSeq2, "<")))
+    
+    myCount <- 1
+    
+    for (j in 1:length(TwoLooksSeq1)){
+      for (k in 1:length(TwoLooksSeq2)){
+        if (TwoLooksSeq1[j] < TwoLooksSeq2[k]){
+          TwoLooksBoundaryIAChoices[[myCount]] <- c(TwoLooksSeq1[j], TwoLooksSeq2[k])
+          myCount <- myCount + 1
+        }
+      }
+    }
+    
+    TwoLooksBoundaryIAChoices <- sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", "))
+    TwoLooksBoundaryIAChoices <- setNames(TwoLooksBoundaryIAChoices, sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", ")))
+    
+    updateSelectInput(session, "twoLooksBoundaryIA", choices = TwoLooksBoundaryIAChoices)
+  })
+  
+  
+  observeEvent(c(input$spendingTwoLooks, input$twoLooksBoundaryIA), {
     values <- hot_to_r(input$spendingTwoLooks)
     
-    design <- getDesignGroupSequential(typeOfDesign = "asUser", 
-                                       informationRates = c(1/3, 2/3, 1), 
-                                       userAlphaSpending = as.numeric(values[,2]), 
-                                       typeBetaSpending = "bsUser",
-                                       userBetaSpending = as.numeric(values[,3]))
+    if (!is.null(values)){
+      design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                         informationRates = as.numeric(c(strsplit(input$twoLooksBoundaryIA, ", ")[[1]], 1)), 
+                                         userAlphaSpending = as.numeric(values[,2]), 
+                                         typeBetaSpending = "bsUser",
+                                         userBetaSpending = as.numeric(values[,3]))
+      
+      output$twoLooksBoundaries <- renderPlot({
+        plot(design)
+      })
+    }
     
-    output$twoLooksBoundaries <- renderPlot({
-      plot(design)
-    })
     
   })
   
