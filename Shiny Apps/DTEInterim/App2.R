@@ -653,8 +653,7 @@ server <- function(input, output, session) {
                              # falselyContinueEff = falselyContinueEff,
                              # falselyContinueFut = falselyContinueFut)
                               
-    
-    
+
     #Continuing is positive!
     
     colnames(IADFOneLook) <- c("Information Fraction", "Interim Analysis Time", "Assurance", "Duration", "Sample Size",
@@ -664,6 +663,8 @@ server <- function(input, output, session) {
                              
     
     FinalAss <- t(colMeans(noLooksDF))
+    FinalAss <- as.data.frame(FinalAss)
+    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
     output$IATableOneLook <- renderTable({
       IADFOneLook
@@ -671,8 +672,6 @@ server <- function(input, output, session) {
     
     
     output$noIATableOneLook <- renderTable({
-      FinalAss <- as.data.frame(FinalAss)
-      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
       FinalAss
     }, digits = 3)
     
@@ -934,7 +933,7 @@ server <- function(input, output, session) {
           PowerArray[k,j] <- mean(iterationList[[myCount]]$Power)
           DurationArray[k,j] <- mean(iterationList[[myCount]]$Duration)
           SSArray[k,j] <- mean(iterationList[[myCount]]$SS)
-          IATime1[k,j] <- mean(iterationList[[myCount0]]$IA1Time)
+          IATime1[k,j] <- mean(iterationList[[myCount]]$IA1Time)
           IATime2[k,j] <- mean(iterationList[[myCount]]$IA2Time)
           PercentStop[k,j] <- mean(iterationList[[myCount]]$Stop)
           PercentStopLook1[k,j] <- mean(iterationList[[myCount]]$StopLook1)
@@ -1254,6 +1253,8 @@ server <- function(input, output, session) {
     
     
     FinalAss <- t(colMeans(noLooksDF))
+    FinalAss <- as.data.frame(FinalAss)
+    colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
     output$twoLooksAss <- renderTable({
       
@@ -1268,7 +1269,6 @@ server <- function(input, output, session) {
     
     output$twoLooksSS <- renderTable({
       
-      
       SSArray <- round(SSArray, 3)
       
       colnames(SSArray) <- TwoLooksSeq1
@@ -1278,7 +1278,6 @@ server <- function(input, output, session) {
     }, rownames = T)
     
     output$twoLooksDuration <- renderTable({
-      
       
       
       DurationArray <- round(DurationArray, 3)
@@ -1480,10 +1479,8 @@ server <- function(input, output, session) {
     
     
     output$finalAssTable2Looks <- renderTable({
+    
       
-
-      FinalAss <- as.data.frame(FinalAss)
-      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
       FinalAss
     }, digits = 3)
     
@@ -1494,74 +1491,79 @@ server <- function(input, output, session) {
       
     }, digits = 3)
     
-    output$rocCurveTwoLooks1 <- renderPlot({
-      
-      spec <- 1 - correctlyStopLook1/(correctlyStopLook1 + falselyStopLook1)
-      sens <- correctlyContinueLook1/(correctlyContinueLook1 + falselyContinueLook1)
-      
-      
-      spec[is.na(spec)] <- NaN
-      sens[is.na(sens)] <- NaN
-      
-      spec <- unlist(spec)
-      sens <- unlist(sens)
-      
-      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
-           xlab = "False Positive Rate", main = "ROC curve for Look 1")
-      abline(a = 0, b = 1, lty = 2)
-      
-      
-      
-      
-      
-    })
+    # output$rocCurveTwoLooks1 <- renderPlot({
+    #   
+    #   spec <- 1 - correctlyStopLook1/(correctlyStopLook1 + falselyStopLook1)
+    #   sens <- correctlyContinueLook1/(correctlyContinueLook1 + falselyContinueLook1)
+    #   
+    #   
+    #   spec[is.na(spec)] <- NaN
+    #   sens[is.na(sens)] <- NaN
+    #   
+    #   spec <- unlist(spec)
+    #   sens <- unlist(sens)
+    #   
+    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
+    #        xlab = "False Positive Rate", main = "ROC curve for Look 1")
+    #   abline(a = 0, b = 1, lty = 2)
+    #   
+    #   
+    # })
     
     
-    output$rocCurveTwoLooks2 <- renderPlot({
-      
-      
-      spec <- 1 - correctlyStopLook2/(correctlyStopLook2 + falselyStopLook2)
-      sens <- correctlyContinueLook2/(correctlyContinueLook2 + falselyContinueLook2)
-      
-      spec[is.na(spec)] <- NaN
-      sens[is.na(sens)] <- NaN
-      
-      spec <- unlist(spec)
-      sens <- unlist(sens)
-      
-      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
-           xlab = "False Positive Rate",  main = "ROC curve for Look 2")
-      abline(a = 0, b = 1, lty = 2)
-      
-      
-    })
+    # output$rocCurveTwoLooks2 <- renderPlot({
+    #   
+    #   
+    #   spec <- 1 - correctlyStopLook2/(correctlyStopLook2 + falselyStopLook2)
+    #   sens <- correctlyContinueLook2/(correctlyContinueLook2 + falselyContinueLook2)
+    #   
+    #   spec[is.na(spec)] <- NaN
+    #   sens[is.na(sens)] <- NaN
+    #   
+    #   spec <- unlist(spec)
+    #   sens <- unlist(sens)
+    #   
+    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
+    #        xlab = "False Positive Rate",  main = "ROC curve for Look 2")
+    #   abline(a = 0, b = 1, lty = 2)
+    #   
+    #   
+    # })
     
-    output$rocCurveTwoLooksTotal <- renderPlot({
-      
-      spec <- 1 - correctlyStopTotal/(correctlyStopTotal + falselyStopTotal)
-      sens <- correctlyContinueTotal/(correctlyContinueTotal + falselyContinueTotal)
-      
-      spec[is.na(spec)] <- NaN
-      sens[is.na(sens)] <- NaN
-      
-      spec <- unlist(spec)
-      sens <- unlist(sens)
-      
-      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
-           xlab = "False Positive Rate",  main = "ROC curve for both looks (combined)")
-      abline(a = 0, b = 1, lty = 2)
-      
-      
-      
-    })
+    # output$rocCurveTwoLooksTotal <- renderPlot({
+    #   
+    #   spec <- 1 - correctlyStopTotal/(correctlyStopTotal + falselyStopTotal)
+    #   sens <- correctlyContinueTotal/(correctlyContinueTotal + falselyContinueTotal)
+    #   
+    #   spec[is.na(spec)] <- NaN
+    #   sens[is.na(sens)] <- NaN
+    #   
+    #   spec <- unlist(spec)
+    #   sens <- unlist(sens)
+    #   
+    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
+    #        xlab = "False Positive Rate",  main = "ROC curve for both looks (combined)")
+    #   abline(a = 0, b = 1, lty = 2)
+    #   
+    #   
+    # })
     
+    # x<<-PowerArray
+    # y<<-DurationArray
     
     output$twoLooksPlotDuration <- renderPlot({
       
-      plot(PowerArray, DurationArray, xlab = "Assurance", ylab = "Duration", xlim = c(0,1),
-           main = "Assurance vs Duration for the different stopping rules")
+      plot(0, 0, type = "n", ylim = range(c(DurationArray, na.rm = TRUE), FinalProposedDF$Duration), xlim = c(0, 1),
+           xlab = "Power", ylab = "Sample Size")
       
-      
+      # Add points for each pair of corresponding elements
+      for (i in 1:nrow(PowerArray)) {
+        for (j in 1:ncol(DurationArray)) {
+          if (!is.na(PowerArray[i, j]) && !is.na(DurationArray[i, j])) {
+            points(PowerArray[i, j], DurationArray[i, j], col = "yellow", pch = 16)
+          }
+        }
+      }
       
       points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue")
       
@@ -1571,8 +1573,17 @@ server <- function(input, output, session) {
     
     output$twoLooksPlotSS <- renderPlot({
       
-      plot(PowerArray, SSArray,  xlab = "Assurance", ylab = "Sample size", xlim = c(0,1),
-           main = "Assurance vs Sample Size for the different stopping rules")
+      plot(0, 0, type = "n", ylim = range(c(SSArray, na.rm = TRUE), FinalProposedDF$`Sample Size`), xlim = c(0, 1),
+           xlab = "Power", ylab = "Sample Size")
+      
+      # Add points for each pair of corresponding elements
+      for (i in 1:nrow(PowerArray)) {
+        for (j in 1:ncol(SSArray)) {
+          if (!is.na(PowerArray[i, j]) && !is.na(SSArray[i, j])) {
+            points(PowerArray[i, j], SSArray[i, j], col = "yellow", pch = 16)
+          }
+        }
+      }
       
       points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue")
       
