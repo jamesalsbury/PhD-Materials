@@ -414,7 +414,7 @@ server <- function(input, output, session) {
     
 
   observeEvent(input$calcOneLook, {
-    NRep <- 50
+    NRep <- 300
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
@@ -778,7 +778,7 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcTwoLooks, {
-    NRep <- 50
+    NRep <- 300
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     

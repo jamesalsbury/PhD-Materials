@@ -204,6 +204,7 @@ ui <- fluidPage(
                  sidebarPanel = sidebarPanel(
                    numericInput("IFBayesian", "Information Fraction", value = 0.5),
                    numericInput("tEffBayesian", "Target Effect", value = 0.8),
+                   div(id = "bayesianErrorMessage", class = "error-message", textOutput("bayesianErrorMessage")),
                    actionButton("calcBayesian", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -245,7 +246,8 @@ server <- function(input, output, session) {
   
   reactValues <- reactiveValues(treatmentSamplesDF = NULL,
                                 errorSeqOneLook = FALSE,
-                                errorSeqTwoLooks = FALSE)
+                                errorSeqTwoLooks = FALSE,
+                                errorBayesian = FALSE)
   
   observeEvent(input$samplesFile, {
     inFile  <- input$samplesFile
@@ -1351,12 +1353,52 @@ server <- function(input, output, session) {
     shinyjs::show("finalAssTable2LooksText")
     shinyjs::show("proposedTable2LooksText")
     
-    
-    
   })
   
   
   # Bayesian Logic ---------------------------------
+  
+  observe({
+    if (!is.null(reactValues$treatmentSamplesDF)&reactValues$errorBayesian==F) {
+      updateActionButton(session, "calcBayesian", disabled = FALSE)
+    } else {
+      updateActionButton(session, "calcBayesian", disabled = TRUE)
+    }
+  })
+  
+  
+  observe({
+    # Check if any of the inputs are NA
+    if (is.na(input$IFBayesian) ||
+        is.na(input$tEffBayesian)){
+      reactValues$errorBayesian <- TRUE
+    } else {
+      # Check validity of input ranges
+      if (input$IFBayesian <= 0 | input$IFBayesian >= 1 ||
+          input$tEffBayesian <= 0) {
+        reactValues$errorBayesian <- TRUE
+      } else {
+        reactValues$errorBayesian <- FALSE
+      }
+    }
+  })
+  
+  observe({
+    if (reactValues$errorBayesian==TRUE){
+      shinyjs::show("bayesianErrorMessage")
+    } else{
+      shinyjs::hide("bayesianErrorMessage")
+    }
+  })
+  
+  output$bayesianErrorMessage <- renderText({
+    if (reactValues$errorBayesian==TRUE){
+      return("Your inputs are incorrect!")
+    } 
+    
+    return("")
+    
+  })
   
   observeEvent(input$calcBayesian, {
     
