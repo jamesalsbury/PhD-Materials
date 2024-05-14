@@ -95,7 +95,8 @@ ui <- fluidPage(
                        column(4, numericInput("OneLookUB", "to:", value = 0.75)),
                        column(4, numericInput("OneLookBy", "by:", value = 0.25))
                      ),
-                     textOutput("OneLookText")),
+                     textOutput("OneLookText"),
+                     div(id = "oneLookErrorMessage", class = "error-message", textOutput("oneLookErrorMessage"))),
                    wellPanel(
                      rHandsontableOutput("spendingOneLook")),
                    actionButton("calcOneLook", label  = "Calculate", disabled = T)
@@ -190,9 +191,7 @@ ui <- fluidPage(
                               plotOutput("rocCurveTwoLooks2"),
                               plotOutput("rocCurveTwoLooksTotal"))
                    ),
-                   
-                   
-                   
+
                  )
                )
       ),
@@ -244,49 +243,45 @@ server <- function(input, output, session) {
   
   # Design Logic ---------------------------------
   
-  data <- reactiveValues(treatmentSamplesDF = NULL)
+  reactValues <- reactiveValues(treatmentSamplesDF = NULL,
+                                errorSeqOneLook = FALSE,
+                                errorSeqTwoLooks = FALSE)
   
   observeEvent(input$samplesFile, {
     inFile  <- input$samplesFile
     if (!is.null(inFile)) {
       # Read the uploaded file into treatmentSamplesDF
-      data$treatmentSamplesDF <-  readRDS(inFile$datapath)
+      reactValues$treatmentSamplesDF <-  readRDS(inFile$datapath)
       
       
       output$TDist <- renderPlot({
-        SHELF::plotfit(data$treatmentSamplesDF$fit1, d = data$treatmentSamplesDF$d[1])
+        SHELF::plotfit(reactValues$treatmentSamplesDF$fit1, d = reactValues$treatmentSamplesDF$d[1])
       })
       
       output$HRDist <- renderPlot({
-        SHELF::plotfit(data$treatmentSamplesDF$fit2, d = data$treatmentSamplesDF$d[2])
+        SHELF::plotfit(reactValues$treatmentSamplesDF$fit2, d = reactValues$treatmentSamplesDF$d[2])
       })
       
       output$P_S <- renderText({
-        paste0("P_S is: ", data$treatmentSamplesDF$P_S)
+        paste0("P_S is: ", reactValues$treatmentSamplesDF$P_S)
       })
       
       output$P_DTE <- renderText({
-        paste0("P_DTE is: ", data$treatmentSamplesDF$P_DTE)
+        paste0("P_DTE is: ", reactValues$treatmentSamplesDF$P_DTE)
       })
     }
   })
   
-  observe({
-    if (is.null(data$treatmentSamplesDF)) {
-      updateActionButton(session, "calcNoLook", disabled = TRUE)
-      updateActionButton(session, "calcOneLook", disabled = TRUE)
-      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
-      updateActionButton(session, "calcBayesian", disabled = TRUE)
-    } else {
-      updateActionButton(session, "calcNoLook", disabled = FALSE)
-      updateActionButton(session, "calcOneLook", disabled = FALSE)
-      updateActionButton(session, "calcTwoLooks", disabled = FALSE)
-      updateActionButton(session, "calcBayesian", disabled = FALSE)
-    }
-  })
   
   # No Look Logic ---------------------------------
   
+  observe({
+    if (is.null(reactValues$treatmentSamplesDF)) {
+      updateActionButton(session, "calcNoLook", disabled = TRUE)
+    } else {
+      updateActionButton(session, "calcNoLook", disabled = FALSE)
+    }
+  })
   
   observeEvent(input$calcNoLook, {
     NRep <- 500
@@ -296,8 +291,8 @@ server <- function(input, output, session) {
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
@@ -371,11 +366,64 @@ server <- function(input, output, session) {
   
   # One Look Logic ---------------------------------
   
+  
+  observe({
+    if (!is.null(reactValues$treatmentSamplesDF)&reactValues$errorSeqOneLook==F) {
+      updateActionButton(session, "calcOneLook", disabled = FALSE)
+    } else {
+      updateActionButton(session, "calcOneLook", disabled = TRUE)
+    }
+  })
+  
+  
+  observe({
+    # Check if any of the inputs are NA
+    if (is.na(input$OneLookLB) ||
+        is.na(input$OneLookUB) ||
+        is.na(input$OneLookBy))  {
+      reactValues$errorSeqOneLook <- TRUE
+    } else {
+      # Check validity of input ranges
+      if (input$OneLookLB <= 0 | input$OneLookLB >= 1 ||
+          input$OneLookUB <= 0 | input$OneLookUB >= 1 ||
+          input$OneLookBy <= 0 | input$OneLookBy >= 1 ||
+          input$OneLookLB > input$OneLookUB) {
+        reactValues$errorSeqOneLook <- TRUE
+      } else {
+        reactValues$errorSeqOneLook <- FALSE
+      }
+    }
+  })
+  
+  observe({
+    if (reactValues$errorSeqOneLook==TRUE){
+      shinyjs::show("oneLookErrorMessage")
+    } else{
+      shinyjs::hide("oneLookErrorMessage")
+    }
+  })
+  
+  output$oneLookErrorMessage <- renderText({
+    if (reactValues$errorSeqOneLook==TRUE){
+      return("Your inputs are incorrect!")
+    } 
+    
+    return("")
+    
+  })
+  
+  
+  
   output$OneLookText <- renderText({
+    if (reactValues$errorSeqOneLook == TRUE) {
+      return("")
+    }
+    
     OneLookSeq <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     value <- paste0("We perform IA1 at: ", paste(OneLookSeq, collapse = ", "))
     return(value)
   })
+  
   
   output$spendingOneLook <- renderRHandsontable({
     initial_data <- data.frame(
@@ -391,7 +439,9 @@ server <- function(input, output, session) {
   })
   
   observe({
-    updateSelectInput(session, "oneLookBoundaryIA", choices = seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy))
+    if (reactValues$errorSeqOneLook==F){
+      updateSelectInput(session, "oneLookBoundaryIA", choices = seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy))
+    }
   })
   
   observeEvent(c(input$spendingOneLook, input$oneLookBoundaryIA), {
@@ -446,8 +496,8 @@ server <- function(input, output, session) {
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
@@ -669,13 +719,86 @@ server <- function(input, output, session) {
   
   # Two Looks Logic ---------------------------------
   
+  observe({
+    if (!is.null(reactValues$treatmentSamplesDF)&reactValues$errorSeqTwoLooks==F) {
+      updateActionButton(session, "calcTwoLooks", disabled = FALSE)
+    } else {
+      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
+    }
+  })
+  
+  
+  observe({
+    # Check if any of the inputs are NA
+    if (is.na(input$TwoLooksLB1) ||
+        is.na(input$TwoLooksUB1) ||
+        is.na(input$TwoLooksBy1) ||
+        is.na(input$TwoLooksLB2) ||
+        is.na(input$TwoLooksUB2) ||
+        is.na(input$TwoLooksBy2)) {
+      reactValues$errorSeqTwoLooks <- TRUE
+    } else {
+      # Check validity of input ranges
+      if (input$TwoLooksLB1 <= 0 | input$TwoLooksLB1 >= 1 ||
+          input$TwoLooksUB1 <= 0 | input$TwoLooksUB1 >= 1 ||
+          input$TwoLooksBy1 <= 0 | input$TwoLooksBy1 >= 1 ||
+          input$TwoLooksLB2 <= 0 | input$TwoLooksLB2 >= 1 ||
+          input$TwoLooksUB2 <= 0 | input$TwoLooksUB2 >= 1 ||
+          input$TwoLooksBy2 <= 0 | input$TwoLooksBy2 >= 1 ||
+          input$TwoLooksLB1 > input$TwoLooksUB1 ||
+          input$TwoLooksLB2 > input$TwoLooksUB2) {
+        reactValues$errorSeqTwoLooks <- TRUE
+      } else {
+        # Check the generated sequences
+        TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+        TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+        
+        if (TwoLooksSeq1[1] >= TwoLooksSeq2[1] ||
+            TwoLooksSeq1[length(TwoLooksSeq1)] >= TwoLooksSeq2[length(TwoLooksSeq2)]) {
+          reactValues$errorSeqTwoLooks <- TRUE
+        } else {
+          reactValues$errorSeqTwoLooks <- FALSE
+        }
+      }
+    }
+  })
+  
+  
+  observe({
+    if (reactValues$errorSeqTwoLooks) {
+      shinyjs::show("twoLooksErrorMessage")
+    } else {
+      shinyjs::hide("twoLooksErrorMessage")
+    }
+  })
+  
+  output$twoLooksErrorMessage <- renderText({
+    if (reactValues$errorSeqTwoLooks) {
+      return("Your inputs are incorrect!")
+    } else {
+      return("")
+    }
+  })
+  
+  
+  
   output$TwoLooksText1 <- renderText({
+    
+    if (reactValues$errorSeqTwoLooks==TRUE) {
+      return("")
+    }
+    
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     value <- paste0("We perform IA1 at: ", paste(TwoLooksSeq1, collapse = ", "))
     return(value)
   })
   
   output$TwoLooksText2 <- renderText({
+    
+    if (reactValues$errorSeqTwoLooks==TRUE) {
+      return("")
+    }
+    
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     value <- paste0("We perform IA2 at: ", paste(TwoLooksSeq2, collapse = ", "))
     return(value)
@@ -695,26 +818,31 @@ server <- function(input, output, session) {
   })
   
   observe({
-    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
-    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
-    TwoLooksBoundaryIAChoices <- vector("list", length = sum(outer(TwoLooksSeq1, TwoLooksSeq2, "<")))
-    
-    myCount <- 1
-    
-    for (j in 1:length(TwoLooksSeq1)){
-      for (k in 1:length(TwoLooksSeq2)){
-        if (TwoLooksSeq1[j] < TwoLooksSeq2[k]){
-          TwoLooksBoundaryIAChoices[[myCount]] <- c(TwoLooksSeq1[j], TwoLooksSeq2[k])
-          myCount <- myCount + 1
+    if (reactValues$errorSeqTwoLooks==FALSE) {
+      
+      TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+      TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+      
+      TwoLooksBoundaryIAChoices <- vector("list", length = sum(outer(TwoLooksSeq1, TwoLooksSeq2, "<")))
+      
+      myCount <- 1
+      
+      for (j in 1:length(TwoLooksSeq1)){
+        for (k in 1:length(TwoLooksSeq2)){
+          if (TwoLooksSeq1[j] < TwoLooksSeq2[k]){
+            TwoLooksBoundaryIAChoices[[myCount]] <- c(TwoLooksSeq1[j], TwoLooksSeq2[k])
+            myCount <- myCount + 1
+          }
         }
       }
+      
+      TwoLooksBoundaryIAChoices <- sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", "))
+      TwoLooksBoundaryIAChoices <- setNames(TwoLooksBoundaryIAChoices, sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", ")))
+      
+      updateSelectInput(session, "twoLooksBoundaryIA", choices = TwoLooksBoundaryIAChoices)
+    
     }
-    
-    TwoLooksBoundaryIAChoices <- sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", "))
-    TwoLooksBoundaryIAChoices <- setNames(TwoLooksBoundaryIAChoices, sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", ")))
-    
-    updateSelectInput(session, "twoLooksBoundaryIA", choices = TwoLooksBoundaryIAChoices)
   })
   
   
@@ -733,46 +861,6 @@ server <- function(input, output, session) {
       })
     }
     
-    
-  })
-  
-  
-  observe({
-    
-    # Get the value from the textbox
-    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
-    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
-    
-    errorMessage <- NULL
-    
-    if (TwoLooksSeq1[1] >= TwoLooksSeq2[1]){
-      errorMessage <- "Your first interim analysis needs to be IA1"
-    }
-    
-    if (TwoLooksSeq1[length(TwoLooksSeq1)] >= TwoLooksSeq2[length(TwoLooksSeq2)]){
-      if(is.null(errorMessage)){
-        errorMessage <- "Your last interim analysis needs to be IA2"
-      } else {
-        errorMessage <- "Your first interim analysis needs to be IA1 AND your last interim analysis needs to be IA2"
-      }
-      
-    }
-    
-    
-    if (!is.null(errorMessage)){
-      shinyjs::show("twoLooksErrorMessage")
-      output$twoLooksErrorMessage <- renderText({
-        errorMessage
-      })
-      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
-    } else {
-      shinyjs::hide("twoLooksErrorMessage")
-      if (!is.null(data$treatmentSamplesDF)){
-        updateActionButton(session, "calcTwoLooks", disabled = F)
-        
-      }
-      
-    }
     
   })
   
@@ -868,8 +956,8 @@ server <- function(input, output, session) {
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
     
     proposedDF <- data.frame(matrix(NA, ncol = 9, nrow = NRep))
@@ -1289,8 +1377,8 @@ server <- function(input, output, session) {
     IFBayesian <- input$IFBayesian
     tEffBayesian <- input$tEffBayesian
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
     BPPVec <- foreach(i = 1:NRep, .combine = c, .export = c("SimDTEDataSet", "CensFunc", "BPPFunc"),
                       .packages = c("survival", "rjags", "dplyr")) %dopar% {
