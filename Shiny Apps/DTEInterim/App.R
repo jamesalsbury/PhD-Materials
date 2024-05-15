@@ -6,6 +6,7 @@ library(ggplot2)
 library(DT)
 library(rhandsontable)
 library(rpact)
+library(SHELF)
 # library(dplyr)
 # library(rjags)
 # library(magrittr)
@@ -23,11 +24,11 @@ selectedOptionsIATableOneLookVec <- c("Interim Analysis Time", "Assurance", "Dur
                                       "% Correctly Continue")
 
 selectedOptionsIATableTwoLooksVec <- c("Assurance", "Duration", "Sample Size", "Interim Analysis 1 Time", "Interim Analysis 2 Time",
-                                      "% Stop", "% Stop at Look 1", "% Stop at Look 2", 
-                                      "% Stop at Look 1 for Futility", "% Stop at Look 2 for Futility", 
-                                      "% Stop at Look 1 for Efficacy", "% Stop at Look 2 for Efficacy", 
-                                      "% Stop for Efficacy", "% Stop for Futility")
-                                      
+                                       "% Stop", "% Stop at Look 1", "% Stop at Look 2", 
+                                       "% Stop at Look 1 for Futility", "% Stop at Look 2 for Futility", 
+                                       "% Stop at Look 1 for Efficacy", "% Stop at Look 2 for Efficacy", 
+                                       "% Stop for Efficacy", "% Stop for Futility")
+
 
 
 # UI definition
@@ -77,6 +78,7 @@ ui <- fluidPage(
                    actionButton("calcNoLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
+                   plotOutput("noLookAssurancePlot"),
                    tableOutput("finalAssTableNoLook"),
                    
                  )
@@ -95,18 +97,19 @@ ui <- fluidPage(
                        column(4, numericInput("OneLookUB", "to:", value = 0.75)),
                        column(4, numericInput("OneLookBy", "by:", value = 0.25))
                      ),
-                     textOutput("OneLookText")),
+                     textOutput("OneLookText"),
+                     div(id = "oneLookErrorMessage", class = "error-message", textOutput("oneLookErrorMessage"))),
                    wellPanel(
-                   rHandsontableOutput("spendingOneLook")),
+                     rHandsontableOutput("spendingOneLook")),
                    actionButton("calcOneLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    tabsetPanel(
                      tabPanel("Tables",
                               hidden(selectizeInput("selectedOptionsIATableOneLook", "Selected Metrics", 
-                                             choices = selectedOptionsIATableOneLookVec, 
-                                             selected = c("Assurance", "Duration", "Sample Size"),
-                                             multiple = TRUE)), 
+                                                    choices = selectedOptionsIATableOneLookVec, 
+                                                    selected = c("Assurance", "Duration", "Sample Size"),
+                                                    multiple = TRUE)), 
                               tableOutput("IATableOneLook"),
                               hidden(uiOutput("finalAssTable1LookText")),
                               tableOutput("noIATableOneLook")),
@@ -138,49 +141,21 @@ ui <- fluidPage(
                        column(4, numericInput("TwoLooksUB2", "to:", value = 0.9)),
                        column(4, numericInput("TwoLooksBy2", "by:", value = 0.2))
                      ),
-                   textOutput("TwoLooksText1"),
-                   textOutput("TwoLooksText2"),
-                   div(id = "twoLooksErrorMessage", class = "error-message", textOutput("twoLooksErrorMessage"))),
+                     textOutput("TwoLooksText1"),
+                     textOutput("TwoLooksText2"),
+                     div(id = "twoLooksErrorMessage", class = "error-message", textOutput("twoLooksErrorMessage"))),
                    #selectInput("sidedTwoLooks", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
                    wellPanel(
-                   rHandsontableOutput("spendingTwoLooks")),
+                     rHandsontableOutput("spendingTwoLooks")),
                    actionButton("calcTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
                    tabsetPanel(
                      tabPanel("Tables",
                               hidden(selectizeInput("selectedOptionstwoLooks", "Selected Metrics", 
-                                                    choices = selectedOptionsIATableTwoLooksVec, 
-                                                    selected = c("Assurance", "Duration", "Sample Size"),
+                                                    choices = NULL, 
                                                     multiple = TRUE)),
-                              hidden(uiOutput("AssText")),
-                              tableOutput("twoLooksAss"),
-                              hidden(uiOutput("SSText")),
-                              tableOutput("twoLooksSS"),
-                              hidden(uiOutput("DurationText")),
-                              tableOutput("twoLooksDuration"),
-                              hidden(uiOutput("IATime1Text")),
-                              tableOutput("IATime1Table"),
-                              hidden(uiOutput("IATime2Text")),
-                              tableOutput("IATime2Table"),
-                              hidden(uiOutput("PercentStopText")),
-                              tableOutput("PercentStopTable"),
-                              hidden(uiOutput("PercentStopLook1Text")),
-                              tableOutput("PercentStopLook1Table"),
-                              hidden(uiOutput("PercentStopLook2Text")),
-                              tableOutput("PercentStopLook2Table"),
-                              hidden(uiOutput("PercentStopLook1FutText")),
-                              tableOutput("PercentStopLook1FutTable"),
-                              hidden(uiOutput("PercentStopLook2FutText")),
-                              tableOutput("PercentStopLook2FutTable"),
-                              hidden(uiOutput("PercentStopLook1EffText")),
-                              tableOutput("PercentStopLook1EffTable"),
-                              hidden(uiOutput("PercentStopLook2EffText")),
-                              tableOutput("PercentStopLook2EffTable"),
-                              hidden(uiOutput("PercentStopEffText")),
-                              tableOutput("PercentStopEffTable"),
-                              hidden(uiOutput("PercentStopFutText")),
-                              tableOutput("PercentStopFutTable")),
+                              uiOutput("metricsTableoutput")),
                      tabPanel("Plots",
                               selectInput("twoLooksBoundaryIA", "Choose the IFs (to view)", choices = NULL),
                               plotOutput("twoLooksBoundaries"),
@@ -190,9 +165,7 @@ ui <- fluidPage(
                               plotOutput("rocCurveTwoLooks2"),
                               plotOutput("rocCurveTwoLooksTotal"))
                    ),
-                   
-                   
-                   
+
                  )
                )
       ),
@@ -205,6 +178,7 @@ ui <- fluidPage(
                  sidebarPanel = sidebarPanel(
                    numericInput("IFBayesian", "Information Fraction", value = 0.5),
                    numericInput("tEffBayesian", "Target Effect", value = 0.8),
+                   div(id = "bayesianErrorMessage", class = "error-message", textOutput("bayesianErrorMessage")),
                    actionButton("calcBayesian", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -238,143 +212,198 @@ ui <- fluidPage(
   )
 )
 
+
 # Server logic
 server <- function(input, output, session) {
   
   # Design Logic ---------------------------------
   
-  data <- reactiveValues(treatmentSamplesDF = NULL)
+  reactValues <- reactiveValues(treatmentSamplesDF = NULL,
+                                errorSeqOneLook = FALSE,
+                                errorSeqTwoLooks = FALSE,
+                                errorBayesian = FALSE,
+                                iterationList = NULL,
+                                TwoLooksSeq1 = NULL,
+                                TwoLooksSeq2 = NULL)
   
   observeEvent(input$samplesFile, {
     inFile  <- input$samplesFile
     if (!is.null(inFile)) {
       # Read the uploaded file into treatmentSamplesDF
-      data$treatmentSamplesDF <-  readRDS(inFile$datapath)
+      reactValues$treatmentSamplesDF <-  readRDS(inFile$datapath)
       
       
       output$TDist <- renderPlot({
-        SHELF::plotfit(data$treatmentSamplesDF$fit1, d = data$treatmentSamplesDF$d[1])
+        SHELF::plotfit(reactValues$treatmentSamplesDF$fit1, d = reactValues$treatmentSamplesDF$d[1])
       })
       
       output$HRDist <- renderPlot({
-        SHELF::plotfit(data$treatmentSamplesDF$fit2, d = data$treatmentSamplesDF$d[2])
+        SHELF::plotfit(reactValues$treatmentSamplesDF$fit2, d = reactValues$treatmentSamplesDF$d[2])
       })
       
       output$P_S <- renderText({
-        paste0("P_S is: ", data$treatmentSamplesDF$P_S)
+        paste0("P_S is: ", reactValues$treatmentSamplesDF$P_S)
       })
       
       output$P_DTE <- renderText({
-        paste0("P_DTE is: ", data$treatmentSamplesDF$P_DTE)
+        paste0("P_DTE is: ", reactValues$treatmentSamplesDF$P_DTE)
       })
     }
   })
   
-  observe({
-    if (is.null(data$treatmentSamplesDF)) {
-      updateActionButton(session, "calcNoLook", disabled = TRUE)
-      updateActionButton(session, "calcOneLook", disabled = TRUE)
-      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
-      updateActionButton(session, "calcBayesian", disabled = TRUE)
-    } else {
-      updateActionButton(session, "calcNoLook", disabled = FALSE)
-      updateActionButton(session, "calcOneLook", disabled = FALSE)
-      updateActionButton(session, "calcTwoLooks", disabled = FALSE)
-      updateActionButton(session, "calcBayesian", disabled = FALSE)
-    }
-  })
   
   # No Look Logic ---------------------------------
   
+  observe({
+    if (is.null(reactValues$treatmentSamplesDF)) {
+      updateActionButton(session, "calcNoLook", disabled = TRUE)
+    } else {
+      updateActionButton(session, "calcNoLook", disabled = FALSE)
+    }
+  })
   
   observeEvent(input$calcNoLook, {
-    NRep <- 500
     
-    iterationArray <- array(NA,  dim = c(3, 1, NRep))
+    NRep <- 500
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    iterationList <- vector("list", length = 10)
+    SSVec <- ceiling(seq(30, 1001, length = length(iterationList)))
+    nEventsVec <- ceiling((input$numEvents/input$numPatients)*SSVec)
     
-    withProgress(message = 'Calculating', value = 0, {
-      for (i in 1:NRep){
+    for (i in 1:length(iterationList)){
+      iterationList[[i]]$SampleSize <- SSVec[i]
+      iterationList[[i]]$nEvents <- nEventsVec[i]
+    }
+    
+    
+    for (i in 1:length(iterationList)){
+      treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                                     cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
+      
+      for (j in 1:NRep){
         
-        #Compute treatment times
-        HRStar <- sample(treatmentSamplesDF[,2], 1)
-        bigT <- sample(treatmentSamplesDF[,1], 1)
+          #Compute treatment times
+          HRStar <- sample(treatmentSamplesDF[,2], 1)
+          bigT <- sample(treatmentSamplesDF[,1], 1)
+
+          #Simulate control and treatment data
+          dataCombined <- SimDTEDataSet(iterationList[[i]]$SampleSize, input$lambdac, bigT, HRStar, input$recTime)
+
+          #Perform looks at different Information Fractions
+          finalDF <- CensFunc(dataCombined, iterationList[[i]]$nEvents)
+          test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+          coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+          deltad <- as.numeric(exp(coef(coxmodel)))
+          
+          iterationList[[i]]$PowerVec[j] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+          iterationList[[i]]$DurationVec[j] <- finalDF$censTime
+          iterationList[[i]]$SSVec[j] <- finalDF$SS
         
-        #Simulate control and treatment data
-        dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)  
-        
-        #Perform looks at different Information Fractions
-        finalDF <- CensFunc(dataCombined, input$numEvents)
-        test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
-        coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
-        deltad <- as.numeric(exp(coef(coxmodel)))
-        
-        iterationArray[1, 1, i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-        iterationArray[2, 1, i] <- finalDF$censTime
-        iterationArray[3, 1, i] <- finalDF$SS
-        
-        incProgress(1/NRep)
       }
-    })
+      
+    }
     
     
-    output$finalAssTableNoLook <- renderTable({
-      
-      FinalAss <- mean(iterationArray[1, 1, ])
-      FinalDuration <- mean(iterationArray[2, 1, ])
-      FinalSS <- mean(iterationArray[3, 1, ])
-      
-      
-      FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-      
-      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
-      
-      FinalAss
-    }, digits = 3)
     
-    output$oneLookROCPlot <- renderPlot({
+    for (i in 1:length(iterationList)){
+      iterationList[[i]]$Power <- mean(iterationList[[i]]$PowerVec)
+    }
+    
+    
+    x<<- iterationList
+    
+    output$noLookAssurancePlot <- renderPlot({
       
-      sens <- correctlyContinue/(correctlyContinue+falselyContinue)
-      spec <- correctlyStop/(correctlyStop+falselyStop)
       
-      plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate", 
-           main  = "ROC curve")
-      abline(a = 0, b = 1, lty = 2)
+      
       
     })
     
-    output$oneLookPlotDuration <- renderPlot({
-      
-      plot(IADFOneLook$Assurance, IADFOneLook$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
-           main = "Assurance vs Duration for the different stopping rules")
-      
-    })
-    
-    output$oneLookPlotSS <- renderPlot({
-      
-      plot(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, xlab = "Assurance", xlim = c(0,1), ylab = "Sample size",
-           main = "Assurance vs Sample Size for the different stopping rules")
-      
-    })
-    
-    
-    
+  #     }
+  #   })
+  #   
+  #   
+  #   output$finalAssTableNoLook <- renderTable({
+  #     
+  #     FinalAss <- mean(iterationArray[1, 1, ])
+  #     FinalDuration <- mean(iterationArray[2, 1, ])
+  #     FinalSS <- mean(iterationArray[3, 1, ])
+  #     
+  #     
+  #     FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
+  #     
+  #     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+  #     
+  #     FinalAss
+  #   }, digits = 3)
+  #   
   })
   
   
   
   # One Look Logic ---------------------------------
   
+  
+  observe({
+    if (!is.null(reactValues$treatmentSamplesDF)&reactValues$errorSeqOneLook==F) {
+      updateActionButton(session, "calcOneLook", disabled = FALSE)
+    } else {
+      updateActionButton(session, "calcOneLook", disabled = TRUE)
+    }
+  })
+  
+  
+  observe({
+    # Check if any of the inputs are NA
+    if (is.na(input$OneLookLB) ||
+        is.na(input$OneLookUB) ||
+        is.na(input$OneLookBy))  {
+      reactValues$errorSeqOneLook <- TRUE
+    } else {
+      # Check validity of input ranges
+      if (input$OneLookLB <= 0 | input$OneLookLB >= 1 ||
+          input$OneLookUB <= 0 | input$OneLookUB >= 1 ||
+          input$OneLookBy <= 0 | input$OneLookBy >= 1 ||
+          input$OneLookLB > input$OneLookUB) {
+        reactValues$errorSeqOneLook <- TRUE
+      } else {
+        reactValues$errorSeqOneLook <- FALSE
+      }
+    }
+  })
+  
+  observe({
+    if (reactValues$errorSeqOneLook==TRUE){
+      shinyjs::show("oneLookErrorMessage")
+    } else{
+      shinyjs::hide("oneLookErrorMessage")
+    }
+  })
+  
+  output$oneLookErrorMessage <- renderText({
+    if (reactValues$errorSeqOneLook==TRUE){
+      return("Your inputs are incorrect!")
+    } 
+    
+    return("")
+    
+  })
+  
+  
+  
   output$OneLookText <- renderText({
+    if (reactValues$errorSeqOneLook == TRUE) {
+      return("")
+    }
+    
     OneLookSeq <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     value <- paste0("We perform IA1 at: ", paste(OneLookSeq, collapse = ", "))
     return(value)
   })
+  
   
   output$spendingOneLook <- renderRHandsontable({
     initial_data <- data.frame(
@@ -390,7 +419,9 @@ server <- function(input, output, session) {
   })
   
   observe({
-    updateSelectInput(session, "oneLookBoundaryIA", choices = seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy))
+    if (reactValues$errorSeqOneLook==F){
+      updateSelectInput(session, "oneLookBoundaryIA", choices = seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy))
+    }
   })
   
   observeEvent(c(input$spendingOneLook, input$oneLookBoundaryIA), {
@@ -398,23 +429,23 @@ server <- function(input, output, session) {
     values <- hot_to_r(input$spendingOneLook)
     
     if (!is.null(values)){
-       design <- getDesignGroupSequential(typeOfDesign = "asUser", 
-                                       informationRates = c(as.numeric(input$oneLookBoundaryIA), 1),
-                                       userAlphaSpending = as.numeric(values[,2]), 
-                                       typeBetaSpending = "bsUser",
-                                       userBetaSpending = as.numeric(values[,3]))
-    
+      design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                         informationRates = c(as.numeric(input$oneLookBoundaryIA), 1),
+                                         userAlphaSpending = as.numeric(values[,2]), 
+                                         typeBetaSpending = "bsUser",
+                                         userBetaSpending = as.numeric(values[,3]))
+      
       output$oneLookBoundaries <- renderPlot({
         plot(design)
       })
     } 
-
-
-  })
     
-
+    
+  })
+  
+  
   observeEvent(input$calcOneLook, {
-    NRep <- 300
+    NRep <- 50
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
@@ -445,8 +476,8 @@ server <- function(input, output, session) {
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
@@ -468,7 +499,7 @@ server <- function(input, output, session) {
         noLooksDF$Duration[i] <- finalDF$censTime
         noLooksDF$SS[i] <- finalDF$SS
         
-
+        
         for (k in 1:length(IAVec)){
           
           GSDOC <- GSDOneIAFunc(dataCombined, iterationList[[k]]$futBounds, 
@@ -491,97 +522,96 @@ server <- function(input, output, session) {
       }
     })
     
-    x<<-iterationList
     
     correctlyStop <- rep(NA, length(IAVec))
     correctlyStopEff <- rep(NA, length(IAVec))
     correctlyStopFut <- rep(NA, length(IAVec))
     correctlyContinue <- rep(NA, length(IAVec))
     
-   for (k in 1:length(IAVec)){
-     
-     #Calculating Correctly Stop
-     IndStopVec <- which(iterationList[[k]]$Stop==1)
-     if (length(IndStopVec)!=0){
-     
-       OutcomeVec <- iterationList[[k]]$Outcome[IndStopVec]
-       TruthVec <- iterationList[[k]]$Truth[IndStopVec]
-       correctlyStopSum <- 0
-       
-       for (i in 1:length(IndStopVec)){
-         if ((OutcomeVec[i]=="Efficacy"&TruthVec[i]==1)|OutcomeVec[i]=="Futility"&TruthVec[i]==0){
-           correctlyStopSum <- correctlyStopSum + 1
-         }
-       }
-       
-       correctlyStop[k] <- correctlyStopSum/length(IndStopVec)
-       
-     } else {
-       correctlyStop <- NA
-     }
-     
-     #Calculating Correctly Stopping for Efficacy
-     IndStopEffVec <- which(iterationList[[k]]$StopEff==1)
-     if (length(IndStopEffVec)!=0){
-       
-       OutcomeVec <- iterationList[[k]]$Outcome[IndStopEffVec]
-       TruthVec <- iterationList[[k]]$Truth[IndStopEffVec]
-       correctlyStopEffSum <- 0
-       
-       for (i in 1:length(IndStopEffVec)){
-         if (TruthVec[i]==1){
-           correctlyStopEffSum <- correctlyStopEffSum + 1
-         }
-       }
-       
-       correctlyStopEff[k] <- correctlyStopEffSum/length(IndStopEffVec)
-       
-     } else {
-       correctlyStopEff <- NA
-     }
-     
-     #Calculating Correctly Stopping for Futility
-     IndStopFutVec <- which(iterationList[[k]]$StopFut==1)
-     if (length(IndStopFutVec)!=0){
-       
-       OutcomeVec <- iterationList[[k]]$Outcome[IndStopFutVec]
-       TruthVec <- iterationList[[k]]$Truth[IndStopFutVec]
-       correctlyStopFutSum <- 0
-       
-       for (i in 1:length(IndStopFutVec)){
-         if (TruthVec[i]==0){
-           correctlyStopFutSum <- correctlyStopFutSum + 1
-         }
-       }
-       
-       correctlyStopFut[k] <- correctlyStopFutSum/length(IndStopFutVec)
-       
-     } else {
-       correctlyStopFut <- NA
-     }
-     
-     #Calculating Correctly continuing 
-     IndContinueCorrectlyVec <- which(iterationList[[k]]$StopFut==1)
-     if (length(IndContinueCorrectlyVec)!=0){
-       
-       OutcomeVec <- iterationList[[k]]$Outcome[IndContinueCorrectlyVec]
-       TruthVec <- iterationList[[k]]$Truth[IndContinueCorrectlyVec]
-       correctlyContinueSum <- 0
-       
-       for (i in 1:length(IndContinueCorrectlyVec)){
-         if (TruthVec[i]==1){
-           correctlyContinueSum <- correctlyContinueSum + 1
-         }
-       }
-       
-       correctlyContinue[k] <- correctlyContinueSum/length(IndContinueCorrectlyVec)
-       
-     } else {
-       correctlyContinue <- NA
-     }
-     
-   }
-     
+    for (k in 1:length(IAVec)){
+      
+      #Calculating Correctly Stop
+      IndStopVec <- which(iterationList[[k]]$Stop==1)
+      if (length(IndStopVec)!=0){
+        
+        OutcomeVec <- iterationList[[k]]$Outcome[IndStopVec]
+        TruthVec <- iterationList[[k]]$Truth[IndStopVec]
+        correctlyStopSum <- 0
+        
+        for (i in 1:length(IndStopVec)){
+          if ((OutcomeVec[i]=="Efficacy"&TruthVec[i]==1)|OutcomeVec[i]=="Futility"&TruthVec[i]==0){
+            correctlyStopSum <- correctlyStopSum + 1
+          }
+        }
+        
+        correctlyStop[k] <- correctlyStopSum/length(IndStopVec)
+        
+      } else {
+        correctlyStop <- NA
+      }
+      
+      #Calculating Correctly Stopping for Efficacy
+      IndStopEffVec <- which(iterationList[[k]]$StopEff==1)
+      if (length(IndStopEffVec)!=0){
+        
+        OutcomeVec <- iterationList[[k]]$Outcome[IndStopEffVec]
+        TruthVec <- iterationList[[k]]$Truth[IndStopEffVec]
+        correctlyStopEffSum <- 0
+        
+        for (i in 1:length(IndStopEffVec)){
+          if (TruthVec[i]==1){
+            correctlyStopEffSum <- correctlyStopEffSum + 1
+          }
+        }
+        
+        correctlyStopEff[k] <- correctlyStopEffSum/length(IndStopEffVec)
+        
+      } else {
+        correctlyStopEff <- NA
+      }
+      
+      #Calculating Correctly Stopping for Futility
+      IndStopFutVec <- which(iterationList[[k]]$StopFut==1)
+      if (length(IndStopFutVec)!=0){
+        
+        OutcomeVec <- iterationList[[k]]$Outcome[IndStopFutVec]
+        TruthVec <- iterationList[[k]]$Truth[IndStopFutVec]
+        correctlyStopFutSum <- 0
+        
+        for (i in 1:length(IndStopFutVec)){
+          if (TruthVec[i]==0){
+            correctlyStopFutSum <- correctlyStopFutSum + 1
+          }
+        }
+        
+        correctlyStopFut[k] <- correctlyStopFutSum/length(IndStopFutVec)
+        
+      } else {
+        correctlyStopFut <- NA
+      }
+      
+      #Calculating Correctly continuing 
+      IndContinueCorrectlyVec <- which(iterationList[[k]]$StopFut==1)
+      if (length(IndContinueCorrectlyVec)!=0){
+        
+        OutcomeVec <- iterationList[[k]]$Outcome[IndContinueCorrectlyVec]
+        TruthVec <- iterationList[[k]]$Truth[IndContinueCorrectlyVec]
+        correctlyContinueSum <- 0
+        
+        for (i in 1:length(IndContinueCorrectlyVec)){
+          if (TruthVec[i]==1){
+            correctlyContinueSum <- correctlyContinueSum + 1
+          }
+        }
+        
+        correctlyContinue[k] <- correctlyContinueSum/length(IndContinueCorrectlyVec)
+        
+      } else {
+        correctlyContinue <- NA
+      }
+      
+    }
+    
     
     
     IADFOneLook <- data.frame(IF = IAVec,
@@ -596,17 +626,17 @@ server <- function(input, output, session) {
                               correctlyStopEff = correctlyStopEff,
                               correctlyStopFut = correctlyStopFut,
                               correctlyContinue = correctlyContinue)
-                            
+    
     
     shinyjs::show("selectedOptionsIATableOneLook")
     
-                              
+    
     #Continuing is positive!
     
     colnames(IADFOneLook) <- c("Information Fraction", "Interim Analysis Time", "Assurance", "Duration", "Sample Size",
-                                                         "% Stop", "% Stop for Efficacy", "% Stop for Futility",
-                                                         "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
-                                                         "% Correctly Continue")
+                               "% Stop", "% Stop for Efficacy", "% Stop for Futility",
+                               "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
+                               "% Correctly Continue")
     
     FinalAss <- t(colMeans(noLooksDF))
     FinalAss <- as.data.frame(FinalAss)
@@ -615,7 +645,7 @@ server <- function(input, output, session) {
     output$IATableOneLook <- renderTable({
       
       IADFOneLook <- subset(IADFOneLook, select = c("Information Fraction", input$selectedOptionsIATableOneLook))
-
+      
       IADFOneLook
     }, digits = 3)
     
@@ -669,13 +699,84 @@ server <- function(input, output, session) {
   
   # Two Looks Logic ---------------------------------
   
+  observe({
+    if (!is.null(reactValues$treatmentSamplesDF)&reactValues$errorSeqTwoLooks==F) {
+      updateActionButton(session, "calcTwoLooks", disabled = FALSE)
+    } else {
+      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
+    }
+  })
+  
+  
+  observe({
+    # Check if any of the inputs are NA
+    if (is.na(input$TwoLooksLB1) ||
+        is.na(input$TwoLooksUB1) ||
+        is.na(input$TwoLooksBy1) ||
+        is.na(input$TwoLooksLB2) ||
+        is.na(input$TwoLooksUB2) ||
+        is.na(input$TwoLooksBy2)) {
+      reactValues$errorSeqTwoLooks <- TRUE
+    } else {
+      # Check validity of input ranges
+      if (input$TwoLooksLB1 <= 0 | input$TwoLooksLB1 >= 1 ||
+          input$TwoLooksUB1 <= 0 | input$TwoLooksUB1 >= 1 ||
+          input$TwoLooksBy1 <= 0 | input$TwoLooksBy1 >= 1 ||
+          input$TwoLooksLB2 <= 0 | input$TwoLooksLB2 >= 1 ||
+          input$TwoLooksUB2 <= 0 | input$TwoLooksUB2 >= 1 ||
+          input$TwoLooksBy2 <= 0 | input$TwoLooksBy2 >= 1 ||
+          input$TwoLooksLB1 > input$TwoLooksUB1 ||
+          input$TwoLooksLB2 > input$TwoLooksUB2) {
+        reactValues$errorSeqTwoLooks <- TRUE
+      } else {
+        # Check the generated sequences
+        TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+        TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+        
+        if (TwoLooksSeq1[1] >= TwoLooksSeq2[1] ||
+            TwoLooksSeq1[length(TwoLooksSeq1)] >= TwoLooksSeq2[length(TwoLooksSeq2)]) {
+          reactValues$errorSeqTwoLooks <- TRUE
+        } else {
+          reactValues$errorSeqTwoLooks <- FALSE
+        }
+      }
+    }
+  })
+  
+  
+  observe({
+    if (reactValues$errorSeqTwoLooks) {
+      shinyjs::show("twoLooksErrorMessage")
+    } else {
+      shinyjs::hide("twoLooksErrorMessage")
+    }
+  })
+  
+  output$twoLooksErrorMessage <- renderText({
+    if (reactValues$errorSeqTwoLooks) {
+      return("Your inputs are incorrect!")
+    } else {
+      return("")
+    }
+  })
+  
   output$TwoLooksText1 <- renderText({
+    
+    if (reactValues$errorSeqTwoLooks==TRUE) {
+      return("")
+    }
+    
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     value <- paste0("We perform IA1 at: ", paste(TwoLooksSeq1, collapse = ", "))
     return(value)
   })
   
   output$TwoLooksText2 <- renderText({
+    
+    if (reactValues$errorSeqTwoLooks==TRUE) {
+      return("")
+    }
+    
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     value <- paste0("We perform IA2 at: ", paste(TwoLooksSeq2, collapse = ", "))
     return(value)
@@ -695,26 +796,31 @@ server <- function(input, output, session) {
   })
   
   observe({
-    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
-    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
-    TwoLooksBoundaryIAChoices <- vector("list", length = sum(outer(TwoLooksSeq1, TwoLooksSeq2, "<")))
-    
-    myCount <- 1
-    
-    for (j in 1:length(TwoLooksSeq1)){
-      for (k in 1:length(TwoLooksSeq2)){
-        if (TwoLooksSeq1[j] < TwoLooksSeq2[k]){
-          TwoLooksBoundaryIAChoices[[myCount]] <- c(TwoLooksSeq1[j], TwoLooksSeq2[k])
-          myCount <- myCount + 1
+    if (reactValues$errorSeqTwoLooks==FALSE) {
+      
+      TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+      TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+      
+      TwoLooksBoundaryIAChoices <- vector("list", length = sum(outer(TwoLooksSeq1, TwoLooksSeq2, "<")))
+      
+      myCount <- 1
+      
+      for (j in 1:length(TwoLooksSeq1)){
+        for (k in 1:length(TwoLooksSeq2)){
+          if (TwoLooksSeq1[j] < TwoLooksSeq2[k]){
+            TwoLooksBoundaryIAChoices[[myCount]] <- c(TwoLooksSeq1[j], TwoLooksSeq2[k])
+            myCount <- myCount + 1
+          }
         }
       }
+      
+      TwoLooksBoundaryIAChoices <- sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", "))
+      TwoLooksBoundaryIAChoices <- setNames(TwoLooksBoundaryIAChoices, sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", ")))
+      
+      updateSelectInput(session, "twoLooksBoundaryIA", choices = TwoLooksBoundaryIAChoices)
+    
     }
-    
-    TwoLooksBoundaryIAChoices <- sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", "))
-    TwoLooksBoundaryIAChoices <- setNames(TwoLooksBoundaryIAChoices, sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", ")))
-    
-    updateSelectInput(session, "twoLooksBoundaryIA", choices = TwoLooksBoundaryIAChoices)
   })
   
   
@@ -733,52 +839,112 @@ server <- function(input, output, session) {
       })
     }
     
-    
   })
   
   
-  observe({
+  # Reactive expression to calculate metrics
+  calculateTablemetrics <- function(iterationList, TwoLooksSeq1, TwoLooksSeq2) {
     
-    # Get the value from the textbox
-    TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
-    TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
-    errorMessage <- NULL
+    PowerArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    DurationArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    SSArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    IATime1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    IATime2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStop <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook1Fut <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook2Fut <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook1Eff <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopLook2Eff <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopEff <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    PercentStopFut <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
     
-    if (TwoLooksSeq1[1] >= TwoLooksSeq2[1]){
-      errorMessage <- "Your first interim analysis needs to be IA1"
-    }
-    
-    if (TwoLooksSeq1[length(TwoLooksSeq1)] >= TwoLooksSeq2[length(TwoLooksSeq2)]){
-      if(is.null(errorMessage)){
-        errorMessage <- "Your last interim analysis needs to be IA2"
-      } else {
-        errorMessage <- "Your first interim analysis needs to be IA1 AND your last interim analysis needs to be IA2"
+    myCount <- 1
+
+    for (j in 1:length(TwoLooksSeq1)){
+      for (k in 1:length(TwoLooksSeq2)){
+        if (TwoLooksSeq1[j]<TwoLooksSeq2[k]){
+
+          PowerArray[k,j] <- mean(iterationList[[myCount]]$Power)
+          DurationArray[k,j] <- mean(iterationList[[myCount]]$Duration)
+          SSArray[k,j] <- mean(iterationList[[myCount]]$SS)
+          IATime1[k,j] <- mean(iterationList[[myCount]]$IA1Time)
+          IATime2[k,j] <- mean(iterationList[[myCount]]$IA2Time)
+          PercentStop[k,j] <- mean(iterationList[[myCount]]$Stop)
+          PercentStopLook1[k,j] <- mean(iterationList[[myCount]]$StopLook1)
+          PercentStopLook2[k,j] <- mean(iterationList[[myCount]]$StopLook2)
+          PercentStopLook1Fut[k,j] <- mean(iterationList[[myCount]]$Outcome=="Futility1")
+          PercentStopLook2Fut[k,j] <- mean(iterationList[[myCount]]$Outcome=="Futility2")
+          PercentStopLook1Eff[k,j] <- mean(iterationList[[myCount]]$Outcome=="Efficacy1")
+          PercentStopLook2Eff[k,j] <- mean(iterationList[[myCount]]$Outcome=="Efficacy2")
+          PercentStopEff[k,j] <- mean(iterationList[[myCount]]$Outcome %in% c("Efficacy1", "Efficacy2"))
+          PercentStopFut[k,j] <- mean(iterationList[[myCount]]$Outcome %in% c("Futility1", "Futility2"))
+
+          myCount <- myCount + 1
+
+        }
       }
-      
     }
+
+    return(list(PowerArray = PowerArray, DurationArray = DurationArray,
+                SSArray = SSArray, IATime1 = IATime1, IATime2 = IATime2,
+                PercentStop = PercentStop,
+                PercentStopLook1 = PercentStopLook1, PercentStopLook2 = PercentStopLook2,
+                PercentStopLook1Fut = PercentStopLook1Fut, PercentStopLook2Fut = PercentStopLook2Fut,
+                PercentStopLook1Eff = PercentStopLook1Eff, PercentStopLook2Eff = PercentStopLook2Eff,
+                PercentStopEff = PercentStopEff, PercentStopFut = PercentStopFut))
+
+  }
+  
+  output$metricsTableoutput <- renderUI({
+    selected_metrics <- input$selectedOptionstwoLooks
     
+    totalChoices <- c("Assurance", "Duration", "Sample Size", 
+                      "Interim Analysis 1 Time", "Interim Analysis 2 Time",
+                      "% Stop", "% Stop Look 1", "% Stop Look 2",
+                      "% Stop Look 1 for Futility", "% Stop Look 2 for Futility",
+                      "% Stop Look 1 for Efficacy", "% Stop Look 2 for Efficacy",
+                      "% Stop for Efficacy", "% Stop for Futility")
     
-    if (!is.null(errorMessage)){
-      shinyjs::show("twoLooksErrorMessage")
-      output$twoLooksErrorMessage <- renderText({
-        errorMessage
+    if (!is.null(selected_metrics) && length(selected_metrics) > 0) {
+      chosenIndices <- which(totalChoices %in% selected_metrics)
+      
+      data <- calculateTablemetrics(reactValues$iterationList, 
+                                    reactValues$TwoLooksSeq1,  
+                                    reactValues$TwoLooksSeq2)
+      
+      num_tables <- length(chosenIndices)
+      tables_list <- lapply(chosenIndices, function(i) {
+        title <- totalChoices[i]  # Title for the table
+        table_data <- as.data.frame(data[[i]])
+        colnames(table_data) <- reactValues$TwoLooksSeq1
+        rownames(table_data) <- reactValues$TwoLooksSeq2
+        table_output <- renderTable({
+          table_data
+        }, rownames = TRUE, digits = 3)
+        # Wrap the rendered table in a tagList with the title
+        tagList(
+          h3(title),  # Use h3 for the title (you can adjust this based on your preference)
+          table_output
+        )
       })
-      updateActionButton(session, "calcTwoLooks", disabled = TRUE)
+      
+      # Return tables_list directly
+      tables_list
     } else {
-      shinyjs::hide("twoLooksErrorMessage")
-      if (!is.null(data$treatmentSamplesDF)){
-        updateActionButton(session, "calcTwoLooks", disabled = F)
-        
-      }
       
     }
-    
   })
   
   
+  
+  
+  
+
   observeEvent(input$calcTwoLooks, {
-    NRep <- 300
+    NRep <- 50
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
@@ -795,37 +961,39 @@ server <- function(input, output, session) {
     for (j in 1:length(TwoLooksSeq1)){
       for (k in 1:length(TwoLooksSeq2)){
         if (TwoLooksSeq1[j]<TwoLooksSeq2[k]){
-        
-        iterationList[[myCount]]$IF <- c(TwoLooksSeq1[j], TwoLooksSeq2[k], 1) 
-        
-        design <- getDesignGroupSequential(typeOfDesign = "asUser", 
-                                           informationRates = iterationList[[myCount]]$IF,
-                                           userAlphaSpending = as.numeric(values[,2]), 
-                                           typeBetaSpending = "bsUser",
-                                           userBetaSpending = as.numeric(values[,3]))
-        
-        iterationList[[myCount]]$EffBounds <- design$criticalValues
-        iterationList[[myCount]]$futBounds <- design$futilityBounds
-        
-        myCount <- myCount + 1
-        
+          
+          iterationList[[myCount]]$IF <- c(TwoLooksSeq1[j], TwoLooksSeq2[k], 1) 
+          
+          design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                             informationRates = iterationList[[myCount]]$IF,
+                                             userAlphaSpending = as.numeric(values[,2]), 
+                                             typeBetaSpending = "bsUser",
+                                             userBetaSpending = as.numeric(values[,3]))
+          
+          iterationList[[myCount]]$EffBounds <- design$criticalValues
+          iterationList[[myCount]]$futBounds <- design$futilityBounds
+          
+          myCount <- myCount + 1
+          
         }
       }
     }
     
-
+    
+    
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
     
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
     proposedDF <- data.frame(matrix(NA, ncol = 9, nrow = NRep))
     
     colnames(proposedDF) <- c("Look1Power", "Look2Power", "FinalLookPower", 
                               "Look1SS", "Look2SS", "FinalLookSS",
                               "Look1Duration", "Look2Duration", "FinalLookDuration")
+    
     
     
     withProgress(message = 'Calculating', value = 0, {
@@ -877,60 +1045,28 @@ server <- function(input, output, session) {
       
     })
     
-  
-    PowerArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    DurationArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    SSArray <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    IATime1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    IATime2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStop <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopLook1Fut <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopLook2Fut <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopLook1Eff <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopLook2Eff <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopEff <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
-    PercentStopFut <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    reactValues$iterationList <- iterationList
+    reactValues$TwoLooksSeq1 <- TwoLooksSeq1
+    reactValues$TwoLooksSeq2 <- TwoLooksSeq2
     
-
     #Do proposed rule logic
     proposedDF$power <- proposedDF$Look1Power*proposedDF$Look2Power*proposedDF$FinalLookPower
     proposedDF$SS <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1SS, ifelse(proposedDF$Look2Power==0, 
                                                                                  proposedDF$Look2SS, proposedDF$FinalLookSS))
     proposedDF$Duration <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1Duration, ifelse(proposedDF$Look2Power==0, 
                                                                                              proposedDF$Look2Duration, proposedDF$FinalLookDuration))
-    #x<<-iterationList
-    
-    myCount <- 1
-    
-    for (j in 1:length(TwoLooksSeq1)){
-      for (k in 1:length(TwoLooksSeq2)){
-        if (TwoLooksSeq1[j]<TwoLooksSeq2[k]){
-          
-          PowerArray[k,j] <- mean(iterationList[[myCount]]$Power)
-          DurationArray[k,j] <- mean(iterationList[[myCount]]$Duration)
-          SSArray[k,j] <- mean(iterationList[[myCount]]$SS)
-          IATime1[k,j] <- mean(iterationList[[myCount]]$IA1Time)
-          IATime2[k,j] <- mean(iterationList[[myCount]]$IA2Time)
-          PercentStop[k,j] <- mean(iterationList[[myCount]]$Stop)
-          PercentStopLook1[k,j] <- mean(iterationList[[myCount]]$StopLook1)
-          PercentStopLook2[k,j] <- mean(iterationList[[myCount]]$StopLook2)
-          PercentStopLook1Fut[k,j] <- mean(iterationList[[myCount]]$Outcome=="Futility1")
-          PercentStopLook2Fut[k,j] <- mean(iterationList[[myCount]]$Outcome=="Futility2")
-          PercentStopLook1Eff[k,j] <- mean(iterationList[[myCount]]$Outcome=="Efficacy1")
-          PercentStopLook2Eff[k,j] <- mean(iterationList[[myCount]]$Outcome=="Efficacy2")
-          PercentStopEff[k,j] <- mean(iterationList[[myCount]]$Outcome %in% c("Efficacy1", "Efficacy2"))
-          PercentStopFut[k,j] <- mean(iterationList[[myCount]]$Outcome %in% c("Futility1", "Futility2"))
-          
-          myCount <- myCount + 1
-          
-        }
-      }
-    }
-    
-    
+
     shinyjs::show("selectedOptionstwoLooks")
+    
+    updateSelectizeInput(session, "selectedOptionstwoLooks", choices = c("Assurance", "Duration", "Sample Size", 
+                                                                         "Interim Analysis 1 Time", "Interim Analysis 2 Time",
+                                                                         "% Stop", "% Stop Look 1", "% Stop Look 2",
+                                                                         "% Stop Look 1 for Futility", "% Stop Look 2 for Futility",
+                                                                         "% Stop Look 1 for Efficacy", "% Stop Look 2 for Efficacy",
+                                                                         "% Stop for Efficacy", "% Stop for Futility"), 
+                         selected = c("Assurance", "Duration", "Sample Size"))
+                        
+
     
     
     #Making the proposed DF correctly
@@ -945,334 +1081,319 @@ server <- function(input, output, session) {
     FinalAss <- as.data.frame(FinalAss)
     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
-    output$twoLooksAss <- renderTable({
-    
-      colnames(PowerArray) <- TwoLooksSeq1
-      rownames(PowerArray) <- TwoLooksSeq2
-      PowerArray
-      
-    }, rownames = TRUE, digits = 3)
-    
-    
-    output$twoLooksSS <- renderTable({
-      
-      colnames(SSArray) <- TwoLooksSeq1
-      rownames(SSArray) <- TwoLooksSeq2
-      SSArray
-      
-    }, rownames = T, digits = 3)
-    
-    output$twoLooksDuration <- renderTable({
-      
-      colnames(DurationArray) <- TwoLooksSeq1
-      rownames(DurationArray) <- TwoLooksSeq2
-      DurationArray
-      
-    }, rownames = T, digits = 3)
-    
-    output$IATime1Table <- renderTable({
-      
-      colnames(IATime1) <- TwoLooksSeq1
-      rownames(IATime1) <- TwoLooksSeq2
-      IATime1
-      
-    }, rownames = T, digits = 3)
-    
-    output$IATime2Table <- renderTable({
-      
-      colnames(IATime2) <- TwoLooksSeq1
-      rownames(IATime2) <- TwoLooksSeq2
-      IATime2
-      
-    }, rownames = T, digits = 3)
-    
-    
-    output$PercentStopTable <- renderTable({
-      
-      colnames(PercentStop) <- TwoLooksSeq1
-      rownames(PercentStop) <- TwoLooksSeq2
-      PercentStop
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopLook1Table <- renderTable({
-      
-      colnames(PercentStopLook1) <- TwoLooksSeq1
-      rownames(PercentStopLook1) <- TwoLooksSeq2
-      PercentStopLook1
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopLook2Table <- renderTable({
-      
-      colnames(PercentStopLook2) <- TwoLooksSeq1
-      rownames(PercentStopLook2) <- TwoLooksSeq2
-      PercentStopLook2
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopLook1FutTable <- renderTable({
-      
-      colnames(PercentStopLook1Fut) <- TwoLooksSeq1
-      rownames(PercentStopLook1Fut) <- TwoLooksSeq2
-      PercentStopLook1Fut
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopLook2FutTable <- renderTable({
-      
-      colnames(PercentStopLook2Fut) <- TwoLooksSeq1
-      rownames(PercentStopLook2Fut) <- TwoLooksSeq2
-      PercentStopLook2Fut
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopLook1EffTable <- renderTable({
-      
-      colnames(PercentStopLook1Eff) <- TwoLooksSeq1
-      rownames(PercentStopLook1Eff) <- TwoLooksSeq2
-      PercentStopLook1Eff
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopLook2EffTable <- renderTable({
-      
-      colnames(PercentStopLook2Eff) <- TwoLooksSeq1
-      rownames(PercentStopLook2Eff) <- TwoLooksSeq2
-      PercentStopLook2Eff
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopEffTable <- renderTable({
-      
-      colnames(PercentStopEff) <- TwoLooksSeq1
-      rownames(PercentStopEff) <- TwoLooksSeq2
-      PercentStopEff
-      
-    }, rownames = T, digits = 3)
-    
-    output$PercentStopFutTable <- renderTable({
-      
-      colnames(PercentStopFut) <- TwoLooksSeq1
-      rownames(PercentStopFut) <- TwoLooksSeq2
-      PercentStopFut
-      
-    }, rownames = T, digits = 3)
-    
-    
-    output$finalAssTable2Looks <- renderTable({
-    
-      FinalAss
-      
-    }, digits = 3)
-    
-    output$proposedTable2Looks <- renderTable({
-      
-      FinalProposedDF
-      
-    }, digits = 3)
-    
-    # output$rocCurveTwoLooks1 <- renderPlot({
+    # if (input$selectedOptionstwoLooks[1]=="Assurance"){
     #   
-    #   spec <- 1 - correctlyStopLook1/(correctlyStopLook1 + falselyStopLook1)
-    #   sens <- correctlyContinueLook1/(correctlyContinueLook1 + falselyContinueLook1)
+    #   output$twoLooksAss <- renderTable({
+    #     
+    #     colnames(PowerArray) <- TwoLooksSeq1
+    #     rownames(PowerArray) <- TwoLooksSeq2
+    #     PowerArray
+    #     
+    #   }, rownames = TRUE, digits = 3)
+    # } else{
     #   
+    #   output$twoLooksAss <- renderTable({
+    #     
+    #     data.frame(Name = "James", Age = 25)
+    #     
+    #   }, rownames = TRUE, digits = 3)
+    # }
+    # 
+    # 
+    # 
+    # 
+    # output$twoLooksSS <- renderTable({
     #   
-    #   spec[is.na(spec)] <- NaN
-    #   sens[is.na(sens)] <- NaN
+    #   colnames(SSArray) <- TwoLooksSeq1
+    #   rownames(SSArray) <- TwoLooksSeq2
+    #   SSArray
     #   
-    #   spec <- unlist(spec)
-    #   sens <- unlist(sens)
+    # }, rownames = T, digits = 3)
+    # 
+    # output$twoLooksDuration <- renderTable({
     #   
-    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
-    #        xlab = "False Positive Rate", main = "ROC curve for Look 1")
-    #   abline(a = 0, b = 1, lty = 2)
+    #   colnames(DurationArray) <- TwoLooksSeq1
+    #   rownames(DurationArray) <- TwoLooksSeq2
+    #   DurationArray
     #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$IATime1Table <- renderTable({
     #   
-    # })
-    
-    
-    # output$rocCurveTwoLooks2 <- renderPlot({
+    #   colnames(IATime1) <- TwoLooksSeq1
+    #   rownames(IATime1) <- TwoLooksSeq2
+    #   IATime1
     #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$IATime2Table <- renderTable({
     #   
-    #   spec <- 1 - correctlyStopLook2/(correctlyStopLook2 + falselyStopLook2)
-    #   sens <- correctlyContinueLook2/(correctlyContinueLook2 + falselyContinueLook2)
+    #   colnames(IATime2) <- TwoLooksSeq1
+    #   rownames(IATime2) <- TwoLooksSeq2
+    #   IATime2
     #   
-    #   spec[is.na(spec)] <- NaN
-    #   sens[is.na(sens)] <- NaN
+    # }, rownames = T, digits = 3)
+    # 
+    # 
+    # output$PercentStopTable <- renderTable({
     #   
-    #   spec <- unlist(spec)
-    #   sens <- unlist(sens)
+    #   colnames(PercentStop) <- TwoLooksSeq1
+    #   rownames(PercentStop) <- TwoLooksSeq2
+    #   PercentStop
     #   
-    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
-    #        xlab = "False Positive Rate",  main = "ROC curve for Look 2")
-    #   abline(a = 0, b = 1, lty = 2)
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopLook1Table <- renderTable({
     #   
+    #   colnames(PercentStopLook1) <- TwoLooksSeq1
+    #   rownames(PercentStopLook1) <- TwoLooksSeq2
+    #   PercentStopLook1
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopLook2Table <- renderTable({
+    #   
+    #   colnames(PercentStopLook2) <- TwoLooksSeq1
+    #   rownames(PercentStopLook2) <- TwoLooksSeq2
+    #   PercentStopLook2
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopLook1FutTable <- renderTable({
+    #   
+    #   colnames(PercentStopLook1Fut) <- TwoLooksSeq1
+    #   rownames(PercentStopLook1Fut) <- TwoLooksSeq2
+    #   PercentStopLook1Fut
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopLook2FutTable <- renderTable({
+    #   
+    #   colnames(PercentStopLook2Fut) <- TwoLooksSeq1
+    #   rownames(PercentStopLook2Fut) <- TwoLooksSeq2
+    #   PercentStopLook2Fut
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopLook1EffTable <- renderTable({
+    #   
+    #   colnames(PercentStopLook1Eff) <- TwoLooksSeq1
+    #   rownames(PercentStopLook1Eff) <- TwoLooksSeq2
+    #   PercentStopLook1Eff
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopLook2EffTable <- renderTable({
+    #   
+    #   colnames(PercentStopLook2Eff) <- TwoLooksSeq1
+    #   rownames(PercentStopLook2Eff) <- TwoLooksSeq2
+    #   PercentStopLook2Eff
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopEffTable <- renderTable({
+    #   
+    #   colnames(PercentStopEff) <- TwoLooksSeq1
+    #   rownames(PercentStopEff) <- TwoLooksSeq2
+    #   PercentStopEff
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # output$PercentStopFutTable <- renderTable({
+    #   
+    #   colnames(PercentStopFut) <- TwoLooksSeq1
+    #   rownames(PercentStopFut) <- TwoLooksSeq2
+    #   PercentStopFut
+    #   
+    # }, rownames = T, digits = 3)
+    # 
+    # 
+    # output$finalAssTable2Looks <- renderTable({
+    #   
+    #   FinalAss
+    #   
+    # }, digits = 3)
+    # 
+    # output$proposedTable2Looks <- renderTable({
+    #   
+    #   FinalProposedDF
+    #   
+    # }, digits = 3)
+    # 
+    # 
+    # output$twoLooksPlotDuration <- renderPlot({
+    #   
+    #   plot(0, 0, type = "n", ylim = c(min(DurationArray, na.rm = TRUE), FinalAss$Duration), xlim = c(0, 1),
+    #        xlab = "Power", ylab = "Sample Size")
+    #   
+    #   # Add points for each pair of corresponding elements
+    #   for (i in 1:nrow(PowerArray)) {
+    #     for (j in 1:ncol(DurationArray)) {
+    #       if (!is.na(PowerArray[i, j]) && !is.na(DurationArray[i, j])) {
+    #         points(PowerArray[i, j], DurationArray[i, j], col = "black", pch = 19)
+    #       }
+    #     }
+    #   }
+    #   
+    #   points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue", pch = 19)
+    #   
+    #   points(FinalAss$Assurance, FinalAss$Duration, col = "red", pch = 19)
+    #   
+    #   legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
     #   
     # })
-    
-    # output$rocCurveTwoLooksTotal <- renderPlot({
+    # 
+    # output$twoLooksPlotSS <- renderPlot({
     #   
-    #   spec <- 1 - correctlyStopTotal/(correctlyStopTotal + falselyStopTotal)
-    #   sens <- correctlyContinueTotal/(correctlyContinueTotal + falselyContinueTotal)
+    #   plot(0, 0, type = "n", ylim = c(min(SSArray, na.rm = TRUE), FinalAss$`Sample Size`), xlim = c(0, 1),
+    #        xlab = "Power", ylab = "Sample Size")
     #   
-    #   spec[is.na(spec)] <- NaN
-    #   sens[is.na(sens)] <- NaN
+    #   # Add points for each pair of corresponding elements
+    #   for (i in 1:nrow(PowerArray)) {
+    #     for (j in 1:ncol(SSArray)) {
+    #       if (!is.na(PowerArray[i, j]) && !is.na(SSArray[i, j])) {
+    #         points(PowerArray[i, j], SSArray[i, j], col = "black", pch = 19)
+    #       }
+    #     }
+    #   }
     #   
-    #   spec <- unlist(spec)
-    #   sens <- unlist(sens)
+    #   points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue", pch = 19)
     #   
-    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", 
-    #        xlab = "False Positive Rate",  main = "ROC curve for both looks (combined)")
-    #   abline(a = 0, b = 1, lty = 2)
+    #   points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red", pch = 19)
     #   
+    #   legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
     #   
+    # 
     # })
-    
-    # x<<-PowerArray
-    # y<<-DurationArray
-    
-    output$twoLooksPlotDuration <- renderPlot({
-      
-      plot(0, 0, type = "n", ylim = c(min(DurationArray, na.rm = TRUE), FinalAss$Duration), xlim = c(0, 1),
-           xlab = "Power", ylab = "Sample Size")
-      
-      # Add points for each pair of corresponding elements
-      for (i in 1:nrow(PowerArray)) {
-        for (j in 1:ncol(DurationArray)) {
-          if (!is.na(PowerArray[i, j]) && !is.na(DurationArray[i, j])) {
-            points(PowerArray[i, j], DurationArray[i, j], col = "black", pch = 19)
-          }
-        }
-      }
-      
-      points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue", pch = 19)
-      
-      points(FinalAss$Assurance, FinalAss$Duration, col = "red", pch = 19)
-      
-      legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
-      
-    })
-    
-    output$twoLooksPlotSS <- renderPlot({
-      
-      plot(0, 0, type = "n", ylim = c(min(SSArray, na.rm = TRUE), FinalAss$`Sample Size`), xlim = c(0, 1),
-           xlab = "Power", ylab = "Sample Size")
-      
-      # Add points for each pair of corresponding elements
-      for (i in 1:nrow(PowerArray)) {
-        for (j in 1:ncol(SSArray)) {
-          if (!is.na(PowerArray[i, j]) && !is.na(SSArray[i, j])) {
-            points(PowerArray[i, j], SSArray[i, j], col = "black", pch = 19)
-          }
-        }
-      }
-      
-      points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue", pch = 19)
-      
-      points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red", pch = 19)
-      
-      legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
-      
-      
-      
-    })
-    
-    
-    
-    output$AssText <- renderUI({
-      p(HTML("<b>Assurance table</b>"))
-    })
-    
-    output$SSText <- renderUI({
-      p(HTML("<b>Sample size table</b>"))
-    })
-    
-    output$DurationText <- renderUI({
-      p(HTML("<b>Duration table</b>"))
-    })
-    
-    output$IATime1Text <- renderUI({
-      p(HTML("<b>Interim Analysis 1 Time</b>"))
-    })
-    
-    output$IATime2Text <- renderUI({
-      p(HTML("<b>Interim Analysis 2 Time</b>"))
-    })
-    
-    output$PercentStopText <- renderUI({
-      p(HTML("<b>% stop</b>"))
-    })
-    
-    output$PercentStopLook1Text <- renderUI({
-      p(HTML("<b>% stop at Look 1</b>"))
-    })
-    
-    output$PercentStopLook2Text <- renderUI({
-      p(HTML("<b>% stop at Look 2</b>"))
-    })
-    
-    output$PercentStopLook1FutText <- renderUI({
-      p(HTML("<b>% stop at Look 1 for futility</b>"))
-    })
-    
-    output$PercentStopLook2FutText <- renderUI({
-      p(HTML("<b>% stop at Look 2 for futility</b>"))
-    })
-    
-    output$PercentStopLook1EffText <- renderUI({
-      p(HTML("<b>% stop at Look 1 for efficacy</b>"))
-    })
-    
-    output$PercentStopLook2EffText <- renderUI({
-      p(HTML("<b>% stop at Look 2 for efficacy</b>"))
-    })
-    
-    output$PercentStopEffText <- renderUI({
-      p(HTML("<b>% stop for efficacy</b>"))
-    })
-    
-    output$PercentStopFutText <- renderUI({
-      p(HTML("<b>% stop for futility</b>"))
-    })
-    
-    output$finalAssTable2LooksText <- renderUI({
-      p(HTML("<b>No Interim Analyses</b>"))
-    })
-    
-    output$proposedTable2LooksText <- renderUI({
-      p(HTML("<b>Proposed Rule</b>"))
-    })
-    
-    
-    
-    shinyjs::show("AssText")
-    shinyjs::show("SSText")
-    shinyjs::show("DurationText")
-    shinyjs::show("IATime1Text")
-    shinyjs::show("IATime2Text")
-    shinyjs::show("PercentStopText")
-    shinyjs::show("PercentStopLook1Text")
-    shinyjs::show("PercentStopLook2Text")
-    shinyjs::show("PercentStopLook1FutText")
-    shinyjs::show("PercentStopLook2FutText")
-    shinyjs::show("PercentStopLook1EffText")
-    shinyjs::show("PercentStopLook2EffText")
-    shinyjs::show("PercentStopEffText")
-    shinyjs::show("PercentStopFutText")
-
-    shinyjs::show("finalAssTable2LooksText")
-    shinyjs::show("proposedTable2LooksText")
-    
-    
+    # 
+    # output$AssText <- renderUI({
+    #   p(HTML("<b>Assurance table</b>"))
+    # })
+    # 
+    # output$SSText <- renderUI({
+    #   p(HTML("<b>Sample size table</b>"))
+    # })
+    # 
+    # output$DurationText <- renderUI({
+    #   p(HTML("<b>Duration table</b>"))
+    # })
+    # 
+    # output$IATime1Text <- renderUI({
+    #   p(HTML("<b>Interim Analysis 1 Time</b>"))
+    # })
+    # 
+    # output$IATime2Text <- renderUI({
+    #   p(HTML("<b>Interim Analysis 2 Time</b>"))
+    # })
+    # 
+    # output$PercentStopText <- renderUI({
+    #   p(HTML("<b>% stop</b>"))
+    # })
+    # 
+    # output$PercentStopLook1Text <- renderUI({
+    #   p(HTML("<b>% stop at Look 1</b>"))
+    # })
+    # 
+    # output$PercentStopLook2Text <- renderUI({
+    #   p(HTML("<b>% stop at Look 2</b>"))
+    # })
+    # 
+    # output$PercentStopLook1FutText <- renderUI({
+    #   p(HTML("<b>% stop at Look 1 for futility</b>"))
+    # })
+    # 
+    # output$PercentStopLook2FutText <- renderUI({
+    #   p(HTML("<b>% stop at Look 2 for futility</b>"))
+    # })
+    # 
+    # output$PercentStopLook1EffText <- renderUI({
+    #   p(HTML("<b>% stop at Look 1 for efficacy</b>"))
+    # })
+    # 
+    # output$PercentStopLook2EffText <- renderUI({
+    #   p(HTML("<b>% stop at Look 2 for efficacy</b>"))
+    # })
+    # 
+    # output$PercentStopEffText <- renderUI({
+    #   p(HTML("<b>% stop for efficacy</b>"))
+    # })
+    # 
+    # output$PercentStopFutText <- renderUI({
+    #   p(HTML("<b>% stop for futility</b>"))
+    # })
+    # 
+    # output$finalAssTable2LooksText <- renderUI({
+    #   p(HTML("<b>No Interim Analyses</b>"))
+    # })
+    # 
+    # output$proposedTable2LooksText <- renderUI({
+    #   p(HTML("<b>Proposed Rule</b>"))
+    # })
+    # 
+    # 
+    # shinyjs::show("AssText")
+    # shinyjs::show("SSText")
+    # shinyjs::show("DurationText")
+    # shinyjs::show("IATime1Text")
+    # shinyjs::show("IATime2Text")
+    # shinyjs::show("PercentStopText")
+    # shinyjs::show("PercentStopLook1Text")
+    # shinyjs::show("PercentStopLook2Text")
+    # shinyjs::show("PercentStopLook1FutText")
+    # shinyjs::show("PercentStopLook2FutText")
+    # shinyjs::show("PercentStopLook1EffText")
+    # shinyjs::show("PercentStopLook2EffText")
+    # shinyjs::show("PercentStopEffText")
+    # shinyjs::show("PercentStopFutText")
+    # shinyjs::show("finalAssTable2LooksText")
+    # shinyjs::show("proposedTable2LooksText")
     
   })
   
   
   # Bayesian Logic ---------------------------------
   
+  observe({
+    if (!is.null(reactValues$treatmentSamplesDF)&reactValues$errorBayesian==F) {
+      updateActionButton(session, "calcBayesian", disabled = FALSE)
+    } else {
+      updateActionButton(session, "calcBayesian", disabled = TRUE)
+    }
+  })
   
   
+  observe({
+    # Check if any of the inputs are NA
+    if (is.na(input$IFBayesian) ||
+        is.na(input$tEffBayesian)){
+      reactValues$errorBayesian <- TRUE
+    } else {
+      # Check validity of input ranges
+      if (input$IFBayesian <= 0 | input$IFBayesian >= 1 ||
+          input$tEffBayesian <= 0) {
+        reactValues$errorBayesian <- TRUE
+      } else {
+        reactValues$errorBayesian <- FALSE
+      }
+    }
+  })
+  
+  observe({
+    if (reactValues$errorBayesian==TRUE){
+      shinyjs::show("bayesianErrorMessage")
+    } else{
+      shinyjs::hide("bayesianErrorMessage")
+    }
+  })
+  
+  output$bayesianErrorMessage <- renderText({
+    if (reactValues$errorBayesian==TRUE){
+      return("Your inputs are incorrect!")
+    } 
+    
+    return("")
+    
+  })
   
   observeEvent(input$calcBayesian, {
     
@@ -1293,8 +1414,8 @@ server <- function(input, output, session) {
     IFBayesian <- input$IFBayesian
     tEffBayesian <- input$tEffBayesian
     
-    treatmentSamplesDF <- SHELF::copulaSample(data$treatmentSamplesDF$fit1, data$treatmentSamplesDF$fit2,
-                                              cp = conc.probs, n = 1e4, d = data$treatmentSamplesDF$d)
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                              cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
     BPPVec <- foreach(i = 1:NRep, .combine = c, .export = c("SimDTEDataSet", "CensFunc", "BPPFunc"),
                       .packages = c("survival", "rjags", "dplyr")) %dopar% {
@@ -1330,7 +1451,6 @@ server <- function(input, output, session) {
     
     output$BayesianPlot <- renderPlot({
       
-
       # Plotting histogram colored by ColorVar
       ggplot(BPPVec, aes(x = BPP, fill = Success)) +
         geom_histogram(position = "identity", alpha = 0.5) +
@@ -1340,20 +1460,16 @@ server <- function(input, output, session) {
     })
     
     
-    
     output$BayesianEffPlot <- renderPlot({
-      
       
       # Plotting histogram colored by ColorVar
       ggplot(BPPVec, aes(x = propEffect, fill = Success)) +
         geom_histogram(position = "identity", alpha = 0.5) +
         scale_x_continuous(limits = c(0, 1)) + xlab("Proportion less than target effect")
       
-      
     })
     
     output$BayesianBPPvTE <- renderPlot({
-      
       
       plot(BPPVec$BPP, BPPVec$propEffect, xlim = c(0,1), ylim = c(0,1),
            xlab = "Bayesian Predictive Probability", ylab = "Proportion less than target effect")
@@ -1362,13 +1478,9 @@ server <- function(input, output, session) {
     })
     
     
-    
-    
-    
   })
   
-  
-  
+
 }
 
 # Run the Shiny app
