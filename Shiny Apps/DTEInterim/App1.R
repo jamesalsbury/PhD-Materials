@@ -6,6 +6,7 @@ library(ggplot2)
 library(DT)
 library(rhandsontable)
 library(rpact)
+library(SHELF)
 # library(dplyr)
 # library(rjags)
 # library(magrittr)
@@ -757,8 +758,6 @@ server <- function(input, output, session) {
     }
   })
   
-  
-  
   output$TwoLooksText1 <- renderText({
     
     if (reactValues$errorSeqTwoLooks==TRUE) {
@@ -838,7 +837,6 @@ server <- function(input, output, session) {
       })
     }
     
-    
   })
   
   
@@ -901,21 +899,48 @@ server <- function(input, output, session) {
   output$metricsTableoutput <- renderUI({
     selected_metrics <- input$selectedOptionstwoLooks
     
-    print(selected_metrics)
+    totalChoices <- c("Assurance", "Duration", "Sample Size", 
+                      "Interim Analysis 1 Time", "Interim Analysis 2 Time",
+                      "% Stop", "% Stop Look 1", "% Stop Look 2",
+                      "% Stop Look 1 for Futility", "% Stop Look 2 for Futility",
+                      "% Stop Look 1 for Efficacy", "% Stop Look 2 for Efficacy",
+                      "% Stop for Efficacy", "% Stop for Futility")
     
-    # Display metrics only if at least one is selected
     if (!is.null(selected_metrics) && length(selected_metrics) > 0) {
-      data <- calculateTablemetrics(reactValues$iterationList, reactValues$TwoLooksSeq1,  
+      chosenIndices <- which(totalChoices %in% selected_metrics)
+      
+      data <- calculateTablemetrics(reactValues$iterationList, 
+                                    reactValues$TwoLooksSeq1,  
                                     reactValues$TwoLooksSeq2)
-      x<<-data
+      
+      num_tables <- length(chosenIndices)
+      tables_list <- lapply(chosenIndices, function(i) {
+        title <- totalChoices[i]  # Title for the table
+        table_data <- as.data.frame(data[[i]])
+        colnames(table_data) <- reactValues$TwoLooksSeq1
+        rownames(table_data) <- reactValues$TwoLooksSeq2
+        table_output <- renderTable({
+          table_data
+        }, rownames = TRUE, digits = 3)
+        # Wrap the rendered table in a tagList with the title
+        tagList(
+          h3(title),  # Use h3 for the title (you can adjust this based on your preference)
+          table_output
+        )
+      })
+      
+      # Return tables_list directly
+      tables_list
     } else {
-      # Display a message if no metrics are selected
-      tags$p("Select metrics to display")
+      
     }
   })
+  
+  
+  
+  
+  
 
-  
-  
   observeEvent(input$calcTwoLooks, {
     NRep <- 50
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
@@ -953,18 +978,20 @@ server <- function(input, output, session) {
     }
     
     
+    
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
+    
     treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
-    
     
     proposedDF <- data.frame(matrix(NA, ncol = 9, nrow = NRep))
     
     colnames(proposedDF) <- c("Look1Power", "Look2Power", "FinalLookPower", 
                               "Look1SS", "Look2SS", "FinalLookSS",
                               "Look1Duration", "Look2Duration", "FinalLookDuration")
+    
     
     
     withProgress(message = 'Calculating', value = 0, {
@@ -1029,8 +1056,6 @@ server <- function(input, output, session) {
 
     shinyjs::show("selectedOptionstwoLooks")
     
-    print(input$selectedOptionstwoLooks)
-    
     updateSelectizeInput(session, "selectedOptionstwoLooks", choices = c("Assurance", "Duration", "Sample Size", 
                                                                          "Interim Analysis 1 Time", "Interim Analysis 2 Time",
                                                                          "% Stop", "% Stop Look 1", "% Stop Look 2",
@@ -1039,10 +1064,7 @@ server <- function(input, output, session) {
                                                                          "% Stop for Efficacy", "% Stop for Futility"), 
                          selected = c("Assurance", "Duration", "Sample Size"))
                         
-    
-    
-    print(input$selectedOptionstwoLooks)
-    
+
     
     
     #Making the proposed DF correctly
