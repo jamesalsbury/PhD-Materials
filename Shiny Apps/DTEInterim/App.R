@@ -78,6 +78,8 @@ ui <- fluidPage(
                    actionButton("calcNoLook", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
+                   hidden(numericInput("noLookAssuranceValue", "Number of patients (altogether)", value = 10)),
+                   textOutput("noLookAssuranceText"),
                    plotOutput("noLookAssurancePlot"),
                    tableOutput("finalAssTableNoLook"),
                    
@@ -160,10 +162,7 @@ ui <- fluidPage(
                               selectInput("twoLooksBoundaryIA", "Choose the IFs (to view)", choices = NULL),
                               plotOutput("twoLooksBoundaries"),
                               plotOutput("twoLooksPlotDuration"),
-                              plotOutput("twoLooksPlotSS"),
-                              plotOutput("rocCurveTwoLooks1"),
-                              plotOutput("rocCurveTwoLooks2"),
-                              plotOutput("rocCurveTwoLooksTotal"))
+                              plotOutput("twoLooksPlotSS"))
                    ),
 
                  )
@@ -264,7 +263,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$calcNoLook, {
     
-    NRep <- 500
+    NRep <- 200
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -278,7 +277,7 @@ server <- function(input, output, session) {
       iterationList[[i]]$nEvents <- nEventsVec[i]
     }
     
-    
+    withProgress(message = 'Calculating', value = 0, {
     for (i in 1:length(iterationList)){
       treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
                                                      cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
@@ -303,23 +302,48 @@ server <- function(input, output, session) {
           iterationList[[i]]$SSVec[j] <- finalDF$SS
         
       }
-      
+      incProgress(1/length(iterationList))
     }
-    
+    })
     
     
     for (i in 1:length(iterationList)){
       iterationList[[i]]$Power <- mean(iterationList[[i]]$PowerVec)
+      iterationList[[i]]$Duration <- mean(iterationList[[i]]$DurationVec)
     }
     
+    myDF <- data.frame(SampleSize = rep(NA, length(iterationList)), Power = rep(NA, length(iterationList)),
+                       Duration = rep(NA, length(iterationList))) 
     
-    x<<- iterationList
+    for (i in 1:length(iterationList)){
+      myDF[i,]$Power <- iterationList[[i]]$Power
+      myDF[i,]$SampleSize <- iterationList[[i]]$SampleSize
+      myDF[i,]$Duration <- iterationList[[i]]$Duration
+    }
+    
+    smoothedPower <- loess(Power ~ SampleSize, data = myDF)
+    smoothedDuration <- loess(Duration ~ SampleSize, data = myDF)
+    
+    #print(predict(smoothed, newdata = input$numPatients))
+    
+    updateNumericInput(session, "noLookAssuranceValue", value = input$numPatients*2)
+    shinyjs::show("noLookAssuranceValue")
     
     output$noLookAssurancePlot <- renderPlot({
+
+      plot(myDF$SampleSize*2, predict(smoothedPower), ylim = c(0,1), type = "l", xlab = "Sample Size", ylab = "Assurance")
+      abline(v = input$noLookAssuranceValue, lty = 2)
       
+    })
+    
+    
+    output$noLookAssuranceText <- renderText({
       
+      estAss <- predict(smoothedPower, newdata = input$noLookAssuranceValue/2)
       
-      
+      paste0("With ", input$noLookAssuranceValue, " patients altogether, the assurance is estimated to be: ", 
+             round(estAss, 2))
+             
     })
     
   #     }
@@ -628,6 +652,7 @@ server <- function(input, output, session) {
                               correctlyContinue = correctlyContinue)
     
     
+    
     shinyjs::show("selectedOptionsIATableOneLook")
     
     
@@ -670,7 +695,9 @@ server <- function(input, output, session) {
       plot(IADFOneLook$Assurance, IADFOneLook$Duration, xlab = "Assurance", xlim = c(0,1), ylab = "Duration",
            ylim = c(min(IADFOneLook$Duration), FinalAss$Duration),
            main = "Assurance vs Duration for the different stopping rules", pch = 19)
+      text(IADFOneLook$Assurance, IADFOneLook$Duration, IADFOneLook$`Information Fraction`, pos = 2)  
       points(FinalAss$Assurance, FinalAss$Duration, col = "red", pch = 19)
+      text(FinalAss$Assurance, FinalAss$Duration, "No IA", col = "red", pos = 4)
       
       legend("topleft", legend = c("Chosen Rules", "No IA"), col = c("black", "red"), pch = 19)
       
@@ -681,7 +708,10 @@ server <- function(input, output, session) {
       plot(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, xlab = "Assurance", xlim = c(0,1),
            ylab = "Sample size", ylim = c(min(IADFOneLook$`Sample Size`), FinalAss$`Sample Size`),
            main = "Assurance vs Sample Size for the different stopping rules", pch = 19)
+      text(IADFOneLook$Assurance, IADFOneLook$`Sample Size`, IADFOneLook$`Information Fraction`, pos = 2)  
       points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red", pch = 19)
+      text(FinalAss$Assurance, FinalAss$`Sample Size`, "No IA", col = "red", pos = 4)
+      
       legend("topleft", legend = c("Chosen Rules", "No IA"), col = c("black", "red"), pch = 19)
       
       
@@ -817,7 +847,6 @@ server <- function(input, output, session) {
       
       TwoLooksBoundaryIAChoices <- sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", "))
       TwoLooksBoundaryIAChoices <- setNames(TwoLooksBoundaryIAChoices, sapply(TwoLooksBoundaryIAChoices, function(x) paste(x, collapse = ", ")))
-      
       updateSelectInput(session, "twoLooksBoundaryIA", choices = TwoLooksBoundaryIAChoices)
     
     }
@@ -887,7 +916,121 @@ server <- function(input, output, session) {
         }
       }
     }
-
+    
+    
+    
+    correctlyStopDF <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyStopEffDF <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyStopFutDF <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyStopEffLook1DF <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyStopEffLook2DF <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyStopFutLook1DF <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyStopFutLook2DF <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    
+    correctlyContinue <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyContinueLook1 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    correctlyContinueLook2 <- data.frame(matrix(NA, nrow = length(TwoLooksSeq2), ncol = length(TwoLooksSeq1)))
+    
+    x<<-iterationList
+    
+    myCount <- 1
+    
+    for (j in 1:length(TwoLooksSeq1)){
+      for (k in 1:length(TwoLooksSeq2)){
+        if (TwoLooksSeq1[j]<TwoLooksSeq2[k]){
+          
+      
+      #Calculating Correctly Stop
+      IndStopVec <- which(iterationList[[myCount]]$Stop==1)
+      if (length(IndStopVec)!=0){
+        
+        OutcomeVec <- iterationList[[myCount]]$Outcome[IndStopVec]
+        TruthVec <- iterationList[[myCount]]$Truth[IndStopVec]
+        correctlyStopSum <- 0
+        
+        for (i in 1:length(IndStopVec)){
+          if ((OutcomeVec[i]=="Efficacy1"&TruthVec[i]==1)|(OutcomeVec[i]=="Futility1"&TruthVec[i]==0)|
+              (OutcomeVec[i]=="Efficacy2"&TruthVec[i]==1)|(OutcomeVec[i]=="Futility2"&TruthVec[i]==0)){
+            correctlyStopSum <- correctlyStopSum + 1
+          }
+        }
+        
+        correctlyStopDF[k,j] <- correctlyStopSum/length(IndStopVec)
+        
+      } else {
+        correctlyStopDF <- NA
+      }
+      
+      #Calculating Correctly Stopping for Efficacy
+      IndStopEffVec <- which(iterationList[[k]]$StopEff==1)
+      if (length(IndStopEffVec)!=0){
+        
+        OutcomeVec <- iterationList[[k]]$Outcome[IndStopEffVec]
+        TruthVec <- iterationList[[k]]$Truth[IndStopEffVec]
+        correctlyStopEffSum <- 0
+        
+        for (i in 1:length(IndStopEffVec)){
+          if (TruthVec[i]==1){
+            correctlyStopEffSum <- correctlyStopEffSum + 1
+          }
+        }
+        
+        correctlyStopEff[k] <- correctlyStopEffSum/length(IndStopEffVec)
+        
+      } else {
+        correctlyStopEff <- NA
+      }
+      
+      #Calculating Correctly Stopping for Futility
+      IndStopFutVec <- which(iterationList[[k]]$StopFut==1)
+      if (length(IndStopFutVec)!=0){
+        
+        OutcomeVec <- iterationList[[k]]$Outcome[IndStopFutVec]
+        TruthVec <- iterationList[[k]]$Truth[IndStopFutVec]
+        correctlyStopFutSum <- 0
+        
+        for (i in 1:length(IndStopFutVec)){
+          if (TruthVec[i]==0){
+            correctlyStopFutSum <- correctlyStopFutSum + 1
+          }
+        }
+        
+        correctlyStopFut[k] <- correctlyStopFutSum/length(IndStopFutVec)
+        
+      } else {
+        correctlyStopFut <- NA
+      }
+      
+      #Calculating Correctly continuing 
+      IndContinueCorrectlyVec <- which(iterationList[[k]]$StopFut==1)
+      if (length(IndContinueCorrectlyVec)!=0){
+        
+        OutcomeVec <- iterationList[[k]]$Outcome[IndContinueCorrectlyVec]
+        TruthVec <- iterationList[[k]]$Truth[IndContinueCorrectlyVec]
+        correctlyContinueSum <- 0
+        
+        for (i in 1:length(IndContinueCorrectlyVec)){
+          if (TruthVec[i]==1){
+            correctlyContinueSum <- correctlyContinueSum + 1
+          }
+        }
+        
+        correctlyContinue[k] <- correctlyContinueSum/length(IndContinueCorrectlyVec)
+        
+      } else {
+        correctlyContinue <- NA
+      }
+      
+      myCount <- myCount + 1
+        }
+      }
+      }
+    
+    
+    
+    
+    
+    
     return(list(PowerArray = PowerArray, DurationArray = DurationArray,
                 SSArray = SSArray, IATime1 = IATime1, IATime2 = IATime2,
                 PercentStop = PercentStop,
@@ -1049,6 +1192,12 @@ server <- function(input, output, session) {
     reactValues$TwoLooksSeq1 <- TwoLooksSeq1
     reactValues$TwoLooksSeq2 <- TwoLooksSeq2
     
+    data <- calculateTablemetrics(reactValues$iterationList, 
+                                  reactValues$TwoLooksSeq1,  
+                                  reactValues$TwoLooksSeq2)
+    
+    x<<-data
+    
     #Do proposed rule logic
     proposedDF$power <- proposedDF$Look1Power*proposedDF$Look2Power*proposedDF$FinalLookPower
     proposedDF$SS <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1SS, ifelse(proposedDF$Look2Power==0, 
@@ -1081,133 +1230,6 @@ server <- function(input, output, session) {
     FinalAss <- as.data.frame(FinalAss)
     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
-    # if (input$selectedOptionstwoLooks[1]=="Assurance"){
-    #   
-    #   output$twoLooksAss <- renderTable({
-    #     
-    #     colnames(PowerArray) <- TwoLooksSeq1
-    #     rownames(PowerArray) <- TwoLooksSeq2
-    #     PowerArray
-    #     
-    #   }, rownames = TRUE, digits = 3)
-    # } else{
-    #   
-    #   output$twoLooksAss <- renderTable({
-    #     
-    #     data.frame(Name = "James", Age = 25)
-    #     
-    #   }, rownames = TRUE, digits = 3)
-    # }
-    # 
-    # 
-    # 
-    # 
-    # output$twoLooksSS <- renderTable({
-    #   
-    #   colnames(SSArray) <- TwoLooksSeq1
-    #   rownames(SSArray) <- TwoLooksSeq2
-    #   SSArray
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$twoLooksDuration <- renderTable({
-    #   
-    #   colnames(DurationArray) <- TwoLooksSeq1
-    #   rownames(DurationArray) <- TwoLooksSeq2
-    #   DurationArray
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$IATime1Table <- renderTable({
-    #   
-    #   colnames(IATime1) <- TwoLooksSeq1
-    #   rownames(IATime1) <- TwoLooksSeq2
-    #   IATime1
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$IATime2Table <- renderTable({
-    #   
-    #   colnames(IATime2) <- TwoLooksSeq1
-    #   rownames(IATime2) <- TwoLooksSeq2
-    #   IATime2
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # 
-    # output$PercentStopTable <- renderTable({
-    #   
-    #   colnames(PercentStop) <- TwoLooksSeq1
-    #   rownames(PercentStop) <- TwoLooksSeq2
-    #   PercentStop
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopLook1Table <- renderTable({
-    #   
-    #   colnames(PercentStopLook1) <- TwoLooksSeq1
-    #   rownames(PercentStopLook1) <- TwoLooksSeq2
-    #   PercentStopLook1
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopLook2Table <- renderTable({
-    #   
-    #   colnames(PercentStopLook2) <- TwoLooksSeq1
-    #   rownames(PercentStopLook2) <- TwoLooksSeq2
-    #   PercentStopLook2
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopLook1FutTable <- renderTable({
-    #   
-    #   colnames(PercentStopLook1Fut) <- TwoLooksSeq1
-    #   rownames(PercentStopLook1Fut) <- TwoLooksSeq2
-    #   PercentStopLook1Fut
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopLook2FutTable <- renderTable({
-    #   
-    #   colnames(PercentStopLook2Fut) <- TwoLooksSeq1
-    #   rownames(PercentStopLook2Fut) <- TwoLooksSeq2
-    #   PercentStopLook2Fut
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopLook1EffTable <- renderTable({
-    #   
-    #   colnames(PercentStopLook1Eff) <- TwoLooksSeq1
-    #   rownames(PercentStopLook1Eff) <- TwoLooksSeq2
-    #   PercentStopLook1Eff
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopLook2EffTable <- renderTable({
-    #   
-    #   colnames(PercentStopLook2Eff) <- TwoLooksSeq1
-    #   rownames(PercentStopLook2Eff) <- TwoLooksSeq2
-    #   PercentStopLook2Eff
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopEffTable <- renderTable({
-    #   
-    #   colnames(PercentStopEff) <- TwoLooksSeq1
-    #   rownames(PercentStopEff) <- TwoLooksSeq2
-    #   PercentStopEff
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # output$PercentStopFutTable <- renderTable({
-    #   
-    #   colnames(PercentStopFut) <- TwoLooksSeq1
-    #   rownames(PercentStopFut) <- TwoLooksSeq2
-    #   PercentStopFut
-    #   
-    # }, rownames = T, digits = 3)
-    # 
-    # 
     # output$finalAssTable2Looks <- renderTable({
     #   
     #   FinalAss
@@ -1221,132 +1243,52 @@ server <- function(input, output, session) {
     # }, digits = 3)
     # 
     # 
-    # output$twoLooksPlotDuration <- renderPlot({
-    #   
-    #   plot(0, 0, type = "n", ylim = c(min(DurationArray, na.rm = TRUE), FinalAss$Duration), xlim = c(0, 1),
-    #        xlab = "Power", ylab = "Sample Size")
-    #   
-    #   # Add points for each pair of corresponding elements
-    #   for (i in 1:nrow(PowerArray)) {
-    #     for (j in 1:ncol(DurationArray)) {
-    #       if (!is.na(PowerArray[i, j]) && !is.na(DurationArray[i, j])) {
-    #         points(PowerArray[i, j], DurationArray[i, j], col = "black", pch = 19)
-    #       }
-    #     }
-    #   }
-    #   
-    #   points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue", pch = 19)
-    #   
-    #   points(FinalAss$Assurance, FinalAss$Duration, col = "red", pch = 19)
-    #   
-    #   legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
-    #   
-    # })
-    # 
-    # output$twoLooksPlotSS <- renderPlot({
-    #   
-    #   plot(0, 0, type = "n", ylim = c(min(SSArray, na.rm = TRUE), FinalAss$`Sample Size`), xlim = c(0, 1),
-    #        xlab = "Power", ylab = "Sample Size")
-    #   
-    #   # Add points for each pair of corresponding elements
-    #   for (i in 1:nrow(PowerArray)) {
-    #     for (j in 1:ncol(SSArray)) {
-    #       if (!is.na(PowerArray[i, j]) && !is.na(SSArray[i, j])) {
-    #         points(PowerArray[i, j], SSArray[i, j], col = "black", pch = 19)
-    #       }
-    #     }
-    #   }
-    #   
-    #   points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue", pch = 19)
-    #   
-    #   points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red", pch = 19)
-    #   
-    #   legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
-    #   
-    # 
-    # })
-    # 
-    # output$AssText <- renderUI({
-    #   p(HTML("<b>Assurance table</b>"))
-    # })
-    # 
-    # output$SSText <- renderUI({
-    #   p(HTML("<b>Sample size table</b>"))
-    # })
-    # 
-    # output$DurationText <- renderUI({
-    #   p(HTML("<b>Duration table</b>"))
-    # })
-    # 
-    # output$IATime1Text <- renderUI({
-    #   p(HTML("<b>Interim Analysis 1 Time</b>"))
-    # })
-    # 
-    # output$IATime2Text <- renderUI({
-    #   p(HTML("<b>Interim Analysis 2 Time</b>"))
-    # })
-    # 
-    # output$PercentStopText <- renderUI({
-    #   p(HTML("<b>% stop</b>"))
-    # })
-    # 
-    # output$PercentStopLook1Text <- renderUI({
-    #   p(HTML("<b>% stop at Look 1</b>"))
-    # })
-    # 
-    # output$PercentStopLook2Text <- renderUI({
-    #   p(HTML("<b>% stop at Look 2</b>"))
-    # })
-    # 
-    # output$PercentStopLook1FutText <- renderUI({
-    #   p(HTML("<b>% stop at Look 1 for futility</b>"))
-    # })
-    # 
-    # output$PercentStopLook2FutText <- renderUI({
-    #   p(HTML("<b>% stop at Look 2 for futility</b>"))
-    # })
-    # 
-    # output$PercentStopLook1EffText <- renderUI({
-    #   p(HTML("<b>% stop at Look 1 for efficacy</b>"))
-    # })
-    # 
-    # output$PercentStopLook2EffText <- renderUI({
-    #   p(HTML("<b>% stop at Look 2 for efficacy</b>"))
-    # })
-    # 
-    # output$PercentStopEffText <- renderUI({
-    #   p(HTML("<b>% stop for efficacy</b>"))
-    # })
-    # 
-    # output$PercentStopFutText <- renderUI({
-    #   p(HTML("<b>% stop for futility</b>"))
-    # })
-    # 
-    # output$finalAssTable2LooksText <- renderUI({
-    #   p(HTML("<b>No Interim Analyses</b>"))
-    # })
-    # 
-    # output$proposedTable2LooksText <- renderUI({
-    #   p(HTML("<b>Proposed Rule</b>"))
-    # })
-    # 
-    # 
-    # shinyjs::show("AssText")
-    # shinyjs::show("SSText")
-    # shinyjs::show("DurationText")
-    # shinyjs::show("IATime1Text")
-    # shinyjs::show("IATime2Text")
-    # shinyjs::show("PercentStopText")
-    # shinyjs::show("PercentStopLook1Text")
-    # shinyjs::show("PercentStopLook2Text")
-    # shinyjs::show("PercentStopLook1FutText")
-    # shinyjs::show("PercentStopLook2FutText")
-    # shinyjs::show("PercentStopLook1EffText")
-    # shinyjs::show("PercentStopLook2EffText")
-    # shinyjs::show("PercentStopEffText")
-    # shinyjs::show("PercentStopFutText")
-    # shinyjs::show("finalAssTable2LooksText")
-    # shinyjs::show("proposedTable2LooksText")
+    output$twoLooksPlotDuration <- renderPlot({
+
+      plot(0, 0, type = "n", ylim = c(min(data$DurationArray, na.rm = TRUE), FinalAss$Duration), xlim = c(0, 1),
+           xlab = "Power", ylab = "Sample Size")
+
+      # Add points for each pair of corresponding elements
+      for (i in 1:nrow(data$PowerArray)) {
+        for (j in 1:ncol(data$DurationArray)) {
+          if (!is.na(data$PowerArray[i, j]) && !is.na(data$DurationArray[i, j])) {
+            points(data$PowerArray[i, j], data$DurationArray[i, j], col = "black", pch = 19)
+          }
+        }
+      }
+
+      points(FinalProposedDF$Assurance, FinalProposedDF$Duration, col = "blue", pch = 19)
+
+      points(FinalAss$Assurance, FinalAss$Duration, col = "red", pch = 19)
+
+      legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
+
+    })
+    
+
+    output$twoLooksPlotSS <- renderPlot({
+
+      plot(0, 0, type = "n", ylim = c(min(data$SSArray, na.rm = TRUE), FinalAss$`Sample Size`), xlim = c(0, 1),
+           xlab = "Power", ylab = "Sample Size")
+
+      # Add points for each pair of corresponding elements
+      for (i in 1:nrow(data$PowerArray)) {
+        for (j in 1:ncol(data$SSArray)) {
+          if (!is.na(data$PowerArray[i, j]) && !is.na(data$SSArray[i, j])) {
+            points(data$PowerArray[i, j], data$SSArray[i, j], col = "black", pch = 19)
+          }
+        }
+      }
+
+      points(FinalProposedDF$Assurance, FinalProposedDF$`Sample Size`, col = "blue", pch = 19)
+
+      points(FinalAss$Assurance, FinalAss$`Sample Size`, col = "red", pch = 19)
+
+      legend("topleft", legend = c("Chosen Rules", "Proposed Rule", "No IA"), col = c("black",  "blue", "red"), pch = 19)
+
+
+    })
+   
     
   })
   

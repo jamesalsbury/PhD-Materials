@@ -64,16 +64,16 @@ We find the log-likelihood
 
 #Setting up the correct parameters - we would not know this in practice
 
-lambdat <- 0.03
-lambdac <- 0.09
-bigT <- 5
+lambdat <- 0.04
+lambdac <- 0.06
+bigT <- 10
 
 #Sample sizes in each group
-n1 <- 1000
-n2 <- 1000
+n1 <- 3000
+n2 <- 3000
 
 #When are we performing the IA?
-IATime <- 30
+IATime <- 50
 
 #How long are we running the trial for in total?
 totalLength <- 60
@@ -129,7 +129,7 @@ nllT <- function(bigTEst){
 }
 
 #Still not identifiable, why?
-#estT <- stats4::mle(minuslogl = nllT, start = list(bigTEst = 20), lower=list(bigTEst = 0.5), upper = list(bigTEst = 60))
+estT <- stats4::mle(minuslogl = nllT, start = list(bigTEst = 20), lower=list(bigTEst = 0.5), upper = list(bigTEst = 60))
 
 #Let us look at the plot of bigT vs loglikelihood
 
