@@ -571,7 +571,7 @@ server <- function(input, output, session) {
         correctlyStop[k] <- correctlyStopSum/length(IndStopVec)
         
       } else {
-        correctlyStop <- NA
+        correctlyStop[k] <- NA
       }
       
       #Calculating Correctly Stopping for Efficacy
@@ -591,7 +591,7 @@ server <- function(input, output, session) {
         correctlyStopEff[k] <- correctlyStopEffSum/length(IndStopEffVec)
         
       } else {
-        correctlyStopEff <- NA
+        correctlyStopEff[k] <- NA
       }
       
       #Calculating Correctly Stopping for Futility
@@ -611,7 +611,7 @@ server <- function(input, output, session) {
         correctlyStopFut[k] <- correctlyStopFutSum/length(IndStopFutVec)
         
       } else {
-        correctlyStopFut <- NA
+        correctlyStopFut[k] <- NA
       }
       
       #Calculating Correctly continuing 
@@ -631,11 +631,10 @@ server <- function(input, output, session) {
         correctlyContinue[k] <- correctlyContinueSum/length(IndContinueCorrectlyVec)
         
       } else {
-        correctlyContinue <- NA
+        correctlyContinue[k] <- NA
       }
       
     }
-    
     
     
     IADFOneLook <- data.frame(IF = IAVec,
@@ -679,16 +678,6 @@ server <- function(input, output, session) {
       FinalAss
     }, digits = 3)
     
-    # output$oneLookROCPlot <- renderPlot({
-    #   
-    #   sens <- correctlyContinue/(correctlyContinue+falselyContinue)
-    #   spec <- correctlyStop/(correctlyStop+falselyStop)
-    #   
-    #   plot(1-spec, sens, ylim = c(0, 1), xlim = c(0,1), ylab = "True Positive Rate", xlab = "False Positive Rate", 
-    #        main  = "ROC curve")
-    #   abline(a = 0, b = 1, lty = 2)
-    #   
-    # })
     
     output$oneLookPlotDuration <- renderPlot({
       
@@ -725,7 +714,6 @@ server <- function(input, output, session) {
     
     
   })
-  
   
   # Two Looks Logic ---------------------------------
   
@@ -958,15 +946,15 @@ server <- function(input, output, session) {
         correctlyStopDF[k,j] <- correctlyStopSum/length(IndStopVec)
         
       } else {
-        correctlyStopDF <- NA
+        correctlyStopDF[k,j] <- NA
       }
       
       #Calculating Correctly Stopping for Efficacy
-      IndStopEffVec <- which(iterationList[[k]]$StopEff==1)
+      IndStopEffVec <- which(iterationList[[myCount]]$StopEff==1)
       if (length(IndStopEffVec)!=0){
         
-        OutcomeVec <- iterationList[[k]]$Outcome[IndStopEffVec]
-        TruthVec <- iterationList[[k]]$Truth[IndStopEffVec]
+        OutcomeVec <- iterationList[[myCount]]$Outcome[IndStopEffVec]
+        TruthVec <- iterationList[[myCount]]$Truth[IndStopEffVec]
         correctlyStopEffSum <- 0
         
         for (i in 1:length(IndStopEffVec)){
@@ -975,18 +963,18 @@ server <- function(input, output, session) {
           }
         }
         
-        correctlyStopEff[k] <- correctlyStopEffSum/length(IndStopEffVec)
+        correctlyStopEffDF[k,j] <- correctlyStopEffSum/length(IndStopEffVec)
         
       } else {
-        correctlyStopEff <- NA
+        correctlyStopEffDF[k,j] <- NA
       }
       
       #Calculating Correctly Stopping for Futility
-      IndStopFutVec <- which(iterationList[[k]]$StopFut==1)
+      IndStopFutVec <- which(iterationList[[myCount]]$StopFut==1)
       if (length(IndStopFutVec)!=0){
         
-        OutcomeVec <- iterationList[[k]]$Outcome[IndStopFutVec]
-        TruthVec <- iterationList[[k]]$Truth[IndStopFutVec]
+        OutcomeVec <- iterationList[[myCount]]$Outcome[IndStopFutVec]
+        TruthVec <- iterationList[[myCount]]$Truth[IndStopFutVec]
         correctlyStopFutSum <- 0
         
         for (i in 1:length(IndStopFutVec)){
@@ -995,11 +983,23 @@ server <- function(input, output, session) {
           }
         }
         
-        correctlyStopFut[k] <- correctlyStopFutSum/length(IndStopFutVec)
+        correctlyStopFutDF[k,j] <- correctlyStopFutSum/length(IndStopFutVec)
         
       } else {
-        correctlyStopFut <- NA
+        correctlyStopFutDF[k,j] <- NA
       }
+      
+      
+      correctlyStopEffLook1DF
+      
+      
+      
+      
+      
+      
+      
+      
+      
       
       #Calculating Correctly continuing 
       IndContinueCorrectlyVec <- which(iterationList[[k]]$StopFut==1)
