@@ -18,6 +18,7 @@ params:
    checkBayesianOptionsTables: NULL 
    checkBayesianOptionsPlots: NULL
    reactValues: NULL
+   noLookOutput: NULL
                
 ---
 
@@ -28,28 +29,44 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 
-print(params$checkDesign)
-print(params$checkDesignOptionsTables)
-print(params$checkDesignOptionsPlots)
-print(params$checkNoLook)
-print(params$checkNoLookOptionsTables)
-print(params$checkNoLookOptionsPlots)
-print(params$checkOneLook)
-print(params$checkOneLookOptionsTables)
-print(params$checkOneLookOptionsPlots)
-print(params$checkTwoLooks)
-print(params$checkTwoLooksOptionsTables)
-print(params$checkTwoLooksOptionsPlots)
-print(params$checkBayesian)
-print(params$checkBayesianOptionsTables) 
-print(params$checkBayesianOptionsPlots)
-
-print(params$reactValues$treatmentSamplesDF)
+# print(params$checkDesign)
+# print(params$checkDesignOptionsTables)
+# print(params$checkDesignOptionsPlots)
+# print(params$checkNoLook)
+# print(params$checkNoLookOptionsTables)
+# print(params$checkNoLookOptionsPlots)
+# print(params$checkOneLook)
+# print(params$checkOneLookOptionsTables)
+# print(params$checkOneLookOptionsPlots)
+# print(params$checkTwoLooks)
+# print(params$checkTwoLooksOptionsTables)
+# print(params$checkTwoLooksOptionsPlots)
+# print(params$checkBayesian)
+# print(params$checkBayesianOptionsTables) 
+# print(params$checkBayesianOptionsPlots)
+# 
+# print(params$reactValues$treatmentSamplesDF)
 
 
 
 ```
 
+
+### Design
+```{r}
+
+SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit1, d = params$reactValues$treatmentSamplesDF$d[1])
+SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit2, d = params$reactValues$treatmentSamplesDF$d[2])
+
+```
+
+### No Look
+
+```{r}
+
+      plot(params$noLookOutput$myDF$SampleSize*2, predict(params$noLookOutput$smoothedPower), ylim = c(0,1), type = "l", xlab = "Sample Size", ylab = "Assurance")
+
+```
 
 
 

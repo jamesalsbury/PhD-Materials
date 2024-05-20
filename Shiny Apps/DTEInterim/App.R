@@ -352,9 +352,7 @@ server <- function(input, output, session) {
     }
   })
   
-  observeEvent(input$calcNoLook, {
-    
-    shinyjs::show("checkNoLook")
+  noLookFuncPlot <- reactive({
     
     NRep <- 20
     
@@ -371,19 +369,19 @@ server <- function(input, output, session) {
     }
     
     withProgress(message = 'Calculating', value = 0, {
-    for (i in 1:length(iterationList)){
-      treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
-                                                     cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
-      
-      for (j in 1:NRep){
+      for (i in 1:length(iterationList)){
+        treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                                  cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
         
+        for (j in 1:NRep){
+          
           #Compute treatment times
           HRStar <- sample(treatmentSamplesDF[,2], 1)
           bigT <- sample(treatmentSamplesDF[,1], 1)
-
+          
           #Simulate control and treatment data
           dataCombined <- SimDTEDataSet(iterationList[[i]]$SampleSize, input$lambdac, bigT, HRStar, input$recTime)
-
+          
           #Perform looks at different Information Fractions
           finalDF <- CensFunc(dataCombined, iterationList[[i]]$nEvents)
           test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
@@ -393,10 +391,10 @@ server <- function(input, output, session) {
           iterationList[[i]]$PowerVec[j] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
           iterationList[[i]]$DurationVec[j] <- finalDF$censTime
           iterationList[[i]]$SSVec[j] <- finalDF$SS
-        
+          
+        }
+        incProgress(1/length(iterationList))
       }
-      incProgress(1/length(iterationList))
-    }
     })
     
     
@@ -420,9 +418,67 @@ server <- function(input, output, session) {
     updateNumericInput(session, "noLookAssuranceValue", value = input$numPatients*2)
     shinyjs::show("noLookAssuranceValue")
     
+    return(list(smoothedPower = smoothedPower, smoothedDuration = smoothedDuration, myDF = myDF))
+    
+  })
+  
+  noLookFuncSS <- reactive({
+    
+    NRep <- 20
+    
+    conc.probs <- matrix(0, 2, 2)
+    conc.probs[1, 2] <- 0.5
+    
+  
+    treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
+                                                  cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
+    
+    PowerVec <- rep(NA, NRep)
+    DurationVec <- rep(NA, NRep)
+    SSVec <- rep(NA, NRep)
+    
+        
+        for (j in 1:NRep){
+          
+          #Compute treatment times
+          HRStar <- sample(treatmentSamplesDF[,2], 1)
+          bigT <- sample(treatmentSamplesDF[,1], 1)
+          
+          #Simulate control and treatment data
+          dataCombined <- SimDTEDataSet(input$numPatients, input$lambdac, bigT, HRStar, input$recTime)
+          
+          #Perform looks at different Information Fractions
+          finalDF <- CensFunc(dataCombined, input$numEvents)
+          test <- survdiff(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+          coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDF$dataCombined)
+          deltad <- as.numeric(exp(coef(coxmodel)))
+          
+          PowerVec[j] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+          DurationVec[j] <- finalDF$censTime
+          SSVec[j] <- finalDF$SS
+          
+        }
+      
+  
+    
+    myDF <- data.frame(Power = mean(PowerVec), Duration = mean(DurationVec), SampleSize = mean(SSVec))
+    
+    
+    return(list(myDF = myDF))
+    
+  })
+  
+  observeEvent(input$calcNoLook, {
+    
+    shinyjs::show("checkNoLook")
+    
+    noLookPlotOutput <- noLookFuncPlot()
+    
+    noLookSSOutput <- noLookFuncSS()
+    
     output$noLookAssurancePlot <- renderPlot({
 
-      plot(myDF$SampleSize*2, predict(smoothedPower), ylim = c(0,1), type = "l", xlab = "Sample Size", ylab = "Assurance")
+      plot(noLookPlotOutput$myDF$SampleSize*2, predict(noLookPlotOutput$smoothedPower), ylim = c(0,1), type = "l", xlab = "Sample Size", ylab = "Assurance")
       abline(v = input$noLookAssuranceValue, lty = 2)
       
     })
@@ -430,31 +486,23 @@ server <- function(input, output, session) {
     
     output$noLookAssuranceText <- renderText({
       
-      estAss <- predict(smoothedPower, newdata = input$noLookAssuranceValue/2)
+      estAss <- predict(noLookOutput$smoothedPower, newdata = input$noLookAssuranceValue/2)
       
       paste0("With ", input$noLookAssuranceValue, " patients altogether, the assurance is estimated to be: ", 
              round(estAss, 2))
              
     })
     
-  #     }
-  #   })
-  #   
-  #   
-  #   output$finalAssTableNoLook <- renderTable({
-  #     
-  #     FinalAss <- mean(iterationArray[1, 1, ])
-  #     FinalDuration <- mean(iterationArray[2, 1, ])
-  #     FinalSS <- mean(iterationArray[3, 1, ])
-  #     
-  #     
-  #     FinalAss <- data.frame(Assurance = FinalAss, Duration = FinalDuration, SS = FinalSS)
-  #     
-  #     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
-  #     
-  #     FinalAss
-  #   }, digits = 3)
-  #   
+    
+    output$finalAssTableNoLook <- renderTable({
+
+      FinalAss <- noLookSSOutput$myDF
+
+      colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
+
+      FinalAss
+    }, digits = 3)
+
   })
   
   
@@ -1887,7 +1935,8 @@ server <- function(input, output, session) {
                      checkBayesian = input$checkBayesian,
                      checkBayesianOptionsTables = input$checkBayesianOptionsTables,
                      checkBayesianOptionsPlots = input$checkBayesianOptionsPlots,
-                     reactValues = reactValues
+                     reactValues = reactValues,
+                     noLookOutput = noLookFunc()
                      )
                      
       
