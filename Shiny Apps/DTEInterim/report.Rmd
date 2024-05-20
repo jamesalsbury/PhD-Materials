@@ -1,12 +1,18 @@
 ---
 title: "Example Report"
 output: html_document
+params:
+  dataset: "cars"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(datasets)
 ```
 
 ```{r}
-summary(cars)
+
+data <- params$dataset
+summary(data)
+
 ```

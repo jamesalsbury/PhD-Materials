@@ -200,10 +200,63 @@ ui <- fluidPage(
       tabPanel("Report", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
+                   fluidRow(
+                     column(6, checkboxInput("checkDesign", "Design", value = FALSE)),
+                     column(6, selectizeInput("checkDesignOptions", "Selected Metrics", 
+                                                     choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
+                                                                 "% Stop", "% Stop for Efficacy", "% Stop for Futility",
+                                                                 "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
+                                                                 "% Correctly Continue"), 
+                                                     selected = c("Assurance", "Duration", "Sample Size"),
+                                                     multiple = TRUE))
+                   ),
+                   fluidRow(
+                     column(6, checkboxInput("checkNoLook", "No Look", value = FALSE)),
+                     column(6, selectizeInput("checkNoLookOptions", "Selected Metrics", 
+                                              choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
+                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
+                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
+                                                          "% Correctly Continue"), 
+                                              selected = c("Assurance", "Duration", "Sample Size"),
+                                              multiple = TRUE))
+                   ),
+                   
+                   fluidRow(
+                     column(6, checkboxInput("checkOneLook", "One Look", value = FALSE)),
+                     column(6, selectizeInput("checkOneLookOptions", "Selected Metrics", 
+                                              choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
+                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
+                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
+                                                          "% Correctly Continue"), 
+                                              selected = c("Assurance", "Duration", "Sample Size"),
+                                              multiple = TRUE))
+                   ),
+                   fluidRow(
+                     column(6, checkboxInput("checkTwoLooks", "Two Looks", value = FALSE)),
+                     column(6, selectizeInput("checkTwoLooksOptions", "Selected Metrics", 
+                                              choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
+                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
+                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
+                                                          "% Correctly Continue"), 
+                                              selected = c("Assurance", "Duration", "Sample Size"),
+                                              multiple = TRUE))
+                   ),
+                   fluidRow(
+                     column(6, checkboxInput("checkBayesian", "Bayesian", value = FALSE)),
+                     column(6, selectizeInput("checkBayesianOptions", "Selected Metrics", 
+                                              choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
+                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
+                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
+                                                          "% Correctly Continue"), 
+                                              selected = c("Assurance", "Duration", "Sample Size"),
+                                              multiple = TRUE))
+                   )
+                   
                    
                  ), 
                  mainPanel = mainPanel(
-                   
+                   downloadButton("downloadHTML", "Html"),
+                   downloadButton("downloadPDF", "Pdf")
                    
                  )
                )
@@ -1726,6 +1779,27 @@ server <- function(input, output, session) {
     
     
   })
+  
+  
+  # Report Logic ---------------------------------
+  
+  output$downloadHTML <- downloadHandler(
+    filename = function() {
+      paste("report-", Sys.Date(), ".html", sep = "")
+    },
+    content = function(file) {
+      # Path to the Rmd file
+      rmd_file <- "report.Rmd"
+      
+      # Render the Rmd file to HTML with parameters
+      rmarkdown::render(
+        input = rmd_file,
+        output_file = file,
+        params = list(dataset = cars),
+        envir = new.env(parent = globalenv())
+      )
+    }
+  )
   
 
 }
