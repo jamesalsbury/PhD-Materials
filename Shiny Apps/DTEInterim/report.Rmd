@@ -2,17 +2,57 @@
 title: "Example Report"
 output: html_document
 params:
-  dataset: "cars"
+   checkDesign: NULL
+   checkDesignOptionsTables: NULL 
+   checkDesignOptionsPlots: NULL
+   checkNoLook: NULL
+   checkNoLookOptionsTables: NULL 
+   checkNoLookOptionsPlots: NULL
+   checkOneLook: NULL
+   checkOneLookOptionsTables: NULL 
+   checkOneLookOptionsPlots: NULL
+   checkTwoLooks: NULL
+   checkTwoLooksOptionsTables: NULL 
+   checkTwoLooksOptionsPlots: NULL 
+   checkBayesian: NULL 
+   checkBayesianOptionsTables: NULL 
+   checkBayesianOptionsPlots: NULL
+   reactValues: NULL
+               
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(datasets)
+#library(datasets)
 ```
 
 ```{r}
 
-data <- params$dataset
-summary(data)
+print(params$checkDesign)
+print(params$checkDesignOptionsTables)
+print(params$checkDesignOptionsPlots)
+print(params$checkNoLook)
+print(params$checkNoLookOptionsTables)
+print(params$checkNoLookOptionsPlots)
+print(params$checkOneLook)
+print(params$checkOneLookOptionsTables)
+print(params$checkOneLookOptionsPlots)
+print(params$checkTwoLooks)
+print(params$checkTwoLooksOptionsTables)
+print(params$checkTwoLooksOptionsPlots)
+print(params$checkBayesian)
+print(params$checkBayesianOptionsTables) 
+print(params$checkBayesianOptionsPlots)
+
+print(params$reactValues$treatmentSamplesDF)
+
+
 
 ```
+
+
+
+
+
+
+

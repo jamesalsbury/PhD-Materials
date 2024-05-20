@@ -201,58 +201,77 @@ ui <- fluidPage(
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
                    fluidRow(
-                     column(6, checkboxInput("checkDesign", "Design", value = FALSE)),
-                     column(6, selectizeInput("checkDesignOptions", "Selected Metrics", 
-                                                     choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
-                                                                 "% Stop", "% Stop for Efficacy", "% Stop for Futility",
-                                                                 "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
-                                                                 "% Correctly Continue"), 
-                                                     selected = c("Assurance", "Duration", "Sample Size"),
-                                                     multiple = TRUE))
+                     column(4, hidden(checkboxInput("checkDesign", "Design", value = FALSE))),
+                     column(4, hidden(selectizeInput("checkDesignOptionsTables", "Selected (Metrics) Tables", 
+                                                     choices = c(""), 
+                                                     selected = c(""),
+                                                     multiple = TRUE))),
+                     column(4, hidden(selectizeInput("checkDesignOptionsPlots", "Selected Plots", 
+                                              choices = c("Elicited T", "Elicited post-delay HR"), 
+                                              selected = c(""),
+                                              multiple = TRUE)))
                    ),
                    fluidRow(
-                     column(6, checkboxInput("checkNoLook", "No Look", value = FALSE)),
-                     column(6, selectizeInput("checkNoLookOptions", "Selected Metrics", 
-                                              choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
-                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
-                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
-                                                          "% Correctly Continue"), 
-                                              selected = c("Assurance", "Duration", "Sample Size"),
-                                              multiple = TRUE))
+                     column(4, hidden(checkboxInput("checkNoLook", "No Look", value = FALSE))),
+                     column(4, hidden(selectizeInput("checkNoLookOptionsTables", "Selected (Metrics) Tables", 
+                                              choices = c("Assurance OC"), 
+                                              selected = c(""),
+                                              multiple = TRUE))),
+                     column(4, hidden(selectizeInput("checkNoLookOptionsPlots", "Selected Plots", 
+                                                     choices = c("Assurance Plot"), 
+                                                     selected = c(),
+                                                     multiple = TRUE)))
+                     
                    ),
                    
                    fluidRow(
-                     column(6, checkboxInput("checkOneLook", "One Look", value = FALSE)),
-                     column(6, selectizeInput("checkOneLookOptions", "Selected Metrics", 
+                     column(4, hidden(checkboxInput("checkOneLook", "One Look", value = FALSE))),
+                     column(4, hidden(selectizeInput("checkOneLookOptionsTables", "Selected (Metrics) Tables", 
                                               choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
-                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
-                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
-                                                          "% Correctly Continue"), 
-                                              selected = c("Assurance", "Duration", "Sample Size"),
-                                              multiple = TRUE))
+                                                            "% Stop", "% Stop for Efficacy", "% Stop for Futility",
+                                                            "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
+                                                            "% Correctly Continue"), 
+                                              selected = c(""),
+                                              multiple = TRUE))),
+                     column(4, hidden(selectizeInput("checkOneLookOptionsPlots", "Selected Plots", 
+                                                     choices = c("Boundary Plot", "Assurance vs Duration", "Assurance vs Sample Size"), 
+                                                     selected = c(""),
+                                                     multiple = TRUE)))
                    ),
                    fluidRow(
-                     column(6, checkboxInput("checkTwoLooks", "Two Looks", value = FALSE)),
-                     column(6, selectizeInput("checkTwoLooksOptions", "Selected Metrics", 
-                                              choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
-                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
-                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
-                                                          "% Correctly Continue"), 
-                                              selected = c("Assurance", "Duration", "Sample Size"),
-                                              multiple = TRUE))
+                     column(4, hidden(checkboxInput("checkTwoLooks", "Two Looks", value = FALSE))),
+                     column(4, hidden(selectizeInput("checkTwoLooksOptionsTables", "Selected (Metrics) Tables", 
+                                              choices = c("Assurance", "Duration", "Sample Size", 
+                                                          "Interim Analysis 1 Time", "Interim Analysis 2 Time",
+                                                          "% Stop", "% Stop Look 1", "% Stop Look 2",
+                                                          "% Stop Look 1 for Futility", "% Stop Look 2 for Futility",
+                                                          "% Stop Look 1 for Efficacy", "% Stop Look 2 for Efficacy",
+                                                          "% Stop for Efficacy", "% Stop for Futility",
+                                                          "Correctly Stop", "Correctly Stop for Efficacy", "Correctly Stop for Futility",
+                                                          "Correctly Stop at Look 1", "Correctly Stop at Look 2",
+                                                          "Correctly Stop for Efficacy at Look 1", "Correctly Stop for Efficacy at Look 2",
+                                                          "Correctly Stop for Futility at Look 1", "Correctly Stop for Futility at Look 2",
+                                                          "Correctly Continue", "Correctly Continue at Look 1", "Correctly Continue at Look 2"),
+                                              selected = c(""),
+                                              multiple = TRUE))),
+                     column(4, hidden(selectizeInput("checkTwoLooksOptionsPlots", "Selected Plots", 
+                                                     choices = c("Boundary Plot", "Assurance vs Duration", "Assurance vs Sample Size"),  
+                                                     selected = c(""),
+                                                     multiple = TRUE)))
                    ),
                    fluidRow(
-                     column(6, checkboxInput("checkBayesian", "Bayesian", value = FALSE)),
-                     column(6, selectizeInput("checkBayesianOptions", "Selected Metrics", 
-                                              choices = c("Interim Analysis Time", "Assurance", "Duration", "Sample Size",
-                                                          "% Stop", "% Stop for Efficacy", "% Stop for Futility",
-                                                          "% Correctly Stop", "% Correctly Stop for Efficacy", "% Correctly Stop for Futility",
-                                                          "% Correctly Continue"), 
-                                              selected = c("Assurance", "Duration", "Sample Size"),
-                                              multiple = TRUE))
+                     column(4, hidden(checkboxInput("checkBayesian", "Bayesian", value = FALSE))),
+                     column(4, hidden(selectizeInput("checkBayesianOptionsTables", "Selected (Metrics) Tables", 
+                                                     choices = c(""), 
+                                                     selected = c(""),
+                                              multiple = TRUE))),
+                     column(4, hidden(selectizeInput("checkBayesianOptionsPlots", "Selected Plots", 
+                                                     choices = c("BPP Plot", "Target Effectiveness Plot", "BPP vs TE Plot"), 
+                                                     selected = c(""),
+                                                     multiple = TRUE)))
                    )
                    
-                   
+                  
                  ), 
                  mainPanel = mainPanel(
                    downloadButton("downloadHTML", "Html"),
@@ -304,6 +323,21 @@ server <- function(input, output, session) {
       output$P_DTE <- renderText({
         paste0("P_DTE is: ", reactValues$treatmentSamplesDF$P_DTE)
       })
+      
+      
+      shinyjs::hide("checkNoLook")
+      shinyjs::hide("checkOneLook")
+      shinyjs::hide("checkTwoLooks")
+      shinyjs::hide("checkBayesian")
+      
+      updateCheckboxInput(session, "checkDesign", value = F)
+      updateCheckboxInput(session, "checkNoLook", value = F)
+      updateCheckboxInput(session, "checkOneLook", value = F)
+      updateCheckboxInput(session, "checkTwoLooks", value = F)
+      updateCheckboxInput(session, "checkBayesian", value = F)
+      
+      
+      
     }
   })
   
@@ -320,7 +354,9 @@ server <- function(input, output, session) {
   
   observeEvent(input$calcNoLook, {
     
-    NRep <- 500
+    shinyjs::show("checkNoLook")
+    
+    NRep <- 20
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -524,6 +560,9 @@ server <- function(input, output, session) {
   
   
   observeEvent(input$calcOneLook, {
+    
+    shinyjs::show("checkOneLook")
+    
     NRep <- 20
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
@@ -1343,33 +1382,12 @@ server <- function(input, output, session) {
     }
   })
   
-  
-  
-  
-  
-  
-  
-  output$corTable <- renderDataTable({
-    
-    data <-  doCorrelation()$corMatrix
-    
-   
-      
-      
-      
-  
-    
-    
-  })
-  
-  
-  
-  
-  
-  
-  
 
   observeEvent(input$calcTwoLooks, {
+    
+    shinyjs::show("checkTwoLooks")
+    
+    
     NRep <- 20
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
@@ -1697,6 +1715,9 @@ server <- function(input, output, session) {
   
   observeEvent(input$calcBayesian, {
     
+    shinyjs::show("checkBayesian")
+    
+    
     #Parallel: # Set up parallel processing
     cl <- makeCluster(detectCores())  # Use all available cores
     registerDoParallel(cl)
@@ -1783,21 +1804,97 @@ server <- function(input, output, session) {
   
   # Report Logic ---------------------------------
   
+  
+  observe({
+    if (input$checkDesign){
+      shinyjs::show("checkDesignOptionsTables")
+      shinyjs::show("checkDesignOptionsPlots")
+    } else {
+      shinyjs::hide("checkDesignOptionsTables")
+      shinyjs::hide("checkDesignOptionsPlots")
+    }
+  })
+  
+  observe({
+    if (input$checkNoLook){
+      shinyjs::show("checkNoLookOptionsTables")
+      shinyjs::show("checkNoLookOptionsPlots")
+    } else {
+      shinyjs::hide("checkNoLookOptionsTables")
+      shinyjs::hide("checkNoLookOptionsPlots")
+    }
+  })
+  
+  observe({
+    if (input$checkOneLook){
+      shinyjs::show("checkOneLookOptionsTables")
+      shinyjs::show("checkOneLookOptionsPlots")
+    } else {
+      shinyjs::hide("checkOneLookOptionsTables")
+      shinyjs::hide("checkOneLookOptionsPlots")
+    }
+  })
+  
+  observe({
+    if (input$checkTwoLooks){
+      shinyjs::show("checkTwoLooksOptionsTables")
+      shinyjs::show("checkTwoLooksOptionsPlots")
+    } else {
+      shinyjs::hide("checkTwoLooksOptionsTables")
+      shinyjs::hide("checkTwoLooksOptionsPlots")
+    }
+  })
+  
+  observe({
+    if (input$checkBayesian){
+      shinyjs::show("checkBayesianOptionsTables")
+      shinyjs::show("checkBayesianOptionsPlots")
+    } else {
+      shinyjs::hide("checkBayesianOptionsTables")
+      shinyjs::hide("checkBayesianOptionsPlots")
+    }
+  })
+
+  observe({
+    if (!is.null(reactValues$treatmentSamplesDF)) {
+      shinyjs::show("checkDesign")
+    } else {
+      shinyjs::hide("checkDesign")
+    }
+  })
+  
   output$downloadHTML <- downloadHandler(
     filename = function() {
       paste("report-", Sys.Date(), ".html", sep = "")
     },
     content = function(file) {
-      # Path to the Rmd file
-      rmd_file <- "report.Rmd"
+      
+      tempReport <- file.path(tempdir(), "report.Rmd")
+      file.copy("report.Rmd", tempReport, overwrite = TRUE)
+      
+      params <- list(checkDesign = input$checkDesign,
+                     checkDesignOptionsTables = input$checkDesignOptionsTables,
+                     checkDesignOptionsPlots = input$checkDesignOptionsPlots,
+                     checkNoLook = input$checkNoLook,
+                     checkNoLookOptionsTables = input$checkNoLookOptionsTables,
+                     checkNoLookOptionsPlots = input$checkNoLookOptionsPlots,
+                     checkOneLook = input$checkOneLook,
+                     checkOneLookOptionsTables = input$checkOneLookOptionsTables,
+                     checkOneLookOptionsPlots = input$checkOneLookOptionsPlots,
+                     checkTwoLooks = input$checkTwoLooks,
+                     checkTwoLooksOptionsTables = input$checkTwoLooksOptionsTables,
+                     checkTwoLooksOptionsPlots = input$checkTwoLooksOptionsPlots,
+                     checkBayesian = input$checkBayesian,
+                     checkBayesianOptionsTables = input$checkBayesianOptionsTables,
+                     checkBayesianOptionsPlots = input$checkBayesianOptionsPlots,
+                     reactValues = reactValues
+                     )
+                     
       
       # Render the Rmd file to HTML with parameters
-      rmarkdown::render(
-        input = rmd_file,
-        output_file = file,
-        params = list(dataset = cars),
-        envir = new.env(parent = globalenv())
-      )
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv()))
     }
   )
   
