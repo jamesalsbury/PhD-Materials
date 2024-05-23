@@ -1,0 +1,13 @@
+name: DTEInterim
+title: DTEInterim
+username: jamesalsbury
+account: jamesalsbury
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12057887
+bundleId: 8652230
+url: https://jamesalsbury.shinyapps.io/DTEInterim/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: Samples.R|Data
