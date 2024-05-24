@@ -662,11 +662,13 @@ server <- function(input, output, session) {
   })
   
   
-  observeEvent(input$calcOneLook, {
+  
+  
+  
+  oneLookFunc <- reactive({
     
-    shinyjs::show("checkOneLook")
     
-    NRep <- 300
+    NRep <- 20
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
@@ -839,7 +841,6 @@ server <- function(input, output, session) {
     
     
     
-    shinyjs::show("selectedOptionsIATableOneLook")
     
     
     #Continuing is positive!
@@ -853,11 +854,22 @@ server <- function(input, output, session) {
     FinalAss <- as.data.frame(FinalAss)
     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
-    #Here
+    return(list(IADFOneLook = IADFOneLook, FinalAss = FinalAss))
+    
+  })
+  
+  
+  observeEvent(input$calcOneLook, {
+    
+    shinyjs::show("checkOneLook")
+    
+    shinyjs::show("selectedOptionsIATableOneLook")
+    
+    oneLookoutput <- oneLookFunc()
     
     output$IATableOneLook <- renderDT({
       
-      IADFOneLook <- subset(IADFOneLook, select = c("Information Fraction", input$selectedOptionsIATableOneLook))
+      IADFOneLook <- subset(oneLookoutput$IADFOneLook, select = c("Information Fraction", input$selectedOptionsIATableOneLook))
       
       datatable(IADFOneLook, options = list(rowCallback = JS(rowCallback)),
                 rownames = F) %>% formatStyle(
@@ -871,16 +883,16 @@ server <- function(input, output, session) {
     
     
     output$noIATableOneLook <- renderTable({
-      FinalAss
+      oneLookoutput$FinalAss
     }, digits = 3)
     
     
     output$oneLookPlotDuration <- renderPlotly({
       
-      p <- plot_ly(IADFOneLook, x = ~Assurance, y = ~Duration,
+      p <- plot_ly(oneLookoutput$IADFOneLook, x = ~Assurance, y = ~Duration,
                    text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
                    type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
-        add_trace(x = ~FinalAss$Assurance, y = ~FinalAss$Duration, type = "scatter", mode = "markers", 
+        add_trace(x = ~oneLookoutput$FinalAss$Assurance, y = ~oneLookoutput$FinalAss$Duration, type = "scatter", mode = "markers", 
                   marker = list(size = 10, color = "red"), 
                   text = ~ "No Interim Analysis",
                   name = "No Interim Analysis") %>%
@@ -899,10 +911,10 @@ server <- function(input, output, session) {
     
     output$oneLookPlotSS <- renderPlotly({
       
-      p <- plot_ly(IADFOneLook, x = ~Assurance, y = ~`Sample Size`,
+      p <- plot_ly(oneLookoutput$IADFOneLook, x = ~Assurance, y = ~`Sample Size`,
                    text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
                    type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
-        add_trace(x = ~FinalAss$Assurance, y = ~FinalAss$`Sample Size`, type = "scatter", mode = "markers", 
+        add_trace(x = ~oneLookoutput$FinalAss$Assurance, y = ~oneLookoutput$FinalAss$`Sample Size`, type = "scatter", mode = "markers", 
                   marker = list(size = 10, color = "red"), 
                   text = ~ "No Interim Analysis",
                   name = "No Interim Analysis") %>%
@@ -1410,13 +1422,10 @@ server <- function(input, output, session) {
   }
   
 
-  
-  observeEvent(input$calcTwoLooks, {
-    
-    shinyjs::show("checkTwoLooks")
+  twoLooksFunc <- reactive({
     
     
-    NRep <- 300
+    NRep <- 20
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
@@ -1515,7 +1524,7 @@ server <- function(input, output, session) {
       
     })
     
-
+    
     reactValues$iterationList <- iterationList
     reactValues$TwoLooksSeq1 <- TwoLooksSeq1
     reactValues$TwoLooksSeq2 <- TwoLooksSeq2
@@ -1528,20 +1537,6 @@ server <- function(input, output, session) {
     proposedDF$Duration <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1Duration, ifelse(proposedDF$Look2Power==0, 
                                                                                              proposedDF$Look2Duration, proposedDF$FinalLookDuration))
     
-    shinyjs::show("selectedOptionstwoLooks")
-    
-    updateSelectizeInput(session, "selectedOptionstwoLooks", choices = c("Assurance", "Duration", "Sample Size", 
-                                                                         "Interim Analysis 1 Time", "Interim Analysis 2 Time",
-                                                                         "% Stop", "% Stop Look 1", "% Stop Look 2",
-                                                                         "% Stop Look 1 for Futility", "% Stop Look 2 for Futility",
-                                                                         "% Stop Look 1 for Efficacy", "% Stop Look 2 for Efficacy",
-                                                                         "% Stop for Efficacy", "% Stop for Futility",
-                                                                         "Correctly Stop", "Correctly Stop for Efficacy", "Correctly Stop for Futility",
-                                                                         "Correctly Stop at Look 1", "Correctly Stop at Look 2",
-                                                                         "Correctly Stop for Efficacy at Look 1", "Correctly Stop for Efficacy at Look 2",
-                                                                         "Correctly Stop for Futility at Look 1", "Correctly Stop for Futility at Look 2",
-                                                                         "Correctly Continue", "Correctly Continue at Look 1", "Correctly Continue at Look 2"), 
-                         selected = c("Assurance", "Duration", "Sample Size"))
     
     
     
@@ -1557,28 +1552,11 @@ server <- function(input, output, session) {
     FinalAss <- as.data.frame(FinalAss)
     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
-    output$noIATableTwoLooks <- renderTable({
-      FinalAss
-    }, digits = 3)
-    
-    
-    
-   
-
-    output$proposedTableTwoLooks <- renderTable({
-
-      FinalProposedDF
-
-    }, digits = 3)
-
-
-    
-    
     data <- calculateTablemetrics(reactValues$iterationList, 
                                   reactValues$TwoLooksSeq1,  
                                   reactValues$TwoLooksSeq2)
     
-
+    
     
     myDFLength <- sum(outer(TwoLooksSeq1, TwoLooksSeq2, "<"))
     
@@ -1598,8 +1576,6 @@ server <- function(input, output, session) {
         }
       }
     }
-    
-    shinyjs::show("selectedOptionsIATableTwoLooks")
     
     
     IADFTwoLooks$Power <- data$PowerArray
@@ -1642,10 +1618,41 @@ server <- function(input, output, session) {
                                 "Correctly Stop for Futility at Look 1", "Correctly Stop for Futility at Look 2",
                                 "Correctly Continue", "Correctly Continue at Look 1", "Correctly Continue at Look 2")
     
+    return(list(IADFTwoLooks = IADFTwoLooks, FinalProposedDF = FinalProposedDF, FinalAss = FinalAss))
+    
+    
+  })
+  
+  
+  observeEvent(input$calcTwoLooks, {
+    
+    shinyjs::show("checkTwoLooks")
+    
+    shinyjs::show("selectedOptionsIATableTwoLooks")
+    
+    shinyjs::show("selectedOptionstwoLooks")
+    
+    updateSelectizeInput(session, "selectedOptionstwoLooks", choices = c("Assurance", "Duration", "Sample Size", 
+                                                                         "Interim Analysis 1 Time", "Interim Analysis 2 Time",
+                                                                         "% Stop", "% Stop Look 1", "% Stop Look 2",
+                                                                         "% Stop Look 1 for Futility", "% Stop Look 2 for Futility",
+                                                                         "% Stop Look 1 for Efficacy", "% Stop Look 2 for Efficacy",
+                                                                         "% Stop for Efficacy", "% Stop for Futility",
+                                                                         "Correctly Stop", "Correctly Stop for Efficacy", "Correctly Stop for Futility",
+                                                                         "Correctly Stop at Look 1", "Correctly Stop at Look 2",
+                                                                         "Correctly Stop for Efficacy at Look 1", "Correctly Stop for Efficacy at Look 2",
+                                                                         "Correctly Stop for Futility at Look 1", "Correctly Stop for Futility at Look 2",
+                                                                         "Correctly Continue", "Correctly Continue at Look 1", "Correctly Continue at Look 2"), 
+                         selected = c("Assurance", "Duration", "Sample Size"))
+    
+    twoLooksOutput <- twoLooksFunc()
+    
+    
+    
     
     output$IATableTwoLooks <- renderDT({
       
-      IADFTwoLooks <- subset(IADFTwoLooks, select = c("Information Fraction 1", "Information Fraction 2", input$selectedOptionsIATableTwoLooks))
+      IADFTwoLooks <- subset(twoLooksOutput$IADFTwoLooks, select = c("Information Fraction 1", "Information Fraction 2", input$selectedOptionsIATableTwoLooks))
       
       datatable(IADFTwoLooks, options = list(rowCallback = JS(rowCallback)),
                 rownames = F) %>% formatStyle(
@@ -1657,19 +1664,30 @@ server <- function(input, output, session) {
         )
     })
     
+    output$noIATableTwoLooks <- renderTable({
+      twoLooksOutput$FinalAss
+    }, digits = 3)
+    
+    
+    output$proposedTableTwoLooks <- renderTable({
+      
+      twoLooksOutput$FinalProposedDF
+      
+    }, digits = 3)
+    
     
     
     output$twoLooksPlotDuration <- renderPlotly({
       
       
-      p <- plot_ly(IADFTwoLooks, x = ~Assurance, y = ~Duration,
+      p <- plot_ly(twoLooksOutput$IADFTwoLooks, x = ~Assurance, y = ~Duration,
                    text = ~ paste0("Information Fraction = ", `Information Fraction 1`, ", ", `Information Fraction 2`), mode = "markers",
                    type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
-        add_trace(x = ~FinalAss$Assurance, y = ~FinalAss$Duration, type = "scatter", mode = "markers",
+        add_trace(x = ~twoLooksOutput$FinalAss$Assurance, y = ~twoLooksOutput$FinalAss$Duration, type = "scatter", mode = "markers",
                   marker = list(size = 10, color = "red"),
                   text = ~ "No Interim Analysis",
                   name = "No Interim Analysis") %>%
-        add_trace(x = ~FinalProposedDF$Assurance, y = ~FinalProposedDF$Duration, type = "scatter", mode = "markers",
+        add_trace(x = ~twoLooksOutput$FinalProposedDF$Assurance, y = ~twoLooksOutput$FinalProposedDF$Duration, type = "scatter", mode = "markers",
                   marker = list(size = 10, color = "green"),
                   text = ~ "Proposed Rule",
                   name = "Proposed Rule") %>%
@@ -1689,14 +1707,14 @@ server <- function(input, output, session) {
     output$twoLooksPlotSS <- renderPlotly({
       
       
-      p <- plot_ly(IADFTwoLooks, x = ~Assurance, y = ~`Sample Size`,
+      p <- plot_ly(twoLooksOutput$IADFTwoLooks, x = ~Assurance, y = ~`Sample Size`,
                    text = ~ paste0("Information Fraction = ", `Information Fraction 1`, ", ", `Information Fraction 2`), mode = "markers",
                    type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
-        add_trace(x = ~FinalAss$Assurance, y = ~FinalAss$`Sample Size`, type = "scatter", mode = "markers",
+        add_trace(x = ~twoLooksOutput$FinalAss$Assurance, y = ~twoLooksOutput$FinalAss$`Sample Size`, type = "scatter", mode = "markers",
                   marker = list(size = 10, color = "red"),
                   text = ~ "No Interim Analysis",
                   name = "No Interim Analysis") %>%
-        add_trace(x = ~FinalProposedDF$Assurance, y = ~FinalProposedDF$`Sample Size`, type = "scatter", mode = "markers",
+        add_trace(x = ~twoLooksOutput$FinalProposedDF$Assurance, y = ~twoLooksOutput$FinalProposedDF$`Sample Size`, type = "scatter", mode = "markers",
                   marker = list(size = 10, color = "green"),
                   text = ~ "Proposed Rule",
                   name = "Proposed Rule") %>%
@@ -1952,7 +1970,13 @@ server <- function(input, output, session) {
                      noLookFuncPlot = noLookFuncPlot(),
                      noLookFuncSS = noLookFuncSS(),
                      spendingOneLook = input$spendingOneLook,
-                     oneLookBoundaryIA = input$oneLookBoundaryIA
+                     oneLookBoundaryIA = input$oneLookBoundaryIA,
+                     oneLookFunc = oneLookFunc(),
+                     spendingTwoLooks = input$spendingTwoLooks,
+                     twoLooksBoundaryIA = input$twoLooksBoundaryIA,
+                     twoLooksFunc = twoLooksFunc()
+                     
+                     
                      
       )
       
