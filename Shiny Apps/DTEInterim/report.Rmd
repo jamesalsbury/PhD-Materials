@@ -2,65 +2,246 @@
 title: "Example Report"
 output: html_document
 params:
+   reactValues: NULL
    checkDesign: NULL
    checkDesignOptionsTables: NULL 
    checkDesignOptionsPlots: NULL
    checkNoLook: NULL
    checkNoLookOptionsTables: NULL 
    checkNoLookOptionsPlots: NULL
+   noLookFuncPlot: NULL
+   noLookFuncSS: NULL
    checkOneLook: NULL
    checkOneLookOptionsTables: NULL 
    checkOneLookOptionsPlots: NULL
+   spendingOneLook: NULL 
+   oneLookBoundaryIA: NULL 
+   oneLookFunc: NULL 
    checkTwoLooks: NULL
    checkTwoLooksOptionsTables: NULL 
    checkTwoLooksOptionsPlots: NULL 
+   spendingTwoLooks: NULL 
+   twoLooksBoundaryIA: NULL 
+   twoLooksFunc: NULL 
    checkBayesian: NULL 
    checkBayesianOptionsTables: NULL 
    checkBayesianOptionsPlots: NULL
-   reactValues: NULL
-   noLookFuncPlot: NULL
-   noLookFuncSS: NULL
-               
+   
+   
+   
+   
+                     
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+rowCallback <- c(
+  "function(row, data){",
+  "  for(var i=0; i<data.length; i++){",
+  "    if(data[i] === null){",
+  "      $('td:eq('+i+')', row).html('NA')",
+  "        .css({'color': 'rgb(151,151,151)', 'font-style': 'italic'});",
+  "    }",
+  "  }",
+  "}"
+)
+
 ```
 
 
 ### Design
-```{r}
 
-SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit1, d = params$reactValues$treatmentSamplesDF$d[1])
-SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit2, d = params$reactValues$treatmentSamplesDF$d[2])
+```{r}
+if (params$checkDesign){
+  SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit1, d = params$reactValues$treatmentSamplesDF$d[1])
+  SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit2, d = params$reactValues$treatmentSamplesDF$d[2])
+}
+
 
 ```
 
 ### No Look
 
-#### Plots
 
 ```{r}
-plot(params$noLookFuncPlot$myDF$SampleSize*2, predict(params$noLookFuncPlot$smoothedPower), ylim = c(0,1), type = "l", xlab = "Sample Size", ylab = "Assurance")
+
+if (params$checkNoLook){
+  plot(params$noLookFuncPlot$myDF$SampleSize*2, predict(params$noLookFuncPlot$smoothedPower), ylim = c(0,1), type = "l", xlab = "Number of Events", ylab = "Assurance")
+  
+  params$noLookFuncSS
+
+}
+
 ```
 
-#### Tables
-
-```{r}
-noLookFuncSS
-```
 
 ### One Look
 
-#### Plots
-
 ```{r}
+if (params$checkOneLook){
+  #Boundary Plot
+  values <- hot_to_r(params$spendingOneLook)
+    
+    
+      design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                         informationRates = c(as.numeric(params$oneLookBoundaryIA), 1),
+                                         userAlphaSpending = as.numeric(values[,2]), 
+                                         typeBetaSpending = "bsUser",
+                                         userBetaSpending = as.numeric(values[,3]))
+      
+      
+        plot(design)
+     
+  #Assurance vs Duration Plot
+        
+         p <- plot_ly(params$oneLookFunc$IADFOneLook, x = ~Assurance, y = ~Duration,
+                   text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
+                   type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
+        add_trace(x = ~params$oneLookFunc$FinalAss$Assurance, y = ~params$oneLookFunc$FinalAss$Duration, type = "scatter", mode = "markers", 
+                  marker = list(size = 10, color = "red"), 
+                  text = ~ "No Interim Analysis",
+                  name = "No Interim Analysis") %>%
+        layout(
+          xaxis = list(title = list(text = "Assurance", font = list(color = "black", size = 14, family = "Arial", weight = "bold")), range = c(0, 1)),
+          yaxis = list(title = list(text = "Duration", font = list(color = "black", size = 14, family = "Arial", weight = "bold"))),
+          legend = list(orientation = "v", x = 1.05, y = 0.5),  # Position legend to the right
+          title = "Assurance vs Duration for the different stopping rules"
+        )
+      
+      p
+  
+        #Assurance vs Sample Size Plot
 
+      
+      q <- plot_ly(params$oneLookFunc$IADFOneLook, x = ~Assurance, y = ~`Sample Size`,
+                   text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
+                   type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
+        add_trace(x = ~params$oneLookFunc$FinalAss$Assurance, y = ~params$oneLookFunc$FinalAss$`Sample Size`, type = "scatter", mode = "markers", 
+                  marker = list(size = 10, color = "red"), 
+                  text = ~ "No Interim Analysis",
+                  name = "No Interim Analysis") %>%
+        layout(
+          xaxis = list(title = list(text = "Assurance", font = list(color = "black", size = 14, family = "Arial", weight = "bold")), range = c(0, 1)),
+          yaxis = list(title = list(text = "Sample Size", font = list(color = "black", size = 14, family = "Arial", weight = "bold"))),
+          legend = list(orientation = "v", x = 1.05, y = 0.5),  # Position legend to the right
+          title = "Assurance vs Sample Size for the different stopping rules"
+        )
+      
+      q
+      
+      
+      #Operating Characteristics Table
+      
+      IADFOneLook <- subset(params$oneLookFunc$IADFOneLook, select = c("Information Fraction", params$checkOneLookOptionsTables))
+      
+      datatable(IADFOneLook, options = list(rowCallback = JS(rowCallback)),
+                rownames = F) %>% formatStyle(
+                  columns = colnames(IADFOneLook)
+                ) %>%
+        formatSignif(
+          columns = colnames(IADFOneLook),
+          digits = 3
+        )
+      
+      
+      #No IA Table
+      
+      params$oneLookFunc$FinalAss
+      
+  
+}
 
 
 ```
 
+### Two Looks
 
+```{r}
+if (params$checkTwoLooks){
+  
+  #Boundary Plot
+  values <- hot_to_r(params$spendingTwoLooks)
+    
+    
+      design <- getDesignGroupSequential(typeOfDesign = "asUser", 
+                                         informationRates = as.numeric(c(strsplit(params$twoLooksBoundaryIA, ", ")[[1]], 1)), 
+                                         userAlphaSpending = as.numeric(values[,2]), 
+                                         typeBetaSpending = "bsUser",
+                                         userBetaSpending = as.numeric(values[,3]))
+      
+      
+        plot(design)
+  
+   p <- plot_ly(params$twoLooksFunc$IADFTwoLooks, x = ~Assurance, y = ~Duration,
+                   text = ~ paste0("Information Fraction = ", `Information Fraction 1`, ", ", `Information Fraction 2`), mode = "markers",
+                   type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
+        add_trace(x = ~params$twoLooksFunc$FinalAss$Assurance, y = ~params$twoLooksFunc$FinalAss$Duration, type = "scatter", mode = "markers",
+                  marker = list(size = 10, color = "red"),
+                  text = ~ "No Interim Analysis",
+                  name = "No Interim Analysis") %>%
+        add_trace(x = ~params$twoLooksFunc$FinalProposedDF$Assurance, y = ~params$twoLooksFunc$FinalProposedDF$Duration, type = "scatter", mode = "markers",
+                  marker = list(size = 10, color = "green"),
+                  text = ~ "Proposed Rule",
+                  name = "Proposed Rule") %>%
+        layout(
+          xaxis = list(title = list(text = "Assurance", font = list(color = "black", size = 14, family = "Arial", weight = "bold")), range = c(0, 1)),
+          yaxis = list(title = list(text = "Duration", font = list(color = "black", size = 14, family = "Arial", weight = "bold"))),
+          legend = list(orientation = "v", x = 1.05, y = 0.5),  # Position legend to the right
+          title = "Assurance vs Duration for the different stopping rules"
+        )
+      
+      p
+      
+       p <- plot_ly(params$twoLooksFunc$IADFTwoLooks, x = ~Assurance, y = ~`Sample Size`,
+                   text = ~ paste0("Information Fraction = ", `Information Fraction 1`, ", ", `Information Fraction 2`), mode = "markers",
+                   type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
+        add_trace(x = ~params$twoLooksFunc$FinalAss$Assurance, y = ~params$twoLooksFunc$FinalAss$`Sample Size`, type = "scatter", mode = "markers",
+                  marker = list(size = 10, color = "red"),
+                  text = ~ "No Interim Analysis",
+                  name = "No Interim Analysis") %>%
+        add_trace(x = ~params$twoLooksFunc$FinalProposedDF$Assurance, y = ~params$twoLooksFunc$FinalProposedDF$`Sample Size`, type = "scatter", mode = "markers",
+                  marker = list(size = 10, color = "green"),
+                  text = ~ "Proposed Rule",
+                  name = "Proposed Rule") %>%
+        layout(
+          xaxis = list(title = list(text = "Assurance", font = list(color = "black", size = 14, family = "Arial", weight = "bold")), range = c(0, 1)),
+          yaxis = list(title = list(text = "Sample Size", font = list(color = "black", size = 14, family = "Arial", weight = "bold"))),
+          legend = list(orientation = "v", x = 1.05, y = 0.5),  # Position legend to the right
+          title = "Assurance vs Sample Size for the different stopping rules"
+        )
+      
+      p
+  
+  
+  #Operating Characteristics Table
+      
+      IADFTwoLooks <- subset(params$twoLooksFunc$IADFTwoLooks, select = c("Information Fraction", params$checkTwoLooksOptionsTables))
+      
+      datatable(IADFTwoLooks, options = list(rowCallback = JS(rowCallback)),
+                rownames = F) %>% formatStyle(
+                  columns = colnames(IADFTwoLooks)
+                ) %>%
+        formatSignif(
+          columns = colnames(IADFTwoLooks),
+          digits = 3
+        )
+      
+      
+}
+
+
+```
+
+### Bayesian
+
+```{r}
+if (params$checkBayesian){
+  
+}
+
+
+```
 
 
 

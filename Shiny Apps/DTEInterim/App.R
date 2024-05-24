@@ -625,7 +625,7 @@ server <- function(input, output, session) {
   
   output$spendingOneLook <- renderRHandsontable({
     initial_data <- data.frame(
-      Stage = 1:2,
+      Stage = c("IA1", "Final"),
       alphaspending = c("0.0125", "0.025"),
       betaspending = c("0.05", "0.1")
     )
@@ -1026,7 +1026,7 @@ server <- function(input, output, session) {
   
   output$spendingTwoLooks <- renderRHandsontable({
     initial_data <- data.frame(
-      Stage = 1:3,
+      Stage = c("IA1", "IA2", "Final"),
       alphaspending = c("0.0083", "0.0167", "0.0250"),
       betaspending = c("0.0667", "0.1333", "0.2000")
     )
@@ -1951,34 +1951,59 @@ server <- function(input, output, session) {
       tempReport <- file.path(tempdir(), "report.Rmd")
       file.copy("report.Rmd", tempReport, overwrite = TRUE)
       
-      params <- list(checkDesign = input$checkDesign,
-                     checkDesignOptionsTables = input$checkDesignOptionsTables,
-                     checkDesignOptionsPlots = input$checkDesignOptionsPlots,
+      
+      params <- list(reactValues = reactValues,
+                     checkDesign = input$checkDesign,
                      checkNoLook = input$checkNoLook,
-                     checkNoLookOptionsTables = input$checkNoLookOptionsTables,
-                     checkNoLookOptionsPlots = input$checkNoLookOptionsPlots,
                      checkOneLook = input$checkOneLook,
-                     checkOneLookOptionsTables = input$checkOneLookOptionsTables,
-                     checkOneLookOptionsPlots = input$checkOneLookOptionsPlots,
                      checkTwoLooks = input$checkTwoLooks,
-                     checkTwoLooksOptionsTables = input$checkTwoLooksOptionsTables,
-                     checkTwoLooksOptionsPlots = input$checkTwoLooksOptionsPlots,
-                     checkBayesian = input$checkBayesian,
-                     checkBayesianOptionsTables = input$checkBayesianOptionsTables,
-                     checkBayesianOptionsPlots = input$checkBayesianOptionsPlots,
-                     reactValues = reactValues,
-                     noLookFuncPlot = noLookFuncPlot(),
-                     noLookFuncSS = noLookFuncSS(),
-                     spendingOneLook = input$spendingOneLook,
-                     oneLookBoundaryIA = input$oneLookBoundaryIA,
-                     oneLookFunc = oneLookFunc(),
-                     spendingTwoLooks = input$spendingTwoLooks,
-                     twoLooksBoundaryIA = input$twoLooksBoundaryIA,
-                     twoLooksFunc = twoLooksFunc()
-                     
-                     
-                     
-      )
+                     checkBayesian = input$checkBayesian
+                     )
+      
+      if (input$checkDesign) {
+        params <- c(params, 
+                    list(checkDesignOptionsTables = input$checkDesignOptionsTables,
+                         checkDesignOptionsPlots = input$checkDesignOptionsPlots))
+      }
+      
+      if (input$checkNoLook) {
+        params <- c(params, 
+                    list(checkNoLookOptionsTables = input$checkNoLookOptionsTables,
+                         checkNoLookOptionsPlots = input$checkNoLookOptionsPlots,
+                         noLookFuncPlot = noLookFuncPlot(),
+                         noLookFuncSS = noLookFuncSS()))
+      }
+      
+      
+      if (input$checkOneLook) {
+        
+        params <- c(params, 
+                    list(checkOneLookOptionsTables = input$checkOneLookOptionsTables,
+                         checkOneLookOptionsPlots = input$checkOneLookOptionsPlots,
+                         spendingOneLook = input$spendingOneLook,
+                         oneLookBoundaryIA = input$oneLookBoundaryIA,
+                         oneLookFunc = oneLookFunc()))
+        
+      }
+      
+      if (input$checkTwoLooks) {
+        
+        params <- c(params,
+                    list(checkTwoLooksOptionsTables = input$checkTwoLooksOptionsTables,
+                         checkTwoLooksOptionsPlots = input$checkTwoLooksOptionsPlots,
+                         spendingTwoLooks = input$spendingTwoLooks,
+                         twoLooksBoundaryIA = input$twoLooksBoundaryIA,
+                         twoLooksFunc = twoLooksFunc()))
+        
+      }
+      
+      if (input$checkBayesian) {
+        
+        params <- c(params,
+                    list(checkBayesianOptionsTables = input$checkBayesianOptionsTables,
+                         checkBayesianOptionsPlots = input$checkBayesianOptionsPlots))
+        
+      }
       
       
       # Render the Rmd file to HTML with parameters
