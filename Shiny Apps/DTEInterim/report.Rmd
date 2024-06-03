@@ -52,7 +52,7 @@ rowCallback <- c(
 
 ### Design
 
-```{r}
+```{r setup, include=FALSE}
 if (params$checkDesign){
   SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit1, d = params$reactValues$treatmentSamplesDF$d[1])
   SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit2, d = params$reactValues$treatmentSamplesDF$d[2])
@@ -64,7 +64,7 @@ if (params$checkDesign){
 ### No Look
 
 
-```{r}
+```{r setup, include=FALSE}
 
 if (params$checkNoLook){
   plot(params$noLookFuncPlot$myDF$SampleSize*2, predict(params$noLookFuncPlot$smoothedPower), ylim = c(0,1), type = "l", xlab = "Number of Events", ylab = "Assurance")
@@ -78,7 +78,7 @@ if (params$checkNoLook){
 
 ### One Look
 
-```{r}
+```{r setup, include=FALSE}
 if (params$checkOneLook){
   #Boundary Plot
   values <- hot_to_r(params$spendingOneLook)
@@ -157,7 +157,7 @@ if (params$checkOneLook){
 
 ### Two Looks
 
-```{r}
+```{r setup, include=FALSE}
 if (params$checkTwoLooks){
   
   #Boundary Plot
@@ -235,7 +235,7 @@ if (params$checkTwoLooks){
 
 ### Bayesian
 
-```{r}
+```{r setup, include=FALSE}
 if (params$checkBayesian){
   
 }

@@ -55,7 +55,11 @@ ui <- fluidPage(
       tabPanel("Design", 
                sidebarLayout(
                  sidebarPanel = sidebarPanel(
-                   numericInput("numPatients", 'Number of Patients (in each group, 1:1)', value=340, min=0),
+                   numericInput("numPatients", 'Number of Patients (in total)', value=680, min=0),
+                   fluidRow(
+                     column(6, numericInput("ratioControl", "Ratio Control", value = 1)),
+                     column(6, numericInput("ratioTreatment", "Ratio Treatment", value = 1))
+                   ),
                    numericInput("numEvents", 'Number of Events', value=512, min=0),
                    selectInput("controlParameter", "Input type", choices = list("Control Hazard" = "controlHazard", 
                                                                                 "Landmark Survival Time" = "landmark")),
@@ -411,12 +415,28 @@ server <- function(input, output, session) {
     conc.probs[1, 2] <- 0.5
     
     iterationList <- vector("list", length = 10)
-    nEventsVec <- ceiling(seq(30, 1000, length = length(iterationList)))
-    SSVec <- ceiling(((input$numPatients)/input$numEvents)*nEventsVec)
     
+    # numPatients <- 680
+    # numEvents <- 512
+    # ratioControl <- 3
+    # ratioTreatment <- 4
+    
+    controlSS <- round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment))
+    treatmentSS <- round(input$ratioTreatment*input$numPatients/(input$ratioControl+input$ratioTreatment))
+    
+    nEventsVec <- ceiling(seq(30, 1000, length = length(iterationList)))
+    controlSSVec <- round(controlSS*nEventsVec/input$numEvents)
+    treatmentSSVec <- round(treatmentSS*nEventsVec/input$numEvents)
+    totalSSVec <- controlSSVec + treatmentSSVec
+
+    # nEventsVec <- ceiling(seq(30, 1000, length = length(iterationList)))
+    # SSVec <- ceiling(((input$numPatients)/input$numEvents)*nEventsVec)
+    # 
     
     for (i in 1:length(iterationList)){
-      iterationList[[i]]$SampleSize <- SSVec[i]
+      iterationList[[i]]$SampleSizeControl <- controlSSVec[i]
+      iterationList[[i]]$SampleSizeTreatment <- treatmentSSVec[i]
+      iterationList[[i]]$SampleSizeTotal <- totalSSVec[i]
       iterationList[[i]]$nEvents <- nEventsVec[i]
     }
     
@@ -432,7 +452,9 @@ server <- function(input, output, session) {
           bigT <- sample(treatmentSamplesDF[,1], 1)
           
           #Simulate control and treatment data
-          dataCombined <- SimDTEDataSet(iterationList[[i]]$SampleSize, reactValues$lambdac, bigT, HRStar, input$recTime)
+          dataCombined <- SimDTEDataSet(iterationList[[i]]$SampleSizeControl, iterationList[[i]]$SampleSizeTreatment, 
+                                        reactValues$lambdac,
+                                        bigT, HRStar, input$recTime)
           
           #Perform looks at different Information Fractions
           finalDF <- CensFunc(dataCombined, iterationList[[i]]$nEvents)
@@ -460,7 +482,7 @@ server <- function(input, output, session) {
     
     for (i in 1:length(iterationList)){
       myDF[i,]$Power <- iterationList[[i]]$Power
-      myDF[i,]$SampleSize <- iterationList[[i]]$SampleSize
+      myDF[i,]$SampleSize <- iterationList[[i]]$SampleSizeTotal
       myDF[i,]$Duration <- iterationList[[i]]$Duration
       myDF[i,]$nEvents <- iterationList[[i]]$nEvents
     }
@@ -499,8 +521,14 @@ server <- function(input, output, session) {
       HRStar <- sample(treatmentSamplesDF[,2], 1)
       bigT <- sample(treatmentSamplesDF[,1], 1)
       
+      
+      x
+      
       #Simulate control and treatment data
-      dataCombined <- SimDTEDataSet(input$numPatients, reactValues$lambdac, bigT, HRStar, input$recTime)
+      dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
+                                    round(input$ratioTreatment*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
+                                    reactValues$lambdac, bigT, HRStar, input$recTime)
+      
       
       #Perform looks at different Information Fractions
       finalDF <- CensFunc(dataCombined, input$numEvents)
@@ -630,7 +658,7 @@ server <- function(input, output, session) {
       betaspending = c("0.05", "0.1")
     )
     
-    colnames(initial_data) <- c("Stage", "Alpha spending", "Beta spending")
+    colnames(initial_data) <- c("Stage", "Alpha spending (cumulative)", "Beta spending (cumulative)")
     
     rhandsontable(initial_data, rowHeaders = FALSE)  %>%
       hot_col(col = "Stage", readOnly = TRUE)
@@ -710,7 +738,9 @@ server <- function(input, output, session) {
         bigT <- sample(treatmentSamplesDF[,1], 1)
         
         #Simulate control and treatment data
-        dataCombined <- SimDTEDataSet(input$numPatients, reactValues$lambdac, bigT, HRStar, input$recTime)  
+        dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
+                                      round(input$ratioTreatment*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
+                                      reactValues$lambdac, bigT, HRStar, input$recTime)      
         
         #Perform looks at different Information Fractions
         finalDF <- CensFunc(dataCombined, input$numEvents)
@@ -1031,7 +1061,7 @@ server <- function(input, output, session) {
       betaspending = c("0.0667", "0.1333", "0.2000")
     )
     
-    colnames(initial_data) <- c("Stage", "Alpha spending", "Beta spending")
+    colnames(initial_data) <- c("Stage", "Alpha spending (cumulative)", "Beta spending (cumulative)")
     
     rhandsontable(initial_data, rowHeaders = FALSE)  %>%
       hot_col(col = "Stage", readOnly = TRUE)
@@ -1483,8 +1513,9 @@ server <- function(input, output, session) {
         bigT <- sample(treatmentSamplesDF[,1], 1)
         
         #Simulate control and treatment data
-        dataCombined <- SimDTEDataSet(input$numPatients, reactValues$lambdac, bigT, HRStar, input$recTime)  
-        
+        dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
+                                      round(input$ratioTreatment*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
+                                      reactValues$lambdac, bigT, HRStar, input$recTime)        
         #Do the proposed rule on this data set
         proposedDF[i,] <- proposedRuleFunc(dataCombined, input$numEvents, 3, 2/3) 
         
@@ -1807,6 +1838,8 @@ server <- function(input, output, session) {
     conc.probs[1, 2] <- 0.5
     
     # Extract required input values
+    ratioControl <- input$ratioControl
+    ratioTreatment <- input$ratioTreatment
     numPatients <- input$numPatients
     lambdac <- reactValues$lambdac
     recTime <- input$recTime
@@ -1825,7 +1858,13 @@ server <- function(input, output, session) {
                         bigT <- sample(treatmentSamplesDF[,1], 1)
                         
                         # Simulate control and treatment data
-                        dataCombined <- SimDTEDataSet(numPatients, lambdac, bigT, HRStar, recTime)  
+                        
+                        dataCombined <- SimDTEDataSet(round(ratioControl*numPatients/(ratioControl+ratioTreatment)), 
+                                                      round(ratioTreatment*numPatients/(ratioControl+ratioTreatment)), 
+                                                      reactValues$lambdac, bigT, HRStar, recTime)
+                        
+                        
+                        #dataCombined <- SimDTEDataSet(numPatients, lambdac, bigT, HRStar, recTime)  
                         
                         # Perform looks at different Information Fractions
                         finalDF <- CensFunc(dataCombined, numEvents)
