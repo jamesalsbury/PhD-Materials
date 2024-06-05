@@ -521,9 +521,6 @@ server <- function(input, output, session) {
       HRStar <- sample(treatmentSamplesDF[,2], 1)
       bigT <- sample(treatmentSamplesDF[,1], 1)
       
-      
-      x
-      
       #Simulate control and treatment data
       dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
                                     round(input$ratioTreatment*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
@@ -2003,6 +2000,7 @@ server <- function(input, output, session) {
         params <- c(params, 
                     list(checkDesignOptionsTables = input$checkDesignOptionsTables,
                          checkDesignOptionsPlots = input$checkDesignOptionsPlots))
+        
       }
       
       if (input$checkNoLook) {

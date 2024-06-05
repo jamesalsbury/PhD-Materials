@@ -33,7 +33,7 @@ params:
                      
 ---
 
-```{r setup, include=FALSE}
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
 
 rowCallback <- c(
@@ -47,15 +47,30 @@ rowCallback <- c(
   "}"
 )
 
+print(params$checkNoLookOptionsTables)
+print(params$checkNoLookOptionsPlots)
+
 ```
 
 
 ### Design
 
-```{r setup, include=FALSE}
+```{r design}
+
 if (params$checkDesign){
-  SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit1, d = params$reactValues$treatmentSamplesDF$d[1])
-  SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit2, d = params$reactValues$treatmentSamplesDF$d[2])
+  
+  if (!is.null(params$checkDesignOptionsPlots)){
+     
+    if ("Elicited T" %in% params$checkDesignOptionsPlots){
+        SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit1, d = params$reactValues$treatmentSamplesDF$d[1])
+    }
+    
+    if ("Elicited post-delay HR" %in% params$checkDesignOptionsPlots){
+        SHELF::plotfit(params$reactValues$treatmentSamplesDF$fit2, d = params$reactValues$treatmentSamplesDF$d[2])
+    }
+    
+  }
+  
 }
 
 
@@ -64,12 +79,26 @@ if (params$checkDesign){
 ### No Look
 
 
-```{r setup, include=FALSE}
+```{r noLook}
 
 if (params$checkNoLook){
-  plot(params$noLookFuncPlot$myDF$SampleSize*2, predict(params$noLookFuncPlot$smoothedPower), ylim = c(0,1), type = "l", xlab = "Number of Events", ylab = "Assurance")
   
-  params$noLookFuncSS
+  if (!is.null(params$checkNoLookOptionsTables)){
+    
+    if ("Assurance OC" %in% params$checkNoLookOptionsTables){
+       plot(params$noLookFuncPlot$myDF$SampleSize*2, predict(params$noLookFuncPlot$smoothedPower), ylim = c(0,1), type = "l", xlab = "Number of Events", ylab = "Assurance")
+    }
+    
+  }
+  
+  if (!is.null(params$checkNoLookOptionsPlots)){
+    
+    if ("Assurance Plot" %in% params$checkNoLookOptionsPlots){
+         params$noLookFuncSS
+    }
+    
+  }
+  
 
 }
 
@@ -78,8 +107,11 @@ if (params$checkNoLook){
 
 ### One Look
 
-```{r setup, include=FALSE}
+```{r oneLook, include=FALSE}
 if (params$checkOneLook){
+  
+  
+  
   #Boundary Plot
   values <- hot_to_r(params$spendingOneLook)
     
@@ -157,7 +189,7 @@ if (params$checkOneLook){
 
 ### Two Looks
 
-```{r setup, include=FALSE}
+```{r twoLooks, include=FALSE}
 if (params$checkTwoLooks){
   
   #Boundary Plot
@@ -235,7 +267,7 @@ if (params$checkTwoLooks){
 
 ### Bayesian
 
-```{r setup, include=FALSE}
+```{r bayesian, include=FALSE}
 if (params$checkBayesian){
   
 }
