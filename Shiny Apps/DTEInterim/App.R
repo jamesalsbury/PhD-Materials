@@ -1858,7 +1858,7 @@ server <- function(input, output, session) {
                         
                         dataCombined <- SimDTEDataSet(round(ratioControl*numPatients/(ratioControl+ratioTreatment)), 
                                                       round(ratioTreatment*numPatients/(ratioControl+ratioTreatment)), 
-                                                      reactValues$lambdac, bigT, HRStar, recTime)
+                                                      lambdac, bigT, HRStar, recTime)
                         
                         
                         #dataCombined <- SimDTEDataSet(numPatients, lambdac, bigT, HRStar, recTime)  

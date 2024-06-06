@@ -33,8 +33,7 @@ params:
                      
 ---
 
-```{r setup}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include = F}
 
 rowCallback <- c(
   "function(row, data){",
@@ -47,8 +46,10 @@ rowCallback <- c(
   "}"
 )
 
-print(params$checkNoLookOptionsTables)
-print(params$checkNoLookOptionsPlots)
+library(knitr)
+library(DT)
+library(plotly)
+library(htmlwidgets)
 
 ```
 
@@ -107,29 +108,50 @@ if (params$checkNoLook){
 
 ### One Look
 
-```{r oneLook, include=FALSE}
+```{r oneLook, echo=FALSE, results='asis'}
+# Initialize plot variables
+boundary_plot <- NULL
+assurance_vs_duration_plot <- NULL
+assurance_vs_sample_size_plot <- NULL
+datatable_output <- NULL
+
 if (params$checkOneLook){
   
-  
-  
-  #Boundary Plot
-  values <- hot_to_r(params$spendingOneLook)
+  if (!is.null(params$checkOneLookOptionsTables)){
     
+    # Operating Characteristics Table
+    IADFOneLook <- subset(params$oneLookFunc$IADFOneLook, select = c("Information Fraction", params$checkOneLookOptionsTables))
     
+    datatable_output <- datatable(IADFOneLook, options = list(rowCallback = JS(rowCallback)),
+                                  rownames = F) %>% formatStyle(
+                                    columns = colnames(IADFOneLook)
+                                  ) %>%
+      formatSignif(
+        columns = colnames(IADFOneLook),
+        digits = 3
+      )
+  }
+  
+  if (!is.null(params$checkOneLookOptionsPlots)){
+
+    if ("Boundary Plot" %in% params$checkOneLookOptionsPlots){
+
+      # Boundary Plot
+      values <- hot_to_r(params$spendingOneLook)
       design <- getDesignGroupSequential(typeOfDesign = "asUser", 
                                          informationRates = c(as.numeric(params$oneLookBoundaryIA), 1),
                                          userAlphaSpending = as.numeric(values[,2]), 
                                          typeBetaSpending = "bsUser",
                                          userBetaSpending = as.numeric(values[,3]))
-      
-      
-        plot(design)
-     
-  #Assurance vs Duration Plot
-        
-         p <- plot_ly(params$oneLookFunc$IADFOneLook, x = ~Assurance, y = ~Duration,
-                   text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
-                   type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
+      boundary_plot <- plot(design)
+    }
+    
+    if ("Assurance vs Duration" %in% params$checkOneLookOptionsPlots){
+
+      # Assurance vs Duration Plot
+      assurance_vs_duration_plot <- plot_ly(params$oneLookFunc$IADFOneLook, x = ~Assurance, y = ~Duration,
+                                            text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
+                                            type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
         add_trace(x = ~params$oneLookFunc$FinalAss$Assurance, y = ~params$oneLookFunc$FinalAss$Duration, type = "scatter", mode = "markers", 
                   marker = list(size = 10, color = "red"), 
                   text = ~ "No Interim Analysis",
@@ -140,15 +162,14 @@ if (params$checkOneLook){
           legend = list(orientation = "v", x = 1.05, y = 0.5),  # Position legend to the right
           title = "Assurance vs Duration for the different stopping rules"
         )
-      
-      p
-  
-        #Assurance vs Sample Size Plot
+    }
+    
+    if ("Assurance vs Sample Size" %in% params$checkOneLookOptionsPlots){
 
-      
-      q <- plot_ly(params$oneLookFunc$IADFOneLook, x = ~Assurance, y = ~`Sample Size`,
-                   text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
-                   type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
+      # Assurance vs Sample Size Plot
+      assurance_vs_sample_size_plot <- plot_ly(params$oneLookFunc$IADFOneLook, x = ~Assurance, y = ~`Sample Size`,
+                                               text = ~ paste0("Information Fraction = ", `Information Fraction`), mode = "markers",
+                                               type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
         add_trace(x = ~params$oneLookFunc$FinalAss$Assurance, y = ~params$oneLookFunc$FinalAss$`Sample Size`, type = "scatter", mode = "markers", 
                   marker = list(size = 10, color = "red"), 
                   text = ~ "No Interim Analysis",
@@ -159,40 +180,58 @@ if (params$checkOneLook){
           legend = list(orientation = "v", x = 1.05, y = 0.5),  # Position legend to the right
           title = "Assurance vs Sample Size for the different stopping rules"
         )
-      
-      q
-      
-      
-      #Operating Characteristics Table
-      
-      IADFOneLook <- subset(params$oneLookFunc$IADFOneLook, select = c("Information Fraction", params$checkOneLookOptionsTables))
-      
-      datatable(IADFOneLook, options = list(rowCallback = JS(rowCallback)),
-                rownames = F) %>% formatStyle(
-                  columns = colnames(IADFOneLook)
-                ) %>%
-        formatSignif(
-          columns = colnames(IADFOneLook),
-          digits = 3
-        )
-      
-      
-      #No IA Table
-      
-      params$oneLookFunc$FinalAss
-      
-  
+    }
+  }
 }
 
-
+# Print the datatable and plots outside the conditional blocks
+if (!is.null(datatable_output)) {
+  htmltools::tagList(list(datatable_output))
+}
+if (!is.null(boundary_plot)) {
+  print(boundary_plot)
+}
+if (!is.null(assurance_vs_duration_plot)) {
+  htmltools::tagList(list(assurance_vs_duration_plot))
+}
+if (!is.null(assurance_vs_sample_size_plot)) {
+  htmltools::tagList(list(assurance_vs_sample_size_plot))
+}
 ```
 
 ### Two Looks
 
 ```{r twoLooks, include=FALSE}
+
+boundary_plot <- NULL
+assurance_vs_duration_plot <- NULL
+assurance_vs_sample_size_plot <- NULL
+datatable_output <- NULL
+
 if (params$checkTwoLooks){
   
-  #Boundary Plot
+    if (!is.null(params$checkTwoLooksOptionsTables)){
+      
+      
+       IADFTwoLooks <- subset(params$twoLooksFunc$IADFTwoLooks, select = c("Information Fraction", params$checkTwoLooksOptionsTables))
+      
+      datatable_output <- datatable(IADFTwoLooks, options = list(rowCallback = JS(rowCallback)),
+                rownames = F) %>% formatStyle(
+                  columns = colnames(IADFTwoLooks)
+                ) %>%
+        formatSignif(
+          columns = colnames(IADFTwoLooks),
+          digits = 3
+        )
+
+    }
+  
+  if (!is.null(params$checkTwoLooksOptionsPlots)){
+    
+        if ("Boundary Plot" %in% params$checkTwoLooksOptionsPlots){
+
+    
+    #Boundary Plot
   values <- hot_to_r(params$spendingTwoLooks)
     
     
@@ -203,9 +242,15 @@ if (params$checkTwoLooks){
                                          userBetaSpending = as.numeric(values[,3]))
       
       
-        plot(design)
+        boundary_plot <- plot(design)
+    
+    
+        }
+    
+    if ("Assurance vs Duration" %in% params$checkTwoLooksOptionsPlots){
+
   
-   p <- plot_ly(params$twoLooksFunc$IADFTwoLooks, x = ~Assurance, y = ~Duration,
+   assurance_vs_duration_plot <- plot_ly(params$twoLooksFunc$IADFTwoLooks, x = ~Assurance, y = ~Duration,
                    text = ~ paste0("Information Fraction = ", `Information Fraction 1`, ", ", `Information Fraction 2`), mode = "markers",
                    type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
         add_trace(x = ~params$twoLooksFunc$FinalAss$Assurance, y = ~params$twoLooksFunc$FinalAss$Duration, type = "scatter", mode = "markers",
@@ -223,9 +268,11 @@ if (params$checkTwoLooks){
           title = "Assurance vs Duration for the different stopping rules"
         )
       
-      p
+    }
+    
+    if ("Assurance vs Sample Size" %in% params$checkTwoLooksOptionsPlots){
       
-       p <- plot_ly(params$twoLooksFunc$IADFTwoLooks, x = ~Assurance, y = ~`Sample Size`,
+       assurance_vs_sample_size_plot <- plot_ly(params$twoLooksFunc$IADFTwoLooks, x = ~Assurance, y = ~`Sample Size`,
                    text = ~ paste0("Information Fraction = ", `Information Fraction 1`, ", ", `Information Fraction 2`), mode = "markers",
                    type = "scatter", marker = list(size = 10, color = "blue"), name = "Chosen Rules") %>%
         add_trace(x = ~params$twoLooksFunc$FinalAss$Assurance, y = ~params$twoLooksFunc$FinalAss$`Sample Size`, type = "scatter", mode = "markers",
@@ -243,23 +290,23 @@ if (params$checkTwoLooks){
           title = "Assurance vs Sample Size for the different stopping rules"
         )
       
-      p
+}
   
   
-  #Operating Characteristics Table
       
-      IADFTwoLooks <- subset(params$twoLooksFunc$IADFTwoLooks, select = c("Information Fraction", params$checkTwoLooksOptionsTables))
-      
-      datatable(IADFTwoLooks, options = list(rowCallback = JS(rowCallback)),
-                rownames = F) %>% formatStyle(
-                  columns = colnames(IADFTwoLooks)
-                ) %>%
-        formatSignif(
-          columns = colnames(IADFTwoLooks),
-          digits = 3
-        )
-      
-      
+  }
+}
+if (!is.null(datatable_output)) {
+  htmltools::tagList(list(datatable_output))
+}
+if (!is.null(boundary_plot)) {
+  print(boundary_plot)
+}
+if (!is.null(assurance_vs_duration_plot)) {
+  htmltools::tagList(list(assurance_vs_duration_plot))
+}
+if (!is.null(assurance_vs_sample_size_plot)) {
+  htmltools::tagList(list(assurance_vs_sample_size_plot))
 }
 
 
@@ -269,6 +316,43 @@ if (params$checkTwoLooks){
 
 ```{r bayesian, include=FALSE}
 if (params$checkBayesian){
+
+  
+  if (!is.null(params$checkBayesianOptionsTables)){ 
+    
+  }
+  
+  if (!is.null(params$checkBayesianOptionsPlots)){
+    
+    if ("BPP Plot" %in% params$checkBayesianOptionsPlots){
+      
+      #Produce BPP plot
+      
+    }
+    
+    if ("Target Effectiveness Plot" %in% params$checkBayesianOptionsPlots){
+      
+      #Produce Target Effectiveness Plot
+      
+    }
+    
+    if ("BPP vs TE Plot" %in% params$checkBayesianOptionsPlots){
+      
+      
+      #Produce BPP vs TE Plot
+      
+    }
+    
+
+    
+    
+    
+    
+  }
+  
+
+  
+  
   
 }
 
