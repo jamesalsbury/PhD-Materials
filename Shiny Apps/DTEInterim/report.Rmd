@@ -26,14 +26,12 @@ params:
    checkBayesian: NULL 
    checkBayesianOptionsTables: NULL 
    checkBayesianOptionsPlots: NULL
-   
-   
-   
+   BPPVec: NULL
    
                      
 ---
 
-```{r setup, include = F}
+```{r setup, echo = F}
 
 rowCallback <- c(
   "function(row, data){",
@@ -56,7 +54,7 @@ library(htmlwidgets)
 
 ### Design
 
-```{r design}
+```{r design, echo = F}
 
 if (params$checkDesign){
   
@@ -80,7 +78,7 @@ if (params$checkDesign){
 ### No Look
 
 
-```{r noLook}
+```{r noLook, echo = F}
 
 if (params$checkNoLook){
   
@@ -100,7 +98,6 @@ if (params$checkNoLook){
     
   }
   
-
 }
 
 ```
@@ -108,7 +105,7 @@ if (params$checkNoLook){
 
 ### One Look
 
-```{r oneLook, echo=FALSE, results='asis'}
+```{r oneLook, echo = F}
 # Initialize plot variables
 boundary_plot <- NULL
 assurance_vs_duration_plot <- NULL
@@ -201,7 +198,7 @@ if (!is.null(assurance_vs_sample_size_plot)) {
 
 ### Two Looks
 
-```{r twoLooks, include=FALSE}
+```{r twoLooks, echo = F}
 
 boundary_plot <- NULL
 assurance_vs_duration_plot <- NULL
@@ -314,48 +311,71 @@ if (!is.null(assurance_vs_sample_size_plot)) {
 
 ### Bayesian
 
-```{r bayesian, include=FALSE}
+
+```{r bayesian, echo = F}
+
+
+BPP_Plot <- NULL
+TE_Plot <- NULL
+BPP_TE_Plot <- NULL
+
+
 if (params$checkBayesian){
 
-  
-  if (!is.null(params$checkBayesianOptionsTables)){ 
-    
+
+
+  if (!is.null(params$checkBayesianOptionsTables)){
+
   }
-  
+
   if (!is.null(params$checkBayesianOptionsPlots)){
-    
+
     if ("BPP Plot" %in% params$checkBayesianOptionsPlots){
-      
-      #Produce BPP plot
-      
+
+     # Plotting histogram colored by ColorVar
+    BPP_Plot <- ggplot(params$BPPVec$BPPVec, aes(x = BPP, fill = Success)) +
+        geom_histogram(position = "identity", alpha = 0.5) +
+        scale_x_continuous(limits = c(0, 1)) + xlab("Bayesian Predictive Probability")
+
     }
-    
+
     if ("Target Effectiveness Plot" %in% params$checkBayesianOptionsPlots){
-      
-      #Produce Target Effectiveness Plot
-      
+
+       # Plotting histogram colored by ColorVar
+     TE_Plot <- ggplot(params$BPPVec$BPPVec, aes(x = propEffect, fill = Success)) +
+        geom_histogram(position = "identity", alpha = 0.5) +
+        scale_x_continuous(limits = c(0, 1)) + xlab("Proportion less than target effect")
+
     }
-    
+
     if ("BPP vs TE Plot" %in% params$checkBayesianOptionsPlots){
-      
-      
-      #Produce BPP vs TE Plot
-      
+
+    BPP_TE_Plot <- ggplot(params$BPPVec$BPPVec, aes(x = BPP, y = propEffect)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 1)) +
+  scale_y_continuous(limits = c(0, 1)) +
+  xlab("Bayesian Predictive Probability") +
+  ylab("Proportion less than target effect")
+
     }
-    
 
-    
-    
-    
-    
+
   }
-  
 
-  
-  
-  
+
 }
 
+
+if (!is.null(BPP_Plot)) {
+      print(BPP_Plot)
+}
+if (!is.null(TE_Plot)) {
+  TE_Plot
+}
+if (!is.null(BPP_TE_Plot)) {
+  BPP_TE_Plot
+}
 
 ```
 

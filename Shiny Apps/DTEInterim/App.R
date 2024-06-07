@@ -692,8 +692,7 @@ server <- function(input, output, session) {
   
   oneLookFunc <- reactive({
     
-    
-    NRep <- 20
+    NRep <- 200
     
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
     
@@ -720,6 +719,8 @@ server <- function(input, output, session) {
       
       
     }
+    
+   # print(iterationList)
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -764,6 +765,9 @@ server <- function(input, output, session) {
           iterationList[[k]]$StopEff[i] <- ifelse(GSDOC$Outcome == "Efficacy", 1, 0)
           iterationList[[k]]$StopFut[i] <- ifelse(GSDOC$Outcome == "Futility", 1, 0)
           iterationList[[k]]$Truth[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+          iterationList[[k]]$delta1[i] <- GSDOC$delta1
+          iterationList[[k]]$delta2[i] <- GSDOC$delta2
+          
           
           
         }
@@ -771,6 +775,25 @@ server <- function(input, output, session) {
         incProgress(1/NRep)
       }
     })
+    
+    for (k in 1:length(IAVec)){
+      
+      observedHRDF <- data.frame(Outcome = iterationList[[k]]$Outcome,
+                                 D1 = iterationList[[k]]$delta1, 
+                                 D2 = iterationList[[k]]$delta2)
+      
+      iterationList[[k]]$E1 <- mean(max(observedHRDF[observedHRDF$Outcome=="Efficacy",]$D1), min(observedHRDF[observedHRDF$Outcome!="Efficacy",]$D1))
+      iterationList[[k]]$F1 <- mean(min(observedHRDF[observedHRDF$Outcome=="Futility",]$D1), max(observedHRDF[observedHRDF$Outcome!="Futility",]$D1))
+      iterationList[[k]]$E2 <- mean(max(observedHRDF[observedHRDF$Outcome %in% c("Successful"),]$D2), min(observedHRDF[observedHRDF$Outcome %in% c("Unsuccessful"),]$D2))
+      
+    }
+    
+    y <<- iterationList
+    
+    boundaryDF <- data.frame(IF = c(y[[1]]$IF[1],y[[1]]$IF), 
+                             observedHR = c(y[[1]]$E1, y[[1]]$F1, y[[1]]$E2))
+    
+    plot_ly(boundaryDF)
     
     
     correctlyStop <- rep(NA, length(IAVec))
@@ -1820,10 +1843,8 @@ server <- function(input, output, session) {
     
   })
   
-  observeEvent(input$calcBayesian, {
-    
-    shinyjs::show("checkBayesian")
-    
+  
+  bayesianFunc <- reactive({
     
     #Parallel: # Set up parallel processing
     cl <- makeCluster(detectCores())  # Use all available cores
@@ -1833,6 +1854,8 @@ server <- function(input, output, session) {
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
+    
+    
     
     # Extract required input values
     ratioControl <- input$ratioControl
@@ -1884,11 +1907,21 @@ server <- function(input, output, session) {
                          propEffect = unlist(BPPVec[seq(3, length(BPPVec), by = 3)]))
     
     
+    return(list(BPPVec = BPPVec))
+    
+  })
+  
+  observeEvent(input$calcBayesian, {
+    
+    shinyjs::show("checkBayesian")
+    
+    
+    BPPVec <- bayesianFunc()
     
     output$BayesianPlot <- renderPlot({
       
       # Plotting histogram colored by ColorVar
-      ggplot(BPPVec, aes(x = BPP, fill = Success)) +
+      ggplot(BPPVec$BPPVec, aes(x = BPP, fill = Success)) +
         geom_histogram(position = "identity", alpha = 0.5) +
         scale_x_continuous(limits = c(0, 1)) + xlab("Bayesian Predictive Probability")
       
@@ -1899,7 +1932,7 @@ server <- function(input, output, session) {
     output$BayesianEffPlot <- renderPlot({
       
       # Plotting histogram colored by ColorVar
-      ggplot(BPPVec, aes(x = propEffect, fill = Success)) +
+      ggplot(BPPVec$BPPVec, aes(x = propEffect, fill = Success)) +
         geom_histogram(position = "identity", alpha = 0.5) +
         scale_x_continuous(limits = c(0, 1)) + xlab("Proportion less than target effect")
       
@@ -1907,7 +1940,7 @@ server <- function(input, output, session) {
     
     output$BayesianBPPvTE <- renderPlot({
       
-      plot(BPPVec$BPP, BPPVec$propEffect, xlim = c(0,1), ylim = c(0,1),
+      plot(BPPVec$BPPVec$BPP, BPPVec$BPPVec$propEffect, xlim = c(0,1), ylim = c(0,1),
            xlab = "Bayesian Predictive Probability", ylab = "Proportion less than target effect")
       abline(a = 0, b = 1, lty = 2)
       
@@ -2038,7 +2071,8 @@ server <- function(input, output, session) {
         
         params <- c(params,
                     list(checkBayesianOptionsTables = input$checkBayesianOptionsTables,
-                         checkBayesianOptionsPlots = input$checkBayesianOptionsPlots))
+                         checkBayesianOptionsPlots = input$checkBayesianOptionsPlots,
+                         BPPVec = bayesianFunc()))
         
       }
       

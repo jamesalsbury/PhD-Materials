@@ -298,7 +298,8 @@ computeCox <- function(data, events) {
   SS <- censDF$SS
   Duration <- censDF$censTime
   ZScore <- -(coef(summary(coxmodel))[, 4])
-  list(SS = SS, Duration = Duration, ZScore = ZScore)
+  delta <- as.numeric(exp(coef(coxmodel)))
+  list(SS = SS, Duration = Duration, ZScore = ZScore, delta = delta)
 }
 
 GSDOneIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
@@ -316,7 +317,8 @@ GSDOneIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
   SS <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$SS, IA2$SS)
   Duration <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$Duration, IA2$Duration)
   
-  return(list(Outcome = Outcome, SS = SS, Duration = Duration, IA1Time = IA1$Duration))
+  return(list(Outcome = Outcome, SS = SS, Duration = Duration, 
+              IA1Time = IA1$Duration, delta1 = IA1$delta, delta2 = IA2$delta))
 }
 
 GSDTwoIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
