@@ -142,6 +142,9 @@ ui <- fluidPage(
                               plotlyOutput("oneLookBoundaries"),
                               br(), br(),
                               br(), br(),
+                              plotlyOutput("oneLookObservedHRBoundaries"),
+                              br(), br(),
+                              br(), br(),
                               plotlyOutput("oneLookPlotDuration"),
                               br(), br(),
                               br(), br(),
@@ -788,12 +791,6 @@ server <- function(input, output, session) {
       
     }
     
-    y <<- iterationList
-    
-    boundaryDF <- data.frame(IF = c(y[[1]]$IF[1],y[[1]]$IF), 
-                             observedHR = c(y[[1]]$E1, y[[1]]$F1, y[[1]]$E2))
-    
-    plot_ly(boundaryDF)
     
     
     correctlyStop <- rep(NA, length(IAVec))
@@ -904,7 +901,9 @@ server <- function(input, output, session) {
     FinalAss <- as.data.frame(FinalAss)
     colnames(FinalAss) <- c("Assurance", "Duration", "Sample Size")
     
-    return(list(IADFOneLook = IADFOneLook, FinalAss = FinalAss))
+    return(list(IADFOneLook = IADFOneLook, FinalAss = FinalAss, 
+                iterationList = iterationList))
+                
     
   })
   
@@ -935,6 +934,50 @@ server <- function(input, output, session) {
     output$noIATableOneLook <- renderTable({
       oneLookoutput$FinalAss
     }, digits = 3)
+    
+    
+    
+    output$oneLookObservedHRBoundaries <- renderPlotly({
+      
+      seqChosen <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
+      
+      whichChosen <- which(seqChosen==as.numeric(input$oneLookBoundaryIA))
+    
+    
+      boundaryDFEff <- data.frame(IF = oneLookoutput$iterationList[[whichChosen]]$IF, 
+                                  observedHR = c(oneLookoutput$iterationList[[whichChosen]]$E1, oneLookoutput$iterationList[[whichChosen]]$E2))
+      
+      boundaryDFFut <- data.frame(IF = oneLookoutput$iterationList[[whichChosen]]$IF, 
+                                  observedHR = c(oneLookoutput$iterationList[[whichChosen]]$F1, oneLookoutput$iterationList[[whichChosen]]$E2))
+      
+      # Calculate dynamic y-axis limits
+      all_observedHR <- c(boundaryDFEff$observedHR, boundaryDFFut$observedHR)
+      ylim <- range(all_observedHR)
+      
+      # Extend the limits by 10% on each side
+      buffer <- 0.1 * (ylim[2] - ylim[1])
+      extended_ylim <- c(ylim[1] - buffer, ylim[2] + buffer)
+      
+      # Create the plot using plotly
+      p <- plot_ly() %>%
+        add_trace(data = boundaryDFEff, x = ~IF, y = ~observedHR, type = 'scatter', mode = 'lines+markers',
+                  line = list(color = 'red', width = 3),
+                  marker = list(color = 'red', size = 10, symbol = 'circle'),
+                  name = "Critical value") %>%
+        add_trace(data = boundaryDFFut, x = ~IF, y = ~observedHR, type = 'scatter', mode = 'lines+markers',
+                  line = list(color = 'blue', width = 3),
+                  marker = list(color = 'blue', size = 10, symbol = 'circle'),
+                  name = "Futility bound") %>%
+        layout(yaxis = list(range = extended_ylim, title = "Observed HR"),
+               title = "Boundaries",
+               xaxis = list(title = "Information Fraction"))
+               
+      
+      # Show the plot
+      p
+      
+      
+    })
     
     
     output$oneLookPlotDuration <- renderPlotly({
