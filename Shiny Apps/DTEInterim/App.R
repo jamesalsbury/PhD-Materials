@@ -207,6 +207,9 @@ ui <- fluidPage(
                               plotlyOutput("twoLooksBoundaries"),
                               br(), br(),
                               br(), br(),
+                              plotlyOutput("twoLooksObservedHRBoundaries"),
+                              br(), br(),
+                              br(), br(),
                               plotlyOutput("twoLooksPlotDuration"),
                               br(), br(),
                               br(), br(),
@@ -394,8 +397,7 @@ server <- function(input, output, session) {
       updateCheckboxInput(session, "checkTwoLooks", value = F)
       updateCheckboxInput(session, "checkBayesian", value = F)
       
-      
-      
+
     }
   })
   
@@ -419,11 +421,6 @@ server <- function(input, output, session) {
     
     iterationList <- vector("list", length = 10)
     
-    # numPatients <- 680
-    # numEvents <- 512
-    # ratioControl <- 3
-    # ratioTreatment <- 4
-    
     controlSS <- round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment))
     treatmentSS <- round(input$ratioTreatment*input$numPatients/(input$ratioControl+input$ratioTreatment))
     
@@ -432,9 +429,6 @@ server <- function(input, output, session) {
     treatmentSSVec <- round(treatmentSS*nEventsVec/input$numEvents)
     totalSSVec <- controlSSVec + treatmentSSVec
 
-    # nEventsVec <- ceiling(seq(30, 1000, length = length(iterationList)))
-    # SSVec <- ceiling(((input$numPatients)/input$numEvents)*nEventsVec)
-    # 
     
     for (i in 1:length(iterationList)){
       iterationList[[i]]$SampleSizeControl <- controlSSVec[i]
@@ -450,10 +444,18 @@ server <- function(input, output, session) {
         
         for (j in 1:NRep){
           
-          #Compute treatment times
-          HRStar <- sample(treatmentSamplesDF[,2], 1)
-          bigT <- sample(treatmentSamplesDF[,1], 1)
           
+          u <- runif(1)
+          if (u > reactValues$treatmentSamplesDF$P_S) {
+            HRStar <- 1
+            bigT <- 0
+          } else {
+            HRStar <- sample(treatmentSamplesDF[, 2], 1)
+            w <- runif(1)
+            bigT <- ifelse(w > reactValues$treatmentSamplesDF$P_DTE, 0, sample(treatmentSamplesDF[, 1], 1))
+          }
+          
+
           #Simulate control and treatment data
           dataCombined <- SimDTEDataSet(iterationList[[i]]$SampleSizeControl, iterationList[[i]]$SampleSizeTreatment, 
                                         reactValues$lambdac,
@@ -520,9 +522,15 @@ server <- function(input, output, session) {
     
     for (j in 1:NRep){
       
-      #Compute treatment times
-      HRStar <- sample(treatmentSamplesDF[,2], 1)
-      bigT <- sample(treatmentSamplesDF[,1], 1)
+      u <- runif(1)
+      if (u > reactValues$treatmentSamplesDF$P_S) {
+        HRStar <- 1
+        bigT <- 0
+      } else {
+        HRStar <- sample(treatmentSamplesDF[, 2], 1)
+        w <- runif(1)
+        bigT <- ifelse(w > reactValues$treatmentSamplesDF$P_DTE, 0, sample(treatmentSamplesDF[, 1], 1))
+      }
       
       #Simulate control and treatment data
       dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
@@ -734,9 +742,15 @@ server <- function(input, output, session) {
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
         
-        #Compute treatment times
-        HRStar <- sample(treatmentSamplesDF[,2], 1)
-        bigT <- sample(treatmentSamplesDF[,1], 1)
+        u <- runif(1)
+        if (u > reactValues$treatmentSamplesDF$P_S) {
+          HRStar <- 1
+          bigT <- 0
+        } else {
+          HRStar <- sample(treatmentSamplesDF[, 2], 1)
+          w <- runif(1)
+          bigT <- ifelse(w > reactValues$treatmentSamplesDF$P_DTE, 0, sample(treatmentSamplesDF[, 1], 1))
+        }
         
         #Simulate control and treatment data
         dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
@@ -1518,7 +1532,7 @@ server <- function(input, output, session) {
   twoLooksFunc <- reactive({
     
     
-    NRep <- 20
+    NRep <- 200
     TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
     TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
     
@@ -1571,9 +1585,15 @@ server <- function(input, output, session) {
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
         
-        #Compute treatment times
-        HRStar <- sample(treatmentSamplesDF[,2], 1)
-        bigT <- sample(treatmentSamplesDF[,1], 1)
+        u <- runif(1)
+        if (u > reactValues$treatmentSamplesDF$P_S) {
+          HRStar <- 1
+          bigT <- 0
+        } else {
+          HRStar <- sample(treatmentSamplesDF[, 2], 1)
+          w <- runif(1)
+          bigT <- ifelse(w > reactValues$treatmentSamplesDF$P_DTE, 0, sample(treatmentSamplesDF[, 1], 1))
+        }
         
         #Simulate control and treatment data
         dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
@@ -1611,12 +1631,40 @@ server <- function(input, output, session) {
           iterationList[[k]]$StopEff[i] <- ifelse(GSDOC$Outcome %in% c("Efficacy1", "Efficacy2"), 1, 0)
           iterationList[[k]]$StopFut[i] <- ifelse(GSDOC$Outcome %in% c("Futility1", "Futility2"), 1, 0)
           iterationList[[k]]$Truth[i] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
+          iterationList[[k]]$delta1[i] <- GSDOC$delta1
+          iterationList[[k]]$delta2[i] <- GSDOC$delta2
+          iterationList[[k]]$delta3[i] <- GSDOC$delta3
+          
         }
         
         incProgress(1/NRep)
       }
       
     })
+    
+
+    
+    for (k in 1:length(iterationList)){
+      
+      observedHRDF <- data.frame(Outcome = iterationList[[1]]$Outcome,
+                                 D1 = iterationList[[1]]$delta1, 
+                                 D2 = iterationList[[1]]$delta2,
+                                 D3 = iterationList[[1]]$delta3)
+      
+      StopLook1DF <- observedHRDF[observedHRDF$Outcome %in% c("Efficacy1", "Futility1"), ]
+
+      StopLook2DF <- observedHRDF[observedHRDF$Outcome %in% c("Efficacy2", "Futility2"), ]
+      
+    
+      
+      iterationList[[k]]$E1 <- mean(max(StopLook1DF[StopLook1DF$Outcome=="Efficacy1",]$D1), min(StopLook1DF[StopLook1DF$Outcome!="Efficacy1",]$D1))
+      iterationList[[k]]$F1 <- mean(min(StopLook1DF[StopLook1DF$Outcome=="Futility1",]$D1), max(StopLook1DF[StopLook1DF$Outcome!="Futility1",]$D1))
+      iterationList[[k]]$E2 <- mean(max(StopLook2DF[StopLook2DF$Outcome=="Efficacy2",]$D2), min(StopLook2DF[StopLook2DF$Outcome!="Efficacy2",]$D2))
+      iterationList[[k]]$F2 <- mean(min(StopLook2DF[StopLook2DF$Outcome=="Futility2",]$D2), max(StopLook2DF[StopLook2DF$Outcome!="Futility2",]$D2))
+      iterationList[[k]]$E3 <- mean(max(observedHRDF[observedHRDF$Outcome %in% c("Successful"),]$D3), min(observedHRDF[observedHRDF$Outcome %in% c("Unsuccessful"),]$D3))
+      
+      #print(iterationList)
+    }
     
     
     reactValues$iterationList <- iterationList
@@ -1712,7 +1760,8 @@ server <- function(input, output, session) {
                                 "Correctly Stop for Futility at Look 1", "Correctly Stop for Futility at Look 2",
                                 "Correctly Continue", "Correctly Continue at Look 1", "Correctly Continue at Look 2")
     
-    return(list(IADFTwoLooks = IADFTwoLooks, FinalProposedDF = FinalProposedDF, FinalAss = FinalAss))
+    return(list(IADFTwoLooks = IADFTwoLooks, FinalProposedDF = FinalProposedDF, FinalAss = FinalAss,
+                iterationList = iterationList))
     
     
   })
@@ -1742,7 +1791,61 @@ server <- function(input, output, session) {
     twoLooksOutput <- twoLooksFunc()
     
     
-    
+    output$twoLooksObservedHRBoundaries <- renderPlotly({
+
+      
+      TwoLooksSeq1 <- seq(input$TwoLooksLB1, input$TwoLooksUB1, by = input$TwoLooksBy1)
+      TwoLooksSeq2 <- seq(input$TwoLooksLB2, input$TwoLooksUB2, by = input$TwoLooksBy2)
+      
+      # Create a data frame of all combinations of TwoLooksSeq1 and TwoLooksSeq2
+      combinations <- expand.grid(TwoLooksSeq1, TwoLooksSeq2)
+      
+      # Filter the combinations where the first element is less than the second
+      valid_combinations <- combinations[combinations$Var1 < combinations$Var2, ]
+      
+      # Convert the valid combinations into the desired format
+      seqChosen <- apply(valid_combinations, 1, function(x) paste(x, collapse = ", "))
+      
+      whichChosen <- which(seqChosen==input$twoLooksBoundaryIA)
+      
+      boundaryDFEff <- data.frame(IF = twoLooksOutput$iterationList[[whichChosen]]$IF, 
+                                  observedHR = c(twoLooksOutput$iterationList[[whichChosen]]$E1, 
+                                                 twoLooksOutput$iterationList[[whichChosen]]$E2,
+                                                 twoLooksOutput$iterationList[[whichChosen]]$E3))
+      
+      boundaryDFFut <- data.frame(IF = twoLooksOutput$iterationList[[whichChosen]]$IF, 
+                                  observedHR = c(twoLooksOutput$iterationList[[whichChosen]]$F1,
+                                                 twoLooksOutput$iterationList[[whichChosen]]$F2,
+                                                 twoLooksOutput$iterationList[[whichChosen]]$E3))
+      
+      # Calculate dynamic y-axis limits
+      all_observedHR <- c(boundaryDFEff$observedHR, boundaryDFFut$observedHR)
+      ylim <- range(all_observedHR)
+      
+      # Extend the limits by 10% on each side
+      buffer <- 0.1 * (ylim[2] - ylim[1])
+      extended_ylim <- c(ylim[1] - buffer, ylim[2] + buffer)
+      
+      # Create the plot using plotly
+      p <- plot_ly() %>%
+        add_trace(data = boundaryDFEff, x = ~IF, y = ~observedHR, type = 'scatter', mode = 'lines+markers',
+                  line = list(color = 'red', width = 3),
+                  marker = list(color = 'red', size = 10, symbol = 'circle'),
+                  name = "Critical value") %>%
+        add_trace(data = boundaryDFFut, x = ~IF, y = ~observedHR, type = 'scatter', mode = 'lines+markers',
+                  line = list(color = 'blue', width = 3),
+                  marker = list(color = 'blue', size = 10, symbol = 'circle'),
+                  name = "Futility bound") %>%
+        layout(yaxis = list(range = extended_ylim, title = "Observed HR"),
+               title = "Boundaries",
+               xaxis = list(title = "Information Fraction"))
+      
+      
+      # Show the plot
+      p
+      
+
+    })
     
     output$IATableTwoLooks <- renderDT({
       
@@ -1909,6 +2012,8 @@ server <- function(input, output, session) {
     numEvents <- input$numEvents
     IFBayesian <- input$IFBayesian
     tEffBayesian <- input$tEffBayesian
+    P_S <-  reactValues$treatmentSamplesDF$P_S
+    P_DTE <- reactValues$treatmentSamplesDF$P_DTE
     
     treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
@@ -1916,9 +2021,15 @@ server <- function(input, output, session) {
     BPPVec <- foreach(i = 1:NRep, .combine = c, .export = c("SimDTEDataSet", "CensFunc", "BPPFunc"),
                       .packages = c("survival", "rjags", "dplyr")) %dopar% {
                         
-                        # Compute treatment times
-                        HRStar <- sample(treatmentSamplesDF[,2], 1)
-                        bigT <- sample(treatmentSamplesDF[,1], 1)
+                        u <- runif(1)
+                        if (u > P_S) {
+                          HRStar <- 1
+                          bigT <- 0
+                        } else {
+                          HRStar <- sample(treatmentSamplesDF[, 2], 1)
+                          w <- runif(1)
+                          bigT <- ifelse(w > P_DTE, 0, sample(treatmentSamplesDF[, 1], 1))
+                        }
                         
                         # Simulate control and treatment data
                         
