@@ -149,7 +149,6 @@ ui <- fluidPage(
                               br(), br(),
                               br(), br(),
                               plotlyOutput("oneLookPlotSS")),
-                     
                    ),
                    
                  )
@@ -219,7 +218,6 @@ ui <- fluidPage(
                  )
                )
       ),
-      
       
       # Bayesian UI ---------------------------------
       
@@ -368,7 +366,6 @@ server <- function(input, output, session) {
       # Read the uploaded file into treatmentSamplesDF
       reactValues$treatmentSamplesDF <-  readRDS(inFile$datapath)
       
-      
       output$TDist <- renderPlot({
           SHELF::plotfit(reactValues$treatmentSamplesDF$fit1, d = reactValues$treatmentSamplesDF$d[1], xlab = "Length of Delay")
       })
@@ -397,7 +394,6 @@ server <- function(input, output, session) {
       updateCheckboxInput(session, "checkTwoLooks", value = F)
       updateCheckboxInput(session, "checkBayesian", value = F)
       
-
     }
   })
   
@@ -443,7 +439,6 @@ server <- function(input, output, session) {
                                                   cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
         
         for (j in 1:NRep){
-          
           
           u <- runif(1)
           if (u > reactValues$treatmentSamplesDF$P_S) {
@@ -511,7 +506,6 @@ server <- function(input, output, session) {
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
-    
     treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
     
@@ -549,8 +543,6 @@ server <- function(input, output, session) {
       SSVec[j] <- finalDF$SS
       
     }
-    
-    
     
     myDF <- data.frame(Power = mean(PowerVec), Duration = mean(DurationVec), SampleSize = mean(SSVec))
     
@@ -596,10 +588,7 @@ server <- function(input, output, session) {
     
   })
   
-  
-  
   # One Look Logic ---------------------------------
-  
   
   observe({
     if (!is.null(reactValues$treatmentSamplesDF)&reactValues$errorSeqOneLook==F) {
@@ -646,8 +635,6 @@ server <- function(input, output, session) {
     
   })
   
-  
-  
   output$OneLookText <- renderText({
     if (reactValues$errorSeqOneLook == TRUE) {
       return("")
@@ -657,7 +644,6 @@ server <- function(input, output, session) {
     value <- paste0("We perform IA1 at: ", paste(OneLookSeq, collapse = ", "))
     return(value)
   })
-  
   
   output$spendingOneLook <- renderRHandsontable({
     initial_data <- data.frame(
@@ -689,24 +675,53 @@ server <- function(input, output, session) {
                                          typeBetaSpending = "bsUser",
                                          userBetaSpending = as.numeric(values[,3]))
       
+     # x<<- design
+      
       output$oneLookBoundaries <- renderPlotly({
-        plot(design)
+        
+
+        boundaryDFEff <- data.frame(IF = c(as.numeric(input$oneLookBoundaryIA), 1), 
+                                    zStat = design$criticalValues)
+        
+        boundaryDFFut <- data.frame(IF = c(as.numeric(input$oneLookBoundaryIA), 1), 
+                                     zStat = c(design$futilityBounds, design$criticalValues[2]))
+
+        # Calculate dynamic y-axis limits
+        all_zStat <- c(boundaryDFEff$zStat, boundaryDFFut$zStat)
+        ylim <- range(all_zStat)
+
+        # Extend the limits by 10% on each side
+        buffer <- 0.1 * (ylim[2] - ylim[1])
+        extended_ylim <- c(ylim[1] - buffer, ylim[2] + buffer)
+
+        # Create the plot using plotly
+        p <- plot_ly() %>%
+          add_trace(data = boundaryDFEff, x = ~IF, y = ~zStat, type = 'scatter', mode = 'lines+markers',
+                    line = list(color = 'red', width = 3),
+                    marker = list(color = 'red', size = 10, symbol = 'circle'),
+                    name = "Critical value") %>%
+          add_trace(data = boundaryDFFut, x = ~IF, y = ~zStat, type = 'scatter', mode = 'lines+markers',
+                    line = list(color = 'blue', width = 3),
+                    marker = list(color = 'blue', size = 10, symbol = 'circle'),
+                    name = "Futility bound") %>%
+          layout(yaxis = list(range = extended_ylim, title = "Futility Bound and Critical Value"),
+                 title = "Boundaries",
+                 xaxis = list(title = "Information Fraction"))
+
+
+        # Show the plot
+        p
+
       })
     } 
     
     
   })
   
-  
-  
-  
-  
   oneLookFunc <- reactive({
     
     NRep <- 200
-    
     IAVec <- seq(input$OneLookLB, input$OneLookUB, by = input$OneLookBy)
-    
     iterationList <- vector("list", length = length(IAVec))
     
     noLooksDF <- data.frame(Power = numeric(NRep),
@@ -728,11 +743,9 @@ server <- function(input, output, session) {
       iterationList[[k]]$EffBounds <- design$criticalValues
       iterationList[[k]]$futBounds <- design$futilityBounds
       
-      
     }
     
-   # print(iterationList)
-    
+
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
     
@@ -1183,7 +1196,41 @@ server <- function(input, output, session) {
                                          userBetaSpending = as.numeric(values[,3]))
       
       output$twoLooksBoundaries <- renderPlotly({
-        plot(design)
+       
+        boundaryDFEff <- data.frame(IF = as.numeric(c(strsplit(input$twoLooksBoundaryIA, ", ")[[1]], 1)),
+                                    zStat = design$criticalValues)
+        
+        boundaryDFFut <- data.frame(IF = as.numeric(c(strsplit(input$twoLooksBoundaryIA, ", ")[[1]], 1)),  
+                                    zStat = c(design$futilityBounds, design$criticalValues[3]))
+        
+        # Calculate dynamic y-axis limits
+        all_zStat <- c(boundaryDFEff$zStat, boundaryDFFut$zStat)
+        ylim <- range(all_zStat)
+        
+        # Extend the limits by 10% on each side
+        buffer <- 0.1 * (ylim[2] - ylim[1])
+        extended_ylim <- c(ylim[1] - buffer, ylim[2] + buffer)
+        
+        # Create the plot using plotly
+        p <- plot_ly() %>%
+          add_trace(data = boundaryDFEff, x = ~IF, y = ~zStat, type = 'scatter', mode = 'lines+markers',
+                    line = list(color = 'red', width = 3),
+                    marker = list(color = 'red', size = 10, symbol = 'circle'),
+                    name = "Critical value") %>%
+          add_trace(data = boundaryDFFut, x = ~IF, y = ~zStat, type = 'scatter', mode = 'lines+markers',
+                    line = list(color = 'blue', width = 3),
+                    marker = list(color = 'blue', size = 10, symbol = 'circle'),
+                    name = "Futility bound") %>%
+          layout(yaxis = list(range = extended_ylim, title = "Futility Bound and Critical Value"),
+                 title = "Boundaries",
+                 xaxis = list(title = "Information Fraction"))
+        
+        
+        # Show the plot
+        p
+        
+        
+        
       })
     }
     
@@ -1663,9 +1710,7 @@ server <- function(input, output, session) {
       iterationList[[k]]$F2 <- mean(min(StopLook2DF[StopLook2DF$Outcome=="Futility2",]$D2), max(StopLook2DF[StopLook2DF$Outcome!="Futility2",]$D2))
       iterationList[[k]]$E3 <- mean(max(observedHRDF[observedHRDF$Outcome %in% c("Successful"),]$D3), min(observedHRDF[observedHRDF$Outcome %in% c("Unsuccessful"),]$D3))
       
-      #print(iterationList)
     }
-    
     
     reactValues$iterationList <- iterationList
     reactValues$TwoLooksSeq1 <- TwoLooksSeq1
@@ -1678,7 +1723,6 @@ server <- function(input, output, session) {
                                                                                  proposedDF$Look2SS, proposedDF$FinalLookSS))
     proposedDF$Duration <- ifelse(proposedDF$Look1Power==0, proposedDF$Look1Duration, ifelse(proposedDF$Look2Power==0, 
                                                                                              proposedDF$Look2Duration, proposedDF$FinalLookDuration))
-    
     
     
     
@@ -1844,7 +1888,6 @@ server <- function(input, output, session) {
       # Show the plot
       p
       
-
     })
     
     output$IATableTwoLooks <- renderDT({
@@ -2014,6 +2057,7 @@ server <- function(input, output, session) {
     tEffBayesian <- input$tEffBayesian
     P_S <-  reactValues$treatmentSamplesDF$P_S
     P_DTE <- reactValues$treatmentSamplesDF$P_DTE
+    elicitedDists <- reactValues$treatmentSamplesDF
     
     treatmentSamplesDF <- SHELF::copulaSample(reactValues$treatmentSamplesDF$fit1, reactValues$treatmentSamplesDF$fit2,
                                               cp = conc.probs, n = 1e4, d = reactValues$treatmentSamplesDF$d)
@@ -2037,9 +2081,7 @@ server <- function(input, output, session) {
                                                       round(ratioTreatment*numPatients/(ratioControl+ratioTreatment)), 
                                                       lambdac, bigT, HRStar, recTime)
                         
-                        
-                        #dataCombined <- SimDTEDataSet(numPatients, lambdac, bigT, HRStar, recTime)  
-                        
+
                         # Perform looks at different Information Fractions
                         finalDF <- CensFunc(dataCombined, numEvents)
                         
@@ -2047,7 +2089,7 @@ server <- function(input, output, session) {
                         coxmodel <- coxph(Surv(survival_time, status) ~ group, data = finalDF$dataCombined)
                         deltad <- as.numeric(exp(coef(coxmodel)))
                         
-                        BPPOutcome <- BPPFunc(dataCombined, numPatients, numEvents * IFBayesian, numEvents, recTime, tEffBayesian)
+                        BPPOutcome <- BPPFunc(dataCombined, numPatients, numEvents * IFBayesian, numEvents, recTime, tEffBayesian, elicitedDists)
                         
                         Success <- (test$chisq > qchisq(0.95, 1) & deltad<1)
                         
@@ -2069,7 +2111,6 @@ server <- function(input, output, session) {
     
     shinyjs::show("checkBayesian")
     
-    
     BPPVec <- bayesianFunc()
     
     output$BayesianPlot <- renderPlot({
@@ -2078,7 +2119,6 @@ server <- function(input, output, session) {
       ggplot(BPPVec$BPPVec, aes(x = BPP, fill = Success)) +
         geom_histogram(position = "identity", alpha = 0.5) +
         scale_x_continuous(limits = c(0, 1)) + xlab("Bayesian Predictive Probability")
-      
       
     })
     
@@ -2105,7 +2145,6 @@ server <- function(input, output, session) {
   
   
   # Report Logic ---------------------------------
-  
   
   observe({
     if (input$checkDesign){
@@ -2237,7 +2276,6 @@ server <- function(input, output, session) {
                         envir = new.env(parent = globalenv()))
     }
   )
-  
   
 }
 

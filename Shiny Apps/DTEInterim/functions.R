@@ -48,7 +48,7 @@ interimLookFunc <- function(dataCombined, observedHR){
   return(Outcome)
 }
 
-BPPFunc <- function(dataset, numPatients, numIAEvents, numFinalEvents, recTime, targetEff){
+BPPFunc <- function(dataset, numPatients, numIAEvents, numFinalEvents, recTime, targetEff, elicitedDists){
   
   BPPOutcome <- CensFunc(dataset, numIAEvents)
   
@@ -56,46 +56,76 @@ BPPFunc <- function(dataset, numPatients, numIAEvents, numFinalEvents, recTime, 
   
   dataCombined <- dataCombined[order(dataCombined$group), ]
   
+  #Choose the correct elicited distribution for bigT
+  if (elicitedDists$d[1] == "beta") {
+    distParambigT <- paste0("bigT2 ~ dbeta(", elicitedDists$fit1$Beta[1], ", ", elicitedDists$fit1$Beta[2], ")")
+  } else if (elicitedDists$d[1] == "gamma") {
+    distParambigT <- paste0("bigT2 ~ dgamma(", elicitedDists$fit1$Gamma[1], ", ", elicitedDists$fit1$Gamma[2], ")")
+  } else if (elicitedDists$d[1] == "lognormal") {
+    distParambigT <- paste0("bigT2 ~ dlnorm(", elicitedDists$fit1$Log.normal[1], ", ", 1/elicitedDists$fit1$Log.normal[2]^2, ")")
+  }
   
-  
+  #Choose the correct elicited distribution for HR*
+  if (elicitedDists$d[2] == "beta") {
+    distParamHR <- paste0("HR2 ~ dbeta(", elicitedDists$fit2$Beta[1], ", ", elicitedDists$fit2$Beta[2], ")")
+  } else if (elicitedDists$d[2] == "gamma") {
+    distParamHR <- paste0("HR2 ~ dgamma(", elicitedDists$fit2$Gamma[1], ", ", elicitedDists$fit2$Gamma[2], ")")
+  } else if (elicitedDists$d[2] == "lognormal") {
+    distParamHR <- paste0("HR2 ~ dlnorm(", elicitedDists$fit2$Log.normal[1], ", ", 1/elicitedDists$fit2$Log.normal[2]^2, ")")
+  } else if (elicitedDists$d[2] == "student-t") {
+    distParamHR <- paste0("HR2 ~ dt(", elicitedDists$fit2$Student.t[1], ", ", elicitedDists$fit2$Student.t[2], ", ", elicitedDists$fit2$Student.t[3], ")")
+  } else if (elicitedDists$d[2] == "normal") {
+    distParamHR <- paste0("HR2 ~ dnorm(", elicitedDists$fit2$Normal[1], ", ", 1/elicitedDists$fit2$Normal[2]^2, ")")
+  }
+
+
   #JAGS code which calculates posterior distributions
   
-  modelstring="
+  modelString <- paste0(
+    "data {\n",
+    "  for (j in 1:m){\n",
+    "    zeros[j] <- 0\n",
+    "  }\n",
+    "}\n",
+    "\n",
+    "model {\n",
+    "  C <- 10000\n",
+    "  for (i in 1:n){\n",
+    "    zeros[i] ~ dpois(zeros.mean[i])\n",
+    "    zeros.mean[i] <-  -l[i] + C\n",
+    "    l[i] <- ifelse(datEvent[i]==1, log(lambda2)-(lambda2*datTimes[i]), -(lambda2*datTimes[i]))\n",
+    "  }\n",
+    "  for (i in (n+1):m){\n",
+    "    zeros[i] ~ dpois(zeros.mean[i])\n",
+    "    zeros.mean[i] <-  -l[i] + C\n",
+    "    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(lambda2)-(lambda2*datTimes[i]), log(lambda1)-lambda1*(datTimes[i]-bigT)-(bigT*lambda2)),\n",
+    "      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i]), -(lambda2*bigT)-lambda1*(datTimes[i]-bigT)))\n",
+    "  }\n",
+    " \n",
+    "    lambda2 ~ dbeta(1, 1)T(0,)\n",
+    "   \n",
+    "    mixT ~ dbern(1-P_S*P_DTE)\n",
+    "    bigT <- mixT * bigT1 + (1-mixT) * bigT2\n",
+    "    bigT1 ~ dnorm(0, 100)\n",
+    "    ", distParambigT, "\n",
+    "   \n",
+    "    mixHR ~ dbern(1-P_S)\n",
+    "    HR <- mixHR * HR1 + (1-mixHR) * HR2\n",
+    "    HR1 ~ dnorm(1, 10000)\n",
+    "    ", distParamHR, "\n",
+    "   \n",
+    "    lambda1 <- lambda2*HR\n",
+    "}"
+  )
 
-data {
-  for (j in 1:m){
-    zeros[j] <- 0
-  }
-}
-
-model {
-  C <- 10000
-  for (i in 1:n){
-    zeros[i] ~ dpois(zeros.mean[i])
-    zeros.mean[i] <-  -l[i] + C
-    l[i] <- ifelse(datEvent[i]==1, log(lambda2)-(lambda2*datTimes[i]), -(lambda2*datTimes[i]))
-  }
-  for (i in (n+1):m){                                                                                                             
-    zeros[i] ~ dpois(zeros.mean[i])
-    zeros.mean[i] <-  -l[i] + C
-    l[i] <- ifelse(datEvent[i]==1, ifelse(datTimes[i]<bigT, log(lambda2)-(lambda2*datTimes[i]), log(lambda1)-lambda1*(datTimes[i]-bigT)-(bigT*lambda2)), 
-      ifelse(datTimes[i]<bigT, -(lambda2*datTimes[i]), -(lambda2*bigT)-lambda1*(datTimes[i]-bigT)))
-  }
-  
-    lambda2 ~ dbeta(1, 1)T(0,)
-    HR ~ dnorm(0.75, 1)T(0,)
-    bigT ~ dnorm(3, 1)T(0,)
-    lambda1 <- lambda2*HR
-    
-}
-    "
-
-model = jags.model(textConnection(modelstring), data = list(datTimes = dataCombined$survival_time, 
+model = jags.model(textConnection(modelString), data = list(datTimes = dataCombined$survival_time, 
                                                             datEvent = dataCombined$status, n = sum(dataCombined$group=="Control"), 
-                                                            m=nrow(dataCombined)), quiet = T) 
+                                                            m=nrow(dataCombined),
+                                                            P_S = elicitedDists$P_S,
+                                                            P_DTE = elicitedDists$P_DTE), quiet = T) 
 
 update(model, n.iter=50, progress.bar = "none")
-output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 150, progress.bar = "none")
+output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 100, progress.bar = "none")
 
 
 #The number of unenrolled patients in each group
