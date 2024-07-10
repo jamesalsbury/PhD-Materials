@@ -267,23 +267,54 @@ return(list(BPP = mean(BPPVec), BPPSS = nrow(dataCombined), BPPCensTime = BPPOut
 
 proposedRuleFunc <- function(dataCombined, numEventsRequired, monthsDelay, propEvents){
   
-  
+  # Sorting the pseudoTime
   sortedPseudoTimes <- sort(dataCombined$pseudoTime)
-  propVec <- numeric(numEventsRequired)
-  cutoff_index <- ceiling(numEventsRequired/2)
   
-  for (k in cutoff_index:numEventsRequired){
+  # Initialize the proportion vector
+  propVec <- numeric(numEventsRequired)
+  
+  # Calculate cutoff index
+  cutoff_index <- ceiling(numEventsRequired / 2)
+  
+  # Loop through from cutoff_index to numEventsRequired
+  for (k in cutoff_index:numEventsRequired) {
     censTime <- sortedPseudoTimes[k]
+    
+    # Calculate the status for the entire dataset
     status <- as.integer(dataCombined$pseudoTime <= censTime)
+    
+    # Filter data based on recTime <= censTime
     filteredData <- dataCombined[dataCombined$recTime <= censTime, ]
+    
+    # Ensure status and filteredData are appropriately handled
     survival_time <- ifelse(status == 1, filteredData$time, censTime - filteredData$recTime)
-    propVec[k] <- mean(survival_time[status==1]>monthsDelay)
+    
+    # Ensure that survival_time is calculated correctly
+    propVec[k] <- mean(survival_time[status == 1] > monthsDelay)
   }
   
-  propVec[1:(cutoff_index-1)] <- 0
+  # Determine Stop1 and Stop2
+  if (sum(propVec > propEvents) == 0) {
+    Stop1 <- numEventsRequired
+    Stop2 <- numEventsRequired
+  } else {
+    firstTrueIndex <- which(propVec > propEvents)[1]
+    Stop1 <- max(ceiling(numEventsRequired * 0.5), firstTrueIndex)
+    Stop2 <- max(ceiling(numEventsRequired * 0.75), firstTrueIndex)
+  }
+  # sortedPseudoTimes <- sort(dataCombined$pseudoTime)
+  # propVec <- numeric(numEventsRequired)
+  # cutoff_index <- ceiling(numEventsRequired/2)
+  # 
+  # for (k in cutoff_index:numEventsRequired){
+  #   censTime <- sortedPseudoTimes[k]
+  #   status <- as.integer(dataCombined$pseudoTime <= censTime)
+  #   filteredData <- dataCombined[dataCombined$recTime <= censTime, ]
+  #   survival_time <- ifelse(status == 1, filteredData$time, censTime - filteredData$recTime)
+  #   propVec[k] <- mean(survival_time[status==1]>monthsDelay)
+  # }
+  # 
   
-  Stop1 <- max(numEventsRequired*0.5, which.min(propVec<propEvents))
-  Stop2 <- max(numEventsRequired*0.75, which.min(propVec<propEvents))
   
   
   Prop1Outcome <- 1

@@ -1295,9 +1295,6 @@ server <- function(input, output, session) {
       }
     }
     
-    
-    
-    
     myCount <- 1
     
     for (j in 1:length(TwoLooksSeq1)){

@@ -354,7 +354,7 @@ dev.off()
 
 
 # Calculating the control distribution (through MCMC) for the example ----------------------------------------------------------------
-png("ExampleCombinedControl.png", units="in", width=8, height=5, res=700)
+#png("ExampleCombinedControl.png", units="in", width=8, height=5, res=700)
 
 Herbst <- read.csv(file = "Papers/DTEPaper/data/Herbst/Doce2.csv")
 kmfit1 <- survfit(Surv(Survival.time, Status)~1, data = Herbst)
@@ -369,7 +369,7 @@ kmfit3 <- survfit(Surv(Survival.time, Status)~1, data = Kim)
 lines(kmfit3, col = "yellow", conf.int = F)
 
 legend("topright", legend = c("ZODIAC", "REVEL", "INTEREST"), lty = 1, col = c("blue", "red", "yellow"))
-dev.off()
+#dev.off()
 combinedDoce <- rbind(Herbst, Garon, Kim)
 
 kmfit4 <- survfit(Surv(Survival.time, Status)~1, data = combinedDoce)
