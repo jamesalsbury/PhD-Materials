@@ -177,6 +177,7 @@ ui <- fluidPage(
                    #selectInput("sidedTwoLooks", "Test", choices = c("One-sided", "Two-sided"), selected = "One-sided"),
                    wellPanel(
                      rHandsontableOutput("spendingTwoLooks")),
+                   numericInput("KFMonths", label = "KF rule", value = 3),
                    actionButton("calcTwoLooks", label  = "Calculate", disabled = T)
                  ), 
                  mainPanel = mainPanel(
@@ -410,7 +411,7 @@ server <- function(input, output, session) {
   
   noLookFuncPlot <- reactive({
     
-    NRep <- 300
+    NRep <- 500
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
@@ -501,7 +502,7 @@ server <- function(input, output, session) {
   
   noLookFuncSS <- reactive({
     
-    NRep <- 300
+    NRep <- 500
     
     conc.probs <- matrix(0, 2, 2)
     conc.probs[1, 2] <- 0.5
