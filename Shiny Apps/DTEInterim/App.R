@@ -201,7 +201,9 @@ ui <- fluidPage(
                               hidden(uiOutput("finalAssTable2LooksText")),
                               tableOutput("noIATableTwoLooks"),
                               hidden(uiOutput("proposedTable2LooksText")),
-                              tableOutput("proposedTableTwoLooks")),
+                              tableOutput("proposedTableTwoLooks"),
+                              hidden(uiOutput("wieandTable2LooksText")),
+                              tableOutput("wieandTableTwoLooks")),
                      tabPanel("Plots",
                               selectInput("twoLooksBoundaryIA", "Choose the IFs (to view)", choices = NULL),
                               plotlyOutput("twoLooksBoundaries"),
@@ -1570,7 +1572,6 @@ server <- function(input, output, session) {
                 correctlyContinueDF = correctlyContinueDF, correctlyContinueLook1DF = correctlyContinueLook1DF,
                 correctlyContinueLook2DF = correctlyContinueLook2DF))
     
-    
   }
   
 
@@ -1627,6 +1628,13 @@ server <- function(input, output, session) {
                               "Look1SS", "Look2SS", "FinalLookSS",
                               "Look1Duration", "Look2Duration", "FinalLookDuration")
     
+    WieandDF <- data.frame(matrix(NA, ncol = 9, nrow = NRep))
+    
+    colnames(WieandDF) <- c("Look1Power", "Look2Power", "FinalLookPower", 
+                              "Look1SS", "Look2SS", "FinalLookSS",
+                              "Look1Duration", "Look2Duration", "FinalLookDuration")
+    
+    
     withProgress(message = 'Calculating', value = 0, {
       for (i in 1:NRep){
         
@@ -1643,9 +1651,12 @@ server <- function(input, output, session) {
         #Simulate control and treatment data
         dataCombined <- SimDTEDataSet(round(input$ratioControl*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
                                       round(input$ratioTreatment*input$numPatients/(input$ratioControl+input$ratioTreatment)), 
-                                      reactValues$lambdac, bigT, HRStar, input$recTime)        
+                                      reactValues$lambdac, bigT, HRStar, input$recTime)
+        
         #Do the proposed rule on this data set
-        proposedDF[i,] <- proposedRuleFunc(dataCombined, input$numEvents, 3, 2/3) 
+        proposedDF[i,] <- proposedRuleFunc(dataCombined, input$numEvents, input$KFMonths, 2/3) 
+        
+        WieandDF[i,] <- WieandRuleFunc(dataCombined, input$numEvents)
         
         
         #Perform looks at different Information Fractions
@@ -1723,6 +1734,15 @@ server <- function(input, output, session) {
                                                                                              proposedDF$Look2Duration, proposedDF$FinalLookDuration))
     
     
+    #Do Wieand rule logic
+    WieandDF$power <- WieandDF$Look1Power*WieandDF$Look2Power*WieandDF$FinalLookPower
+    WieandDF$SS <- ifelse(WieandDF$Look1Power==0, WieandDF$Look1SS, ifelse(WieandDF$Look2Power==0, 
+                                                                           WieandDF$Look2SS, WieandDF$FinalLookSS))
+    WieandDF$Duration <- ifelse(WieandDF$Look1Power==0, WieandDF$Look1Duration, ifelse(WieandDF$Look2Power==0, 
+                                                                                       WieandDF$Look2Duration, WieandDF$FinalLookDuration))
+    
+    
+    
     
     #Making the proposed DF correctly
     FinalProposedDF <- data.frame(Assurance = mean(proposedDF$power),
@@ -1730,6 +1750,13 @@ server <- function(input, output, session) {
                                   SS = mean(proposedDF$SS))
     
     colnames(FinalProposedDF) <- c("Assurance", "Duration", "Sample Size")
+    
+    #Making the Wieand DF correctly
+    FinalWieandDF <- data.frame(Assurance = mean(WieandDF$power),
+                                  Duration = mean(WieandDF$Duration),
+                                  SS = mean(WieandDF$SS))
+    
+    colnames(FinalWieandDF) <- c("Assurance", "Duration", "Sample Size")
     
     
     FinalAss <- t(colMeans(noLooksDF))
@@ -1803,7 +1830,7 @@ server <- function(input, output, session) {
                                 "Correctly Continue", "Correctly Continue at Look 1", "Correctly Continue at Look 2")
     
     return(list(IADFTwoLooks = IADFTwoLooks, FinalProposedDF = FinalProposedDF, FinalAss = FinalAss,
-                iterationList = iterationList))
+                iterationList = iterationList, FinalWieandDF = FinalWieandDF))
     
     
   })
@@ -1912,6 +1939,13 @@ server <- function(input, output, session) {
       twoLooksOutput$FinalProposedDF
       
     }, digits = 3)
+    
+    output$wieandTableTwoLooks <- renderTable({
+      
+      twoLooksOutput$FinalWieandDF
+      
+    }, digits = 3)
+    
     
     
     
