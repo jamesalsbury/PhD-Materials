@@ -397,6 +397,9 @@ server <- function(input, output, session) {
       updateCheckboxInput(session, "checkTwoLooks", value = F)
       updateCheckboxInput(session, "checkBayesian", value = F)
       
+     tSample <- SHELF::sampleFit(reactValues$treatmentSamplesDF$fit1, 100000)
+     updateNumericInput(session, "KFMonths", value = round(median(tSample[,reactValues$treatmentSamplesDF$d[1]]), 2))
+      
     }
   })
   
@@ -1963,6 +1966,10 @@ server <- function(input, output, session) {
                   marker = list(size = 10, color = "green"),
                   text = ~ "Proposed Rule",
                   name = "Proposed Rule") %>%
+        add_trace(x = ~twoLooksOutput$FinalWieandDF$Assurance, y = ~twoLooksOutput$FinalWieandDF$Duration, type = "scatter", mode = "markers",
+                  marker = list(size = 10, color = "yellow"),
+                  text = ~ "Wieand Rule",
+                  name = "Wieand Rule") %>%
         layout(
           xaxis = list(title = list(text = "Assurance", font = list(color = "black", size = 14, family = "Arial", weight = "bold")), range = c(0, 1)),
           yaxis = list(title = list(text = "Duration", font = list(color = "black", size = 14, family = "Arial", weight = "bold"))),
@@ -1990,6 +1997,10 @@ server <- function(input, output, session) {
                   marker = list(size = 10, color = "green"),
                   text = ~ "Proposed Rule",
                   name = "Proposed Rule") %>%
+        add_trace(x = ~twoLooksOutput$FinalWieandDF$Assurance, y = ~twoLooksOutput$FinalWieandDF$`Sample Size`, type = "scatter", mode = "markers",
+                  marker = list(size = 10, color = "yellow"),
+                  text = ~ "Wieand Rule",
+                  name = "Wieand Rule") %>%
         layout(
           xaxis = list(title = list(text = "Assurance", font = list(color = "black", size = 14, family = "Arial", weight = "bold")), range = c(0, 1)),
           yaxis = list(title = list(text = "Sample Size", font = list(color = "black", size = 14, family = "Arial", weight = "bold"))),
@@ -2014,7 +2025,11 @@ server <- function(input, output, session) {
     
     shinyjs::show("proposedTable2LooksText")
     
+    output$wieandTable2LooksText <- renderUI({
+      p(HTML("<b>Wieand Rule</b>"))
+    })
     
+    shinyjs::show("wieandTable2LooksText")
     
     
   })
