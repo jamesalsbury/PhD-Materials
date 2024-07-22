@@ -1154,7 +1154,7 @@ server <- function(input, output, session) {
     initial_data <- data.frame(
       Stage = c("IA1", "IA2", "Final"),
       alphaspending = c("0.0083", "0.0167", "0.0250"),
-      betaspending = c("0.0667", "0.1333", "0.2000")
+      betaspending = c("0.0333", "0.0667", "0.1000")
     )
     
     colnames(initial_data) <- c("Stage", "Alpha spending (cumulative)", "Beta spending (cumulative)")
