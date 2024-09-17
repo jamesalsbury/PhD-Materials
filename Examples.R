@@ -1,0 +1,173 @@
+library(survival)
+library(rpact)
+
+n_c <- 250
+n_t <- 250
+control_rate <- log(2)/10
+#control_rate <- 0.07238056
+P_S <- 0.9
+P_DTE <- 0.7
+recruitmentTime <- 12
+numEvents <- 450
+assvec <- rep(NA, 5e3)
+
+for (i in 1:length(assvec)){
+  control_times <- rexp(n_c, control_rate)
+  
+  if (runif(1) < P_S) {
+    HRStar <- rgamma(1, 29.6, 47.8)
+    if (runif(1) < P_DTE) {
+      bigT <- rgamma(1, 7.29, 1.76)
+    } else {
+      bigT <- 0
+    }
+  } else {
+    HRStar <- 1
+  }
+  
+  CP <- exp(-control_rate*bigT)
+  
+  u <- runif(n_t)
+  treatment_times <- ifelse(u > CP, -log(u)/control_rate,
+                            (1/(control_rate*HRStar))*(-log(u)-control_rate*bigT+control_rate*HRStar*bigT))
+  
+  
+  trial_data <- data.frame(time = c(control_times, treatment_times),
+                           group = c(rep("Control", n_c), rep("Treatment", n_t)))                    
+  
+  
+  trial_data$rec_time <- runif(n_c + n_t, 0, recruitmentTime)
+  
+  trial_data$pseudo_time <- trial_data$time + trial_data$rec_time
+  
+  trial_data <- trial_data[order(trial_data$pseudo_time), ]
+  
+  censTime <- trial_data$pseudo_time[numEvents]
+  
+  trial_data <- trial_data[censTime > trial_data$rec_time, ]
+  
+  trial_data$status <- trial_data$pseudo_time <= censTime
+  
+  trial_data$survival_time <- ifelse(trial_data$pseudo_time <= censTime, trial_data$time, censTime - trial_data$rec_time)
+  
+  test <- survdiff(Surv(survival_time, status)~group, data = trial_data)
+  coxmodel <- coxph(Surv(survival_time, status)~group, data = trial_data)
+  deltad <- as.numeric(exp(coef(coxmodel)))
+  
+  assvec[i] <- test$chisq > qchisq(0.95, 1) & deltad<1
+  
+}
+
+mean(assvec)
+
+#######################################
+##Now look at one IA
+#######################################
+
+CensFunc <- function(dataCombined, numEvents) {
+  
+  dataCombined <- dataCombined[order(dataCombined$pseudoTime), ]
+  
+  censTime <- dataCombined$pseudoTime[numEvents]
+  
+  dataCombined$status <- dataCombined$pseudoTime <= censTime
+  dataCombined$status <- dataCombined$status * 1
+  dataCombined$enrolled <- dataCombined$recTime < censTime
+  dataCombined <- dataCombined[dataCombined$enrolled, ]
+  dataCombined$survival_time <- ifelse(dataCombined$pseudoTime > censTime,
+                                       censTime - dataCombined$recTime,
+                                       dataCombined$time)
+  
+  return(list(dataCombined = dataCombined, censTime = censTime, SS = nrow(dataCombined)))
+}
+
+computeCox <- function(data, events) {
+  censDF <- CensFunc(data, events)
+  coxmodel <- coxph(Surv(survival_time, status) ~ group, data = censDF$dataCombined)
+  SS <- censDF$SS
+  Duration <- censDF$censTime
+  ZScore <- -(coef(summary(coxmodel))[, 4])
+  delta <- as.numeric(exp(coef(coxmodel)))
+  list(SS = SS, Duration = Duration, ZScore = ZScore, delta = delta)
+}
+
+GSDOneIAFunc <- function(dataCombined, futBound, critValues, IF, numEvents) {
+  
+  # Compute first and final IA
+  IA1 <- computeCox(dataCombined, numEvents * IF[1])
+  IA2 <- computeCox(dataCombined, numEvents * IF[2])
+  
+  # Determine outcome based on ZScores
+  Outcome <- ifelse(IA1$ZScore > critValues[1], "Efficacy", 
+                    ifelse(IA1$ZScore < futBound, "Futility", 
+                           ifelse(IA2$ZScore > critValues[2], "Successful", "Unsuccessful")))
+  
+  # Determine SS and Duration based on outcome
+  SS <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$SS, IA2$SS)
+  Duration <- ifelse(Outcome %in% c("Efficacy", "Futility"), IA1$Duration, IA2$Duration)
+  
+  return(list(Outcome = Outcome, SS = SS, Duration = Duration, 
+              IA1Time = IA1$Duration, delta1 = IA1$delta, delta2 = IA2$delta))
+}
+
+
+
+n_c <- 250
+n_t <- 250
+control_rate <- log(2)/10
+#control_rate <- 0.07238056
+P_S <- 0.9
+P_DTE <- 0.7
+recruitmentTime <- 12
+numEvents <- 450
+IF <- 0.2
+
+assvec <- rep(NA, 1e3)
+
+for (i in 1:length(assvec)){
+  control_times <- rexp(n_c, control_rate)
+  
+  if (runif(1) < P_S) {
+    HRStar <- rgamma(1, 29.6, 47.8)
+    if (runif(1) < P_DTE) {
+      bigT <- rgamma(1, 7.29, 1.76)
+    } else {
+      bigT <- 0
+    }
+  } else {
+    HRStar <- 1
+  }
+  
+  CP <- exp(-control_rate*bigT)
+  
+  u <- runif(n_t)
+  treatment_times <- ifelse(u > CP, -log(u)/control_rate,
+                            (1/(control_rate*HRStar))*(-log(u)-control_rate*bigT+control_rate*HRStar*bigT))
+  
+  
+  trial_data <- data.frame(time = c(control_times, treatment_times),
+                           group = c(rep("Control", n_c), rep("Treatment", n_t)))                    
+  
+  
+  trial_data$recTime <- runif(n_c + n_t, 0, recruitmentTime)
+  
+  trial_data$pseudoTime <- trial_data$time + trial_data$recTime
+  
+  trial_data <- trial_data[order(trial_data$pseudoTime), ]
+  
+  #Do this for the first IA
+  
+  design <- getDesignGroupSequential(typeOfDesign = "asUser",
+                                     informationRates = c(IF, 1),
+                                     userAlphaSpending = c(0.0125, 0.025),
+                                     typeBetaSpending = "bsUser",
+                                     userBetaSpending = c(0.05, 0.1))
+  
+  
+  x <- GSDOneIAFunc(trial_data, design$futilityBounds, design$criticalValues, c(IF, 1), numEvents) 
+  
+  assvec[i] <- IAOnePower*FinalPower
+  
+}
+
+mean(assvec)
