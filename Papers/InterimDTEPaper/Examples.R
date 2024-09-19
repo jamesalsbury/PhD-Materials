@@ -120,11 +120,14 @@ P_S <- 0.9
 P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
-IF <- 0.2
+IFVec <- seq(0.2, 0.8, by=0.2)
+NRep <- 1e2
 
-assvec <- rep(NA, 1e3)
+assMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
+durMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
+SSMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
 
-for (i in 1:length(assvec)){
+for (i in 1:NRep){
   control_times <- rexp(n_c, control_rate)
   
   if (runif(1) < P_S) {
@@ -157,17 +160,30 @@ for (i in 1:length(assvec)){
   
   #Do this for the first IA
   
-  design <- getDesignGroupSequential(typeOfDesign = "asUser",
-                                     informationRates = c(IF, 1),
-                                     userAlphaSpending = c(0.0125, 0.025),
-                                     typeBetaSpending = "bsUser",
-                                     userBetaSpending = c(0.05, 0.1))
+  for (k in 1:length(IFVec)){
+    
+    design <- getDesignGroupSequential(typeOfDesign = "asUser",
+                                       informationRates = c(IFVec[k], 1),
+                                       userAlphaSpending = c(0.0125, 0.025),
+                                       typeBetaSpending = "bsUser",
+                                       userBetaSpending = c(0.05, 0.1))
+    
+    
+    IAOne <- GSDOneIAFunc(trial_data, design$futilityBounds, design$criticalValues, c(IFVec[k], 1), numEvents) 
+    
+    assMat[i,k] <- ifelse(IAOne$Outcome %in% c("Efficacy", "Successful"), 1, 0)
+    
+    durMat[i,k] <- IAOne$Duration
+    
+    SSMat[i,k] <- IAOne$SS
+    
+  }
   
-  
-  x <- GSDOneIAFunc(trial_data, design$futilityBounds, design$criticalValues, c(IF, 1), numEvents) 
-  
-  assvec[i] <- IAOnePower*FinalPower
   
 }
 
-mean(assvec)
+
+
+#Need to calculate the case where we don't perform an IA
+
+
