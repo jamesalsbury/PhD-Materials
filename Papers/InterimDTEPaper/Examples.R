@@ -1,6 +1,10 @@
 library(survival)
 library(rpact)
 
+#######################################
+##First calculate assurance (no IA)
+#######################################
+
 n_c <- 250
 n_t <- 250
 control_rate <- log(2)/10
@@ -366,9 +370,53 @@ for (i in 1:NRep){
   
 }
 
-colMeans(na.omit(durMat))
-colMeans(na.omit(assMat))
-colMeans(na.omit(SSMat))
+
+#######################################
+##Now we perform the BPP
+#######################################
+
+
+n_c <- 250
+n_t <- 250
+control_rate <- log(2)/10
+#control_rate <- 0.07238056
+P_S <- 0.9
+P_DTE <- 0.7
+recruitmentTime <- 12
+numEvents <- 450
+IF <- 0.8
+
+control_times <- rexp(n_c, control_rate)
+
+if (runif(1) < P_S) {
+  HRStar <- rgamma(1, 29.6, 47.8)
+  if (runif(1) < P_DTE) {
+    bigT <- rgamma(1, 7.29, 1.76)
+  } else {
+    bigT <- 0
+  }
+} else {
+  HRStar <- 1
+}
+
+CP <- exp(-control_rate*bigT)
+
+u <- runif(n_t)
+treatment_times <- ifelse(u > CP, -log(u)/control_rate,
+                          (1/(control_rate*HRStar))*(-log(u)-control_rate*bigT+control_rate*HRStar*bigT))
+
+
+trial_data <- data.frame(time = c(control_times, treatment_times),
+                         group = c(rep("Control", n_c), rep("Treatment", n_t)))                    
+
+
+trial_data$recTime <- runif(n_c + n_t, 0, recruitmentTime)
+
+trial_data$pseudoTime <- trial_data$time + trial_data$recTime
+
+trial_data <- trial_data[order(trial_data$pseudoTime), ]
+
+censFunc <- CensFunc(trial_data, numEvents*IF)
 
 
 
