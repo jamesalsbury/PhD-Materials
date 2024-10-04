@@ -136,11 +136,12 @@ P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
 IFVec <- seq(0.2, 0.8, by=0.2)
-NRep <- 5e3
+NRep <- 1e1
 
 assMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
 durMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
 SSMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
+outcomeMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
 
 for (i in 1:NRep){
   control_times <- rexp(n_c, control_rate)
@@ -178,6 +179,7 @@ for (i in 1:NRep){
   assMat[i,length(IFVec)+1] <- NoIA$Outcome
   durMat[i,length(IFVec)+1] <- NoIA$Duration
   SSMat[i,length(IFVec)+1] <- NoIA$SS
+  outcomeMat[i,length(IFVec)+1] <- NoIA$Outcome
   
   #Do this for the first IA
   
@@ -198,14 +200,20 @@ for (i in 1:NRep){
     
     SSMat[i,k] <- IAOne$SS
     
+    outcomeMat[i,k] <- IAOne$Outcome
+    
   }
-  
   
 }
 
 colMeans(durMat)
 colMeans(assMat)
 colMeans(SSMat)
+
+
+mean(outcomeMat[outcomeMat[,1] == "Futility", ]$X5)
+
+
 
 
 
