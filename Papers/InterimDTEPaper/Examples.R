@@ -13,7 +13,7 @@ P_S <- 0.9
 P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
-assvec <- rep(NA, 5e3)
+assvec <- rep(NA, 5e1)
 
 for (i in 1:length(assvec)){
   control_times <- rexp(n_c, control_rate)
@@ -27,6 +27,7 @@ for (i in 1:length(assvec)){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -140,7 +141,7 @@ P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
 IFVec <- seq(0.2, 0.8, by=0.2)
-NRep <- 1e1
+NRep <- 1e4
 
 assMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
 durMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
@@ -159,6 +160,7 @@ for (i in 1:NRep){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -329,6 +331,7 @@ for (i in 1:NRep){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -393,7 +396,7 @@ P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
 IF <- 0.8
-Nrep <- 1e1
+Nrep <- 5e2
 distParambigT <- paste0("bigT2 ~ dgamma(7.29, 1.76)")
 distParamHR <- paste0("HR2 ~ dgamma(29.6, 47.8)")
 BPPHist <- rep(NA, Nrep)
@@ -410,6 +413,7 @@ for (i in 1:Nrep){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -621,6 +625,8 @@ for (i in 1:Nrep){
   }
   
   BPPHist[i] <- mean(BPPVec)
+  print(i)
 }
 
+hist(BPPHist)
 
