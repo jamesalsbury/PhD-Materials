@@ -13,7 +13,7 @@ P_S <- 0.9
 P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
-assvec <- rep(NA, 5e3)
+assvec <- rep(NA, 5e1)
 
 for (i in 1:length(assvec)){
   control_times <- rexp(n_c, control_rate)
@@ -27,6 +27,7 @@ for (i in 1:length(assvec)){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -140,7 +141,7 @@ P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
 IFVec <- seq(0.2, 0.8, by=0.2)
-NRep <- 1e1
+NRep <- 1e4
 
 assMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
 durMat <- data.frame(matrix(NA, ncol = length(IFVec)+1, nrow = NRep))
@@ -159,6 +160,7 @@ for (i in 1:NRep){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -329,6 +331,7 @@ for (i in 1:NRep){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -613,6 +616,7 @@ BPPHist <- foreach(i = 1:Nrep, .combine = 'c', .packages = c("rjags", "survival"
     BPPVec[j] <- (test$chisq > qchisq(0.95, 1) & deltad < 1)
   }
   
+<<<<<<< HEAD
   mean(BPPVec)
 }
 
@@ -653,4 +657,11 @@ vector_data <- c(1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.916, 0.232, 0.984, 
                  0.976, 1.000, 1.000, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.444, 1.000, 
                  1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.960, 1.000, 0.980, 1.000, 1.000, 0.502, 0.420)
 
+=======
+  BPPHist[i] <- mean(BPPVec)
+  print(i)
+}
+
+hist(BPPHist)
+>>>>>>> b28604193b0887a88c4bdd95f548f130215481c4
 
