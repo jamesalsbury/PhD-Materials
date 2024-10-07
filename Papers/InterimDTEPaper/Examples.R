@@ -393,12 +393,19 @@ P_DTE <- 0.7
 recruitmentTime <- 12
 numEvents <- 450
 IF <- 0.8
-Nrep <- 1e1
+Nrep <- 5e2
 distParambigT <- paste0("bigT2 ~ dgamma(7.29, 1.76)")
 distParamHR <- paste0("HR2 ~ dgamma(29.6, 47.8)")
-BPPHist <- rep(NA, Nrep)
 
-for (i in 1:Nrep){
+# Number of cores to use (you can modify this based on your system)
+num_cores <- parallel::detectCores() - 1  # Reserve 1 core for system tasks
+
+# Create a cluster and register it
+cl <- makeCluster(num_cores)
+registerDoParallel(cl)
+
+# Parallel loop using foreach
+BPPHist <- foreach(i = 1:Nrep, .combine = 'c', .packages = c("rjags", "survival", "dplyr")) %dopar% {
   control_times <- rexp(n_c, control_rate)
   
   if (runif(1) < P_S) {
@@ -410,6 +417,7 @@ for (i in 1:Nrep){
     }
   } else {
     HRStar <- 1
+    bigT <- 0
   }
   
   CP <- exp(-control_rate*bigT)
@@ -418,29 +426,18 @@ for (i in 1:Nrep){
   treatment_times <- ifelse(u > CP, -log(u)/control_rate,
                             (1/(control_rate*HRStar))*(-log(u)-control_rate*bigT+control_rate*HRStar*bigT))
   
-  
   trial_data <- data.frame(time = c(control_times, treatment_times),
                            group = c(rep("Control", n_c), rep("Treatment", n_t)))                    
   
-  
   trial_data$recTime <- runif(n_c + n_t, 0, recruitmentTime)
-  
   trial_data$pseudoTime <- trial_data$time + trial_data$recTime
-  
   trial_data <- trial_data[order(trial_data$pseudoTime), ]
   
-  BPPOutcome <- CensFunc(trial_data, numEvents*IF)
-  
+  BPPOutcome <- CensFunc(trial_data, numEvents * IF)
   dataCombined <- BPPOutcome$dataCombined
-  
   dataCombined <- dataCombined[order(dataCombined$group), ]
   
-  
-  
-  
-  
-  #JAGS code which calculates posterior distributions
-  
+  # JAGS code for posterior distributions
   modelString <- paste0(
     "data {\n",
     "  for (j in 1:m){\n",
@@ -474,35 +471,33 @@ for (i in 1:Nrep){
     "    HR1 ~ dnorm(1, 10000)\n",
     "    ", distParamHR, "\n",
     "   \n",
-    "    lambda1 <- lambda2*HR\n",
+    "    lambda1 <- lambda2 * HR\n",
     "}"
   )
   
-  model = jags.model(textConnection(modelString), data = list(datTimes = dataCombined$survival_time, 
-                                                              datEvent = dataCombined$status, 
-                                                              n = sum(dataCombined$group=="Control"), 
-                                                              m=nrow(dataCombined),
+  model = jags.model(textConnection(modelString), data = list(datTimes = dataCombined$survival_time,
+                                                              datEvent = dataCombined$status,
+                                                              n = sum(dataCombined$group == "Control"),
+                                                              m = nrow(dataCombined),
                                                               P_S = P_S,
-                                                              P_DTE = P_DTE), quiet = T) 
-  update(model, n.iter=50, progress.bar = "none")
-  output=coda.samples(model=model, variable.names=c("HR", "bigT", "lambda2"), n.iter = 1000, progress.bar = "none")
+                                                              P_DTE = P_DTE), quiet = TRUE)
+  update(model, n.iter = 50, progress.bar = "none")
+  output = coda.samples(model = model, variable.names = c("HR", "bigT", "lambda2"), n.iter = 1000, progress.bar = "none")
   
   #The number of unenrolled patients in each group
-  cPatientsLeft <- n_c - sum(dataCombined$group=="Control") 
-  tPatientsLeft <- n_t - sum(dataCombined$group=="Treatment") 
+  cPatientsLeft <- n_c - sum(dataCombined$group=="Control")
+  tPatientsLeft <- n_t - sum(dataCombined$group=="Treatment")
   
   #Extract realisations from the MCMC
   HRoutput <- as.numeric(unlist(output[,1]))
   bigToutput <- as.numeric(unlist(output[,2]))
   lambda2output <- as.numeric(unlist(output[,3]))
   
-  #Calculate the proportion of values lower than the target effect
-  #propEffect <- mean(HRoutput<targetEff)
   
+  # Further processing like before (sampling, testing, etc.)
   BPPVec <- rep(NA, 500)
   
-  for (j in 1:500){
-    
+  for (j in 1:500) {
     #Sampling the recruitment times for the unenrolled patients
     unenrolledRecTimes <- runif(cPatientsLeft+tPatientsLeft, BPPOutcome$censTime, recruitmentTime)
     
@@ -590,7 +585,7 @@ for (i in 1:Nrep){
     
     finalDataset <- finalDataset[,1:4]
     
-    #Combining all the above data sets 
+    #Combining all the above data sets
     finalDataset <- rbind(finalDataset, tBeforeDelay1)
     finalDataset <- rbind(finalDataset, tBeforeDelay2)
     finalDataset <- rbind(finalDataset, tAfterDelay)
@@ -615,12 +610,47 @@ for (i in 1:Nrep){
     coxmodel <- coxph(Surv(survival_time, status)~group, data = finalDataset)
     deltad <- as.numeric(exp(coef(coxmodel)))
     
-    
-    BPPVec[j] <- (test$chisq > qchisq(0.95, 1) & deltad<1)
-    
+    BPPVec[j] <- (test$chisq > qchisq(0.95, 1) & deltad < 1)
   }
   
-  BPPHist[i] <- mean(BPPVec)
+  mean(BPPVec)
 }
+
+# Stop the cluster
+stopCluster(cl)
+
+
+vector_data <- c(1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.916, 0.232, 0.984, 1.000, 1.000, 1.000, 1.000, 0.284, 1.000, 0.984, 
+                 1.000, 1.000, 0.000, 0.740, 0.000, 1.000, 1.000, 0.094, 1.000, 1.000, 0.998, 1.000, 0.034, 1.000, 1.000, 1.000, 
+                 1.000, 0.462, 1.000, 1.000, 1.000, 0.998, 1.000, 1.000, 1.000, 1.000, 0.236, 1.000, 0.998, 1.000, 0.036, 1.000, 
+                 0.116, 1.000, 1.000, 1.000, 1.000, 1.000, 0.000, 1.000, 0.016, 0.996, 1.000, 0.000, 1.000, 1.000, 0.000, 1.000, 
+                 1.000, 1.000, 0.874, 0.354, 0.172, 1.000, 1.000, 0.956, 1.000, 1.000, 1.000, 0.994, 0.742, 1.000, 1.000, 0.030, 
+                 0.000, 1.000, 1.000, 0.174, 1.000, 0.698, 0.358, 1.000, 0.984, 1.000, 1.000, 1.000, 0.000, 1.000, 0.568, 1.000, 
+                 1.000, 1.000, 1.000, 0.748, 0.960, 1.000, 0.998, 1.000, 1.000, 1.000, 1.000, 0.302, 1.000, 1.000, 1.000, 1.000, 
+                 1.000, 1.000, 1.000, 0.990, 1.000, 1.000, 0.006, 1.000, 1.000, 0.998, 0.100, 0.030, 1.000, 0.272, 1.000, 1.000, 
+                 1.000, 0.996, 0.102, 0.024, 1.000, 1.000, 0.656, 1.000, 0.918, 1.000, 1.000, 0.000, 1.000, 0.374, 0.074, 1.000, 
+                 0.000, 1.000, 0.000, 1.000, 1.000, 1.000, 0.028, 1.000, 1.000, 0.120, 1.000, 1.000, 1.000, 0.000, 0.068, 0.940, 
+                 0.000, 1.000, 0.832, 0.068, 0.544, 1.000, 1.000, 1.000, 0.056, 1.000, 1.000, 1.000, 1.000, 0.000, 1.000, 1.000, 
+                 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.726, 0.956, 0.990, 1.000, 1.000, 1.000, 1.000, 
+                 1.000, 0.000, 0.684, 1.000, 1.000, 0.000, 0.338, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.998, 1.000, 0.332, 
+                 1.000, 1.000, 1.000, 1.000, 0.960, 1.000, 1.000, 0.996, 0.998, 0.014, 1.000, 1.000, 0.000, 0.002, 1.000, 0.792, 
+                 1.000, 1.000, 0.942, 0.378, 1.000, 1.000, 1.000, 0.916, 0.728, 1.000, 1.000, 1.000, 1.000, 0.736, 1.000, 0.282, 
+                 0.458, 0.992, 1.000, 1.000, 1.000, 1.000, 1.000, 0.000, 1.000, 1.000, 1.000, 0.188, 1.000, 1.000, 1.000, 0.914, 
+                 0.000, 1.000, 1.000, 0.006, 1.000, 1.000, 0.208, 1.000, 0.992, 0.000, 0.002, 0.948, 0.990, 1.000, 1.000, 0.734, 
+                 1.000, 1.000, 1.000, 1.000, 0.992, 1.000, 1.000, 1.000, 0.268, 1.000, 1.000, 0.974, 1.000, 0.006, 1.000, 0.754, 
+                 0.010, 0.524, 1.000, 0.000, 0.934, 0.000, 0.000, 1.000, 0.968, 1.000, 1.000, 1.000, 0.122, 1.000, 0.770, 1.000, 
+                 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.024, 1.000, 0.864, 1.000, 0.958, 1.000, 1.000, 1.000, 1.000, 1.000, 
+                 1.000, 1.000, 0.424, 1.000, 1.000, 0.984, 0.998, 1.000, 0.996, 0.648, 0.438, 1.000, 1.000, 0.440, 1.000, 1.000, 
+                 0.956, 0.984, 0.812, 1.000, 0.818, 1.000, 1.000, 1.000, 0.984, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.000, 
+                 1.000, 0.980, 1.000, 1.000, 0.984, 0.998, 0.998, 1.000, 1.000, 1.000, 0.876, 0.184, 0.000, 0.252, 1.000, 1.000, 
+                 1.000, 0.044, 0.998, 0.038, 0.038, 0.002, 1.000, 1.000, 1.000, 0.998, 1.000, 1.000, 1.000, 0.000, 1.000, 0.148, 
+                 1.000, 0.024, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.004, 1.000, 0.960, 1.000, 
+                 1.000, 1.000, 1.000, 0.006, 0.000, 0.824, 0.000, 1.000, 1.000, 0.492, 0.000, 0.984, 0.998, 1.000, 1.000, 1.000, 
+                 0.998, 1.000, 0.000, 1.000, 0.984, 1.000, 0.692, 0.000, 0.988, 0.998, 1.000, 1.000, 1.000, 0.812, 0.986, 0.000, 
+                 1.000, 1.000, 0.206, 1.000, 1.000, 1.000, 1.000, 0.898, 0.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 
+                 1.000, 0.440, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.698, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 
+                 1.000, 1.000, 0.474, 1.000, 1.000, 0.374, 1.000, 1.000, 1.000, 0.986, 0.470, 0.998, 0.996, 1.000, 0.950, 0.032, 
+                 0.976, 1.000, 1.000, 0.994, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.444, 1.000, 
+                 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 0.960, 1.000, 0.980, 1.000, 1.000, 0.502, 0.420)
 
 
