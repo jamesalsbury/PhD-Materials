@@ -1,0 +1,543 @@
+---
+title: "Assurance for an Inteirm Look - DTE Example"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rpact)
+library(survival)
+```
+
+```{r functions, echo = F}
+
+sim_dte <- function(n_c, n_t, lambda_c, delay_time, post_delay_HR, dist = "Exponential", gamma_c = NULL){
+
+  #Simulate control data
+  u <- runif(n_c)
+
+  if (dist == "Exponential"){
+    control_times <- -log(u)/lambda_c
+  }
+
+  if (dist == "Weibull"){
+    control_times <- (1/lambda_c)*(-log(u))^(1/gamma_c)
+  }
+
+  #Simulate treatment data
+  u <- runif(n_t)
+  if (dist == "Exponential"){
+    CP <- exp(-lambda_c*delay_time)
+    treatment_times <- ifelse(u>CP,
+                              -log(u)/lambda_c,
+                              (1/(post_delay_HR*lambda_c))*(post_delay_HR*lambda_c*delay_time-log(u)-lambda_c*delay_time))
+  }
+
+  if (dist == "Weibull"){
+    CP <- exp(-(lambda_c*delay_time)^gamma_c)
+    lambda_e <- lambda_c*post_delay_HR^(1/gamma_c)
+    treatment_times <- ifelse(u > CP,
+                              (1/lambda_c)*(-log(u))^(1/gamma_c),
+                              (1/lambda_e)*(-log(u)+(lambda_e*delay_time)^gamma_c-(lambda_c*delay_time)^gamma_c)^(1/gamma_c))
+  }
+
+  #Combine the two groups
+  data <- data.frame(time = c(control_times, treatment_times),
+                     group = c(rep("Control", n_c), rep("Treatment", n_t)))
+
+  return(data)
+
+}
+
+add_recruitment_time <- function(data, rec_method,
+                                 rec_period=NULL, rec_power=NULL, rec_rate=NULL, rec_duration=NULL){
+
+  n_patients <- nrow(data)
+
+  if (rec_method=="power"){
+
+    data$rec_time <- rec_period * stats::runif(n_patients)^(1/rec_power)
+
+  }
+
+  if (rec_method == "PWC") {
+    # Parse recruitment rate and duration inputs
+    rec_rate <- as.numeric(unlist(strsplit(rec_rate, ",")))
+    rec_duration <- as.numeric(unlist(strsplit(rec_duration, ",")))
+
+    # Ensure valid inputs
+    if (any(rec_rate < 0)) stop("rec_rate should be non-negative")
+    if (length(rec_rate) != length(rec_duration)) stop("Lengths of rec_rate and rec_duration should match")
+
+    n_periods <- length(rec_duration)
+
+    if (length(rec_rate) == 1) { # Simple case with only one rate
+      rec <- cumsum(stats::rexp(n = n_patients, rate = rec_rate))
+    } else { # Piecewise recruitment
+      # Create a data frame for the piecewise periods
+      df <- data.frame(
+        rate = rec_rate,
+        duration = rec_duration,
+        period = 1:n_periods,
+        finish = cumsum(rec_duration),
+        lambda = rec_duration * rec_rate,
+        origin = c(0, cumsum(rec_duration)[-n_periods])
+      )
+
+      # Generate the number of recruits in each period using Poisson distribution
+      df$N <- sapply(df$lambda, function(x) stats::rpois(n = 1, lambda = x))
+
+      # Check if any recruits were generated
+      if (sum(df$N) == 0) {
+        if (df$rate[n_periods] == 0) stop("Please specify positive rec_rate for the last period; otherwise, enrollment cannot finish.")
+        rec <- cumsum(stats::rexp(n = n_patients, rate = df$rate[n_periods])) + df$finish[n_periods]
+      } else {
+        # Generate recruitment times for each period
+        rec <- unlist(apply(df, 1, function(x) {
+          sort(stats::runif(n = x[["N"]], min = x[["origin"]], max = x[["finish"]]))
+        }))
+
+        # Check if we have enough recruits
+        if (length(rec) >= n_patients) {
+          rec <- rec[1:n_patients]
+        } else {
+          # Ensure enrollment completion if needed
+          if (df$rate[n_periods] == 0) stop("Please specify positive rec_rate for the last period; otherwise, enrollment cannot finish.")
+
+          # Generate additional recruitment times if needed
+          rec <- c(rec, cumsum(stats::rexp(n_patients - length(rec), rate = df$rate[n_periods])) + df$finish[n_periods])
+        }
+      }
+    }
+
+    # Assign recruitment times to the data frame
+    data$rec_time <- rec
+  }
+
+  data$pseudo_time <- data$time + data$rec_time
+
+  return(data)
+
+}
+
+cens_data <- function(data, cens_method = "Time", cens_events = NULL, cens_time = NULL){
+
+  if (cens_method=="Events"){
+    data <- data[order(data$pseudo_time),]
+    cens_time <- data$pseudo_time[cens_events]
+  }
+
+  data$status <- data$pseudo_time <= cens_time
+  data$status <- data$status * 1
+  data$enrolled <- data$rec_time < cens_time
+  data <- data[data$enrolled, ]
+  data$survival_time <- ifelse(data$pseudo_time > cens_time,
+                               cens_time - data$rec_time,
+                               data$time)
+
+  return(list(data = data,
+              cens_events = cens_events,
+              cens_time = cens_time,
+              sample_size = nrow(data)))
+}
+```
+
+### Setup
+
+We are planning a trial in which we anticipate will be subject to a delayed treatment effect. We have elicited distributions for key parameters, here: the length of delay, and the post-delay hazard ratio. We will use these distributions to plan an adaptive clinical trial. The parameters are:
+
+```{r parameters}
+lambda_c <- 0.08
+P_S <- 0.9
+P_DTE <- 0.7
+delay_time_SHELF <- SHELF::fitdist(c(3, 4, 5), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 10)
+post_delay_HR_SHELF <- SHELF::fitdist(c(0.55, 0.6, 0.7), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1.5)
+post_delay_HR_dist <- "gamma"
+delay_time_dist <- "gamma"
+
+```
+
+and the parameters relating to the trial are:
+
+```{r}
+n_c <- 300
+n_t <- 300
+rec_method <- "power"
+rec_period <- 12
+rec_power <- 1
+cens_method <- "Events"
+cens_events <- 450
+```
+
+Here, we set the information fractions we will look at and the number of simulations we will perform:
+
+```{r sims}
+IF <- seq(0.1, 1, by=0.1)
+NSims <- 5e3
+```
+
+```{r inits, echo=F}
+
+delay_vec <- rep(NA, NSims)
+post_delay_HR_vec <- rep(NA, NSims)
+z_scores_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
+
+```
+
+
+```{r simulating trials, echo = F}
+
+
+for (j in 1:NSims){
+  if (runif(1) > P_S){
+    #Curves do not separate
+    delay_time <- 0
+    post_delay_HR <- 1
+  } else {
+    if (runif(1) > P_DTE){
+      #Curves separate with no delay
+      delay_time <- 0
+      post_delay_HR_sample <- SHELF::sampleFit(post_delay_HR_SHELF, n = 1)
+      post_delay_HR <- post_delay_HR_sample[,post_delay_HR_dist]
+    } else{
+      #Curves separate with a delay
+      delay_time_sample <- SHELF::sampleFit(delay_time_SHELF, n = 1)
+      post_delay_HR_sample <- SHELF::sampleFit(post_delay_HR_SHELF, n = 1)
+      delay_time <- delay_time_sample[,delay_time_dist]
+      post_delay_HR <- post_delay_HR_sample[,post_delay_HR_dist]
+    }
+  }
+ 
+  delay_vec[j] <- delay_time
+  post_delay_HR_vec[j] <- post_delay_HR
+ 
+  data <- sim_dte(n_c, n_t, lambda_c, delay_time, post_delay_HR, dist = "Exponential")
+ 
+  if (rec_method=="power"){
+    data <- add_recruitment_time(data, rec_method,
+                                 rec_period, rec_power)
+  }
+ 
+  if (rec_method == "PWC"){
+    data <- add_recruitment_time(data, rec_method,
+                                 rec_rate, rec_duration)
+  }
+ 
+ 
+  final_data <- data
+ 
+  for (k in 1:length(IF)){
+    data_after_cens <- cens_data(data = final_data, cens_method = cens_method,
+                                 cens_events = cens_events*IF[k])
+    data <- data_after_cens$data
+    coxmodel <- coxph(Surv(survival_time, status)~group, data = data)
+    deltad <- as.numeric(exp(coef(coxmodel)))
+    test <- survdiff(Surv(survival_time, status)~group, data = data)
+    z_scores_mat[k,j] <- -(coef(summary(coxmodel))[, 4])
+  }
+ 
+}
+
+```
+
+### No Interim Analysis
+
+First, we calculate the assurance (in the case we do not perform any interim analyses).
+
+```{r, echo = F}
+
+
+design <- getDesignGroupSequential(typeOfDesign = "asUser",
+                                   informationRates = 1,
+                                   userAlphaSpending = 0.025)
+
+
+final_outcome <- ifelse(z_scores_mat[length(IF),]>design$criticalValues, 1, 0)
+
+mean(final_outcome)
+
+```
+
+We plot the sampled Length of Delay vs post-delay HR. The points are coloured by the success of the trial (statistical significance at the final analysis).
+
+```{r, echo = F}
+outcome_labels <- ifelse(final_outcome == 1, "Successful at Final Analysis",
+                         "Unsuccessful at Final Analysis")
+outcomes <- c("Successful at Final Analysis", "Unsuccessful at Final Analysis")
+outcome_colors <- setNames(c("blue", "red"), outcomes)
+point_colors <- outcome_colors[outcome_labels]
+
+
+plot(delay_vec, post_delay_HR_vec, col = point_colors, cex = 0.5,
+     xlab = "Length of Delay", ylab = "Post-Delay HR")
+legend("topright",
+       legend = outcomes,
+       col = c("blue", "red"),
+       pch = 1,
+       cex = 0.8)
+
+
+```
+
+### One Interim Analysis
+
+Now, we assume we perform ONE interim analysis for each of the simulated trials. There are four different outcomes that each trial can have:
+
+* Stop for Efficacy
+* Stop for Futility
+* Successful at the final analysis (implicitly implied that we continued at the IA)
+* Unsuccessful at the final analysis (implicitly implied that we continued at the IA)
+
+```{r, echo = F}
+
+Trial_Outcome_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)-1))
+
+
+for (k in 1:(length(IF)-1)){
+  design <- getDesignGroupSequential(typeOfDesign = "asUser",
+                                     informationRates = c(IF[k], 1),
+                                     userAlphaSpending = c(0.0125, 0.025),
+                                     typeBetaSpending = "bsUser",
+                                     userBetaSpending = c(0.05, 0.1))
+ 
+  for (i in 1:NSims){
+    IA_ZScore <- z_scores_mat[k,i]
+    Final_ZScore <- z_scores_mat[length(IF), i]
+    Trial_Outcome_mat[k,i] <- ifelse(IA_ZScore > design$criticalValues[1], "Stop for Efficacy",
+                                     ifelse(IA_ZScore < design$futilityBounds, "Stop for Futility",
+                                            ifelse(Final_ZScore > design$criticalValues[2],
+                                                   "Successful at Final Analysis",
+                                                   "Unsuccessful at Final Analysis")))
+  }
+ 
+ 
+}
+
+
+```
+
+Again, we plot the same sampled parameters and colour the points the outcome each trial had. By changing the Information Fraction, we change the decisions of a trial. 
+
+```{r, echo = F}
+
+outcomes <- c("Successful at Final Analysis", "Unsuccessful at Final Analysis", "Stop for Efficacy", "Stop for Futility")
+outcome_colors <- setNames(c("blue", "red", "green", "purple"), outcomes)
+
+sliderInput("chosen_IF", "Information Fraction", min = IF[1],
+            max = IF[length(IF)-1], value = IF[1], step = IF[2] - IF[1])
+
+
+renderPlot({
+  
+    point_colors <- outcome_colors[as.character(Trial_Outcome_mat[which.min(abs(IF - input$chosen_IF))
+, ])]
+    
+    #print(point_colors)
+ 
+  plot(delay_vec, post_delay_HR_vec,
+       col = point_colors,
+       cex = 0.5,
+       xlab = "Length of Delay",
+       ylab = "Post-Delay HR",
+       main = paste0("Outcomes when we perform IA at: ", input$chosen_IF))
+ 
+  # Add legend
+  legend("topright",                               # Position of the legend
+         legend = outcomes,                        # Text labels
+         col = outcome_colors[outcomes],           # Corresponding colors
+         pch = 1,                                  # Point type to match plot
+         cex = 0.8)                                 # Size of legend text
+})
+  
+  
+
+
+
+
+```
+
+We also show this in table format
+```{r, echo = F}
+
+IF_outcomes_mat <- data.frame(matrix(NA, ncol = length(IF), nrow = length(outcomes)))
+colnames(IF_outcomes_mat) <- IF
+rownames(IF_outcomes_mat) <- outcomes
+
+for (i in 1:length(IF)){
+  for (k in 1:length(outcomes)){
+    IF_outcomes_mat[k,i] <- mean(Trial_Outcome_mat[i,]==outcomes[k])
+  }
+}
+
+for (k in 1:length(outcomes)){
+  IF_outcomes_mat[k,length(IF)] <- mean(ifelse(final_outcome==1,
+                                               "Successful at Final Analysis",
+                                               "Unsuccessful at Final Analysis")==outcomes[k])
+                                                 
+                                                 
+}
+
+kable(IF_outcomes_mat, digits = 2)
+
+
+```
+
+And a stacked barchart.
+
+```{r, echo = F}
+# Adjust margins: c(bottom, left, top, right)
+par(mar = c(5, 4, 4, 10))  # Increase right margin
+
+barplot(as.matrix(IF_outcomes_mat),
+        beside = FALSE,
+        col = outcome_colors[outcomes],
+        xlab = "Information Fraction",
+        ylab = "Proportion",
+        main = "Outcomes at each IA")
+
+legend("topright",
+       legend = outcomes,
+       fill = outcome_colors[outcomes],
+       cex = 0.6,
+       xpd = TRUE,  # Allows legend to plot outside plot area
+       inset = c(-0.5, 0))  # Adjust based on margin size
+```
+
+As we have access to the final results, we can also calculate whether a decision made at the interim analysis was correct (or not). As such, we have six outcomes for our trial:
+
+* Correctly stopped for futility 
+* Incorrectly stopped for futility
+* Correctly stopped for efficacy 
+* Incorrectly stopped for efficacy
+* Successful at the final analysis
+* Unsuccessful at the final analysis
+
+
+Same plot, with the same colours as before, but we use different shapes to show the (in)correct decisions.
+
+```{r, echo = F}
+
+
+Trial_Outcome_decisions_mat <- Trial_Outcome_mat
+
+for (j in 1:nrow(Trial_Outcome_mat)){
+  for (k in 1:ncol(Trial_Outcome_mat)){
+    if (Trial_Outcome_mat[j,k]=="Stop for Efficacy"){
+      Trial_Outcome_decisions_mat[j,k] <- ifelse(final_outcome[k]==1,
+                                                 "Correctly stopped for Efficacy",
+                                                 "Incorrectly stopped for Efficacy")
+    }
+    if (Trial_Outcome_mat[j,k]=="Stop for Futility"){
+      Trial_Outcome_decisions_mat[j,k] <- ifelse(final_outcome[k]==0,
+                                                 "Correctly stopped for Futility",
+                                                 "Incorrectly stopped for Futility")
+    }
+  }
+}
+
+```
+
+
+```{r, echo = F}
+
+
+outcomes_decisions <- c("Successful at Final Analysis", "Unsuccessful at Final Analysis", 
+              "Incorrectly stopped for Efficacy", "Correctly stopped for Efficacy",
+              "Incorrectly stopped for Futility", "Correctly stopped for Futility")
+outcome_decisions_colors <- setNames(c("blue", "red", "green", "green", "purple", "purple"), outcomes_decisions)
+
+
+outcome_decisions_shapes <- setNames(c(1, 1, 0, 2, 0, 2), outcomes_decisions)
+
+
+sliderInput("chosen_IF_decisions", "Information Fraction", min = IF[1],
+            max = IF[length(IF)-1], value = IF[1], step = IF[2] - IF[1])
+
+
+renderPlot({
+  
+    point_colors_decisions <- outcome_decisions_colors[as.character(Trial_Outcome_decisions_mat[which.min(abs(IF - input$chosen_IF_decisions))
+, ])]
+    
+    point_shapes_decisions <- outcome_decisions_shapes[as.character(Trial_Outcome_decisions_mat[which.min(abs(IF - input$chosen_IF_decisions))
+, ])]
+    
+ 
+  plot(delay_vec, post_delay_HR_vec,
+       col = point_colors_decisions,
+       cex = 0.5,
+       pch = point_shapes_decisions,
+       xlab = "Length of Delay",
+       ylab = "Post-Delay HR",
+       main = paste0("Outcomes when we perform IA at: ", input$chosen_IF_decisions))
+ 
+  # Add legend
+  legend("topright",                               # Position of the legend
+         legend = outcomes_decisions,                        # Text labels
+         col = outcome_decisions_colors[outcomes_decisions],           # Corresponding colors
+         pch = c(1, 1, 0, 2, 0, 2),                                  # Point type to match plot
+         cex = 0.8)                                 # Size of legend text
+})
+  
+  
+
+```
+
+
+Table format:
+
+```{r, echo = F}
+
+IF_outcomes_mat <- data.frame(matrix(NA, ncol = length(IF), nrow = length(outcomes_decisions)))
+colnames(IF_outcomes_mat) <- IF
+rownames(IF_outcomes_mat) <- outcomes_decisions
+
+for (i in 1:length(IF)){
+  for (k in 1:length(outcomes_decisions)){
+    IF_outcomes_mat[k,i] <- mean(Trial_Outcome_decisions_mat[i,]==outcomes_decisions[k])
+  }
+}
+
+for (k in 1:length(outcomes_decisions)){
+  IF_outcomes_mat[k,length(IF)] <- mean(ifelse(final_outcome==1,
+                                               "Successful at Final Analysis",
+                                               "Unsuccessful at Final Analysis")==outcomes_decisions[k])
+                                                 
+                                                 
+}
+
+kable(IF_outcomes_mat, digits = 2)
+
+
+```
+
+And the stacked barchart. We use the same colours as the first barchart, but each colour is broken down into correct and incorrect decision.
+
+```{r, echo = F}
+
+# Only hatch Futility and Unsuccessful
+density_vals <- c(NA, NA, 50, 20, 50, 20)  # Only 2nd and 4th rows hatched
+angle_vals <- c(0, 0, 45, -45, 45, -45)     # Angle doesn't matter for NA entries
+# Adjust margins: c(bottom, left, top, right)
+par(mar = c(5, 4, 4, 10))  # Increase right margin
+
+barplot(as.matrix(IF_outcomes_mat),
+        beside = FALSE,
+        col = outcome_decisions_colors[outcomes_decisions],
+        density = density_vals,
+        angle = angle_vals,
+        xlab = "Information Fraction",
+        ylab = "Proportion",
+        main = "Outcomes at each IA")
+
+
+legend("topright",
+       legend = outcomes_decisions,
+       fill = outcome_decisions_colors[outcomes_decisions],
+       density = density_vals,
+       angle = angle_vals,
+       cex = 0.6,
+       xpd = TRUE,  # Allows legend to plot outside plot area
+       inset = c(-0.5, 0))  # Adjust based on margin size
+```
