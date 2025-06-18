@@ -2,32 +2,67 @@ sigma <- 10
 delta_0 <- 5
 alpha <- 0.05
 beta <- 0.2
-var_delta <- 2*sigma^2
 
 
-n1 <- var_delta*(qnorm(alpha, lower.tail = F) + qnorm(beta, lower.tail = F))^2
+n1 <- 2*sigma^2*(qnorm(alpha, lower.tail = F) + qnorm(beta, lower.tail = F))^2
 n1 <- n1/(delta_0)^2
 
 n_0 <- 4
-n_1 <- 1:500
-power <- pnorm(qnorm(alpha) + (delta_0*sqrt(n_1))/sqrt(var_delta))
-assurance <- pnorm(sqrt(n_0/(n_1+n_0))*(qnorm(alpha)+(delta_0*sqrt(n_1))/sqrt(var_delta)))
-assurance_upper_bound <- pnorm(sqrt(n_0)*delta_0/sqrt(var_delta))
+n <- 1:500
+power <- pnorm(qnorm(alpha) + (delta_0*sqrt(n))/sqrt(2*sigma^2))
+assurance <- pnorm(sqrt(n_0/(n+n_0))*(qnorm(alpha)+(delta_0*sqrt(n))/sqrt(2*sigma^2)))
+assurance_upper_bound <- pnorm(sqrt(n_0)*delta_0/sqrt(2*sigma^2))
 Norm_Ass <- assurance/assurance_upper_bound
 
 
 
 png("PowerAssurance.png", units="in", width=10, height=6, res=700)
-plot(n_1, power, type = "l", col = "blue",
-     xlab = "Number of patients (in each group)", ylab = "Power/Assurance")
-lines(n_1, assurance, col = "red", lty = 2)
+plot(n, power, type = "l", col = "blue",
+     xlab = "Number of patients (in each group)", ylab = "Power/Assurance", 
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
+lines(n, assurance, col = "red", lty = 2)
 abline(h = assurance_upper_bound, lty = 3)
-legend("bottomright", legend = c("Power", "Assurance", "Assurance bound"), lty = 1:3, col = c("blue", "red", "black"))
+legend("bottomright", legend = c("Power", "Assurance", "Assurance bound"), 
+       lty = 1:3, col = c("blue", "red", "black"), cex = 1.25)
 dev.off()
 
 png("Norm_Assurance.png", units="in", width=10, height=6, res=700)
-plot(n_1, Norm_Ass, type = "l", ylim = c(0,1), xlab = "Number of patients (in each group)",
-     ylab = "Normalised Assurance")
+plot(n, Norm_Ass, type = "l", ylim = c(0,1), xlab = "Number of patients (in each group)",
+     ylab = "Normalised Assurance",
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
+dev.off()
+
+png("Pred_delta_hat.png", units="in", width=10, height=8, res=1000)
+par(mfrow = c(2,2))
+
+produce_plot <- function(n){
+  critValue <- qnorm(0.95) * sqrt(2*sigma^2) / sqrt(n)
+  delta_hat <- seq(-20, 30, by = 0.1)
+  
+  plot(delta_hat,
+       dnorm(delta_hat, mean = delta_0, sd = sqrt(2*sigma^2 * (1 / n))),
+       type = "l", col = "blue",
+       main = bquote("Predictive " * hat(delta) * " for " * n * " = " * .(n)),
+       ylab = "Density",
+       xlab = expression(hat(delta)),
+       ylim = c(0, 0.35),
+       cex.axis=1.5, cex.lab=1.5, cex.main=2)
+  
+  lines(delta_hat,
+        dnorm(delta_hat, mean = delta_0, sd = sqrt(2*sigma^2 * (1 / n_0 + 1 / n))),
+        col = "red")
+  
+  abline(v = critValue, lwd = 1, col = "green")
+  
+  legend("topright",
+         legend = c("Predictive (Power)", "Predictive (Assurance)", "Critical Value"),
+         col = c("blue", "red", "green"), lty = 1)
+}
+
+produce_plot(5)
+produce_plot(25)
+produce_plot(50)
+produce_plot(75)
 dev.off()
 
 
@@ -80,62 +115,6 @@ lines(n1, predict(smooth_ass3, newdata = n1), col = "green", lty = 4)
 
 legend("bottomright", legend = c("Power", "Assurance: Scenario 1", "Assurance: Scenario 2", "Assurance: Scenario 3"),
        lty = 1:4, col = c("black", "blue", "red", "green"))
-dev.off()
-
-
-sigma <- 10
-delta_0 <- 5
-alpha <- 0.05
-beta <- 0.2
-var_delta <- 2*sigma^2
-
-n_0 <- 4
-
-f1 <- qnorm(alpha) + (delta_0*sqrt(n_1))/sqrt(var_delta)
-f2 <- sqrt(n_0/(n_1+n_0))
-
-power <- pnorm(qnorm(alpha) + (delta_0*sqrt(n_1))/sqrt(var_delta))
-assurance <- pnorm(sqrt(n_0/(n_1+n_0))*(qnorm(alpha)+(delta_0*sqrt(n_1))/sqrt(var_delta)))
-
-plot(n_1, power, type = "l")
-lines(n_1, assurance)
-
-plot(n_1, f1, type = "l")
-lines(n_1, f2, col = "blue")
-lines(n_1, f1*f2, col = "red")
-
-(-qnorm(alpha)*sqrt(var_delta)/(delta_0))^2
-
-png("Pred_delta_hat.png", units="in", width=10, height=8, res=1000)
-par(mfrow = c(2,2))
-
-produce_plot <- function(n_1){
-  critValue <- qnorm(0.95) * sqrt(var_delta) / sqrt(n_1)
-  delta_hat <- seq(-20, 30, by = 0.1)
-  
-  plot(delta_hat,
-       dnorm(delta_hat, mean = delta_0, sd = sqrt(var_delta * (1 / n_1))),
-       type = "l", col = "blue",
-       main = bquote("Predictive " * hat(delta) * " for " * n[1] * " = " * .(n_1)),
-       ylab = "Density",
-       xlab = expression(hat(delta)),
-       ylim = c(0, 0.35))
-  
-  lines(delta_hat,
-        dnorm(delta_hat, mean = delta_0, sd = sqrt(var_delta * (1 / n_0 + 1 / n_1))),
-        col = "red")
-  
-  abline(v = critValue, lwd = 1, col = "green")
-  
-  legend("topright",
-         legend = c("Predictive (Power)", "Predictive (Assurance)", "Critical Value"),
-         col = c("blue", "red", "green"), lty = 1)
-}
-
-produce_plot(5)
-produce_plot(25)
-produce_plot(50)
-produce_plot(75)
 dev.off()
 
 
