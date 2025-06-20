@@ -150,7 +150,7 @@ We are planning a trial in which we anticipate will be subject to a delayed trea
 ```{r parameters}
 lambda_c <- 0.08
 P_S <- 0.9
-P_DTE <- 0.7
+P_DTE <- 0
 delay_time_SHELF <- SHELF::fitdist(c(3, 4, 5), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 10)
 post_delay_HR_SHELF <- SHELF::fitdist(c(0.55, 0.6, 0.7), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1.5)
 post_delay_HR_dist <- "gamma"
@@ -182,6 +182,10 @@ NSims <- 5e3
 delay_vec <- rep(NA, NSims)
 post_delay_HR_vec <- rep(NA, NSims)
 z_scores_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
+duration_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
+final_duration_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
+ss_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
+final_ss_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
 
 ```
 
@@ -235,6 +239,8 @@ for (j in 1:NSims){
     deltad <- as.numeric(exp(coef(coxmodel)))
     test <- survdiff(Surv(survival_time, status)~group, data = data)
     z_scores_mat[k,j] <- -(coef(summary(coxmodel))[, 4])
+    duration_mat[k,j] <- data_after_cens$cens_time
+    ss_mat[k,j] <- data_after_cens$sample_size
   }
  
 }
@@ -309,10 +315,25 @@ for (k in 1:(length(IF)-1)){
                                             ifelse(Final_ZScore > design$criticalValues[2],
                                                    "Successful at Final Analysis",
                                                    "Unsuccessful at Final Analysis")))
+    
+    final_duration_mat[k,i] <- ifelse(IA_ZScore > design$criticalValues[1], duration_mat[k,i],
+                                     ifelse(IA_ZScore < design$futilityBounds, duration_mat[k,i],
+                                            duration_mat[length(IF),i]))
+    
+    final_ss_mat[k,i] <- ifelse(IA_ZScore > design$criticalValues[1], ss_mat[k,i],
+                                     ifelse(IA_ZScore < design$futilityBounds, ss_mat[k,i],
+                                            ss_mat[length(IF),i]))
+    
+    
+    
   }
  
  
 }
+
+final_duration_mat[length(IF), ] <- duration_mat[length(IF), ]
+final_ss_mat[length(IF), ] <- ss_mat[length(IF), ]
+
 
 
 ```
@@ -321,8 +342,9 @@ Again, we plot the same sampled parameters and colour the points the outcome eac
 
 ```{r, echo = F}
 
-outcomes <- c("Successful at Final Analysis", "Unsuccessful at Final Analysis", "Stop for Efficacy", "Stop for Futility")
-outcome_colors <- setNames(c("blue", "red", "green", "purple"), outcomes)
+outcomes <- c("Successful at Final Analysis", "Stop for Efficacy", "Stop for Futility", "Unsuccessful at Final Analysis")
+outcome_colors <- setNames(c("green", "green", "red", "red"), outcomes)
+
 
 sliderInput("chosen_IF", "Information Fraction", min = IF[1],
             max = IF[length(IF)-1], value = IF[1], step = IF[2] - IF[1])
@@ -378,7 +400,7 @@ for (k in 1:length(outcomes)){
                                                  
 }
 
-kable(IF_outcomes_mat, digits = 2)
+
 
 
 ```
@@ -387,11 +409,15 @@ And a stacked barchart.
 
 ```{r, echo = F}
 # Adjust margins: c(bottom, left, top, right)
-par(mar = c(5, 4, 4, 10))  # Increase right margin
+density_vals <- c(NA, 50, 50, NA)  
+angle_vals <- c(0, 0, 0, 0) 
+par(mar = c(5, 4, 4, 15))  # Increase right margin
 
 barplot(as.matrix(IF_outcomes_mat),
         beside = FALSE,
         col = outcome_colors[outcomes],
+        density = density_vals,
+        angle = angle_vals,
         xlab = "Information Fraction",
         ylab = "Proportion",
         main = "Outcomes at each IA")
@@ -400,9 +426,12 @@ legend("topright",
        legend = outcomes,
        fill = outcome_colors[outcomes],
        cex = 0.6,
+       density = density_vals,
+        angle = angle_vals,
        xpd = TRUE,  # Allows legend to plot outside plot area
        inset = c(-0.5, 0))  # Adjust based on margin size
 ```
+
 
 As we have access to the final results, we can also calculate whether a decision made at the interim analysis was correct (or not). As such, we have six outcomes for our trial:
 
@@ -442,10 +471,11 @@ for (j in 1:nrow(Trial_Outcome_mat)){
 ```{r, echo = F}
 
 
-outcomes_decisions <- c("Successful at Final Analysis", "Unsuccessful at Final Analysis", 
-              "Incorrectly stopped for Efficacy", "Correctly stopped for Efficacy",
-              "Incorrectly stopped for Futility", "Correctly stopped for Futility")
-outcome_decisions_colors <- setNames(c("blue", "red", "green", "green", "purple", "purple"), outcomes_decisions)
+outcomes_decisions <- c("Successful at Final Analysis", "Correctly stopped for Efficacy",
+                        "Incorrectly stopped for Efficacy", "Incorrectly stopped for Futility",
+                        "Correctly stopped for Futility", "Unsuccessful at Final Analysis")
+
+outcome_decisions_colors <- setNames(c("green", "green", "green", "red", "red", "red"), outcomes_decisions)
 
 
 outcome_decisions_shapes <- setNames(c(1, 1, 0, 2, 0, 2), outcomes_decisions)
@@ -516,28 +546,68 @@ And the stacked barchart. We use the same colours as the first barchart, but eac
 
 ```{r, echo = F}
 
-# Only hatch Futility and Unsuccessful
-density_vals <- c(NA, NA, 50, 20, 50, 20)  # Only 2nd and 4th rows hatched
-angle_vals <- c(0, 0, 45, -45, 45, -45)     # Angle doesn't matter for NA entries
-# Adjust margins: c(bottom, left, top, right)
-par(mar = c(5, 4, 4, 10))  # Increase right margin
+png("DTE_Interim_Example.png", units="in", width=10, height=6, res=700)
+density_vals <- c(NA, 20, 50, 50, 20, NA)  
+angle_vals <- c(0, 45, -45, -45, 45, 0)     
 
-barplot(as.matrix(IF_outcomes_mat),
-        beside = FALSE,
-        col = outcome_decisions_colors[outcomes_decisions],
-        density = density_vals,
-        angle = angle_vals,
-        xlab = "Information Fraction",
-        ylab = "Proportion",
-        main = "Outcomes at each IA")
+par(mar = c(5, 4, 4, 20))  # Increase right margin
+
+# Get bar heights to determine where to draw lines
+bar_heights <- apply(IF_outcomes_mat[1:3, ], 2, sum)
+
+
+bar_positions <- barplot(as.matrix(IF_outcomes_mat),
+                         beside = FALSE,
+                         width = 1,  # Optional, but explicit
+                         col = outcome_decisions_colors[outcomes_decisions],
+                         density = density_vals,
+                         angle = angle_vals,
+                         xlab = "Information Fraction",
+                         ylab = "Proportion",
+                         main = "Proportion of Trial Outcomes at Different Information Fractions")
+
 
 
 legend("topright",
-       legend = outcomes_decisions,
-       fill = outcome_decisions_colors[outcomes_decisions],
-       density = density_vals,
-       angle = angle_vals,
+       legend = c(rev(outcomes_decisions), "Assurance"),
+       fill = c(rev(outcome_decisions_colors[outcomes_decisions]), NA),
+       border = c(rep("black", length(outcomes_decisions)), NA),
+       density = c(rev(density_vals), NA),
+       angle = c(rev(angle_vals), NA),
+       col = c(rep(NA, length(outcomes_decisions)), "black"),
        cex = 0.6,
-       xpd = TRUE,  # Allows legend to plot outside plot area
-       inset = c(-0.5, 0))  # Adjust based on margin size
+       xpd = TRUE,
+       inset = c(-0.4, 0),
+       bty = "n")
+
+
+
+# Add black separator lines between top and bottom outcome segments
+segments(x0 = bar_positions - 0.5,  # left edge of each bar
+         x1 = bar_positions + 0.5,  # right edge
+         y0 = bar_heights,          # y position (cumulative height of top 3)
+         y1 = bar_heights,
+         col = "black",
+         lwd = 5)
+
+# Add text labels just below the separator line
+text(x = bar_positions,
+     y = bar_heights,  # Adjust this for spacing
+     labels = round(bar_heights, 2),
+     cex = 1,                # text size
+     pos = 1)                  # below the specified y (1 = below)
+
+dev.off()
+
+
 ```
+
+```{r}
+
+IF_outcomes_mat <- rbind(IF_outcomes_mat, rowMeans(final_duration_mat), rowMeans(final_ss_mat))
+
+rownames(IF_outcomes_mat) <- c(outcomes_decisions, "Expected Duration", "Expected Sample Size")
+
+kable(IF_outcomes_mat, digits = 2)
+```
+
