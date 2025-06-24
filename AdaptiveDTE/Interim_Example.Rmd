@@ -149,10 +149,10 @@ We are planning a trial in which we anticipate will be subject to a delayed trea
 
 ```{r parameters}
 lambda_c <- 0.08
-P_S <- 0.9
-P_DTE <- 0
-delay_time_SHELF <- SHELF::fitdist(c(3, 4, 5), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 10)
-post_delay_HR_SHELF <- SHELF::fitdist(c(0.55, 0.6, 0.7), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1.5)
+P_S <- 1
+P_DTE <- 1
+delay_time_SHELF <- SHELF::fitdist(c(2.99, 3, 3.01), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 10)
+post_delay_HR_SHELF <- SHELF::fitdist(c(0.549, 0.55, 0.551), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1.5)
 post_delay_HR_dist <- "gamma"
 delay_time_dist <- "gamma"
 
@@ -174,76 +174,87 @@ Here, we set the information fractions we will look at and the number of simulat
 
 ```{r sims}
 IF <- seq(0.1, 1, by=0.1)
-NSims <- 5e3
+NSims <- 1e1
 ```
 
 ```{r inits, echo=F}
 
-delay_vec <- rep(NA, NSims)
-post_delay_HR_vec <- rep(NA, NSims)
-z_scores_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
-duration_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
-final_duration_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
-ss_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
-final_ss_mat <- data.frame(matrix(NA, ncol = NSims, nrow = length(IF)))
+library(doParallel)
+library(foreach)
+library(SHELF)
+library(survival)
 
-```
+# Register parallel backend
+n_cores <- parallel::detectCores() - 1
+cl <- makeCluster(n_cores)
+registerDoParallel(cl)
 
+# Allocate storage
+delay_vec <- numeric(NSims)
+post_delay_HR_vec <- numeric(NSims)
+z_scores_mat <- matrix(NA, nrow = length(IF), ncol = NSims)
+duration_mat <- matrix(NA, nrow = length(IF), ncol = NSims)
+ss_mat <- matrix(NA, nrow = length(IF), ncol = NSims)
+final_duration_mat <- matrix(NA, nrow = length(IF), ncol = NSims)
+final_ss_mat <- matrix(NA, nrow = length(IF), ncol = NSims)
 
-```{r simulating trials, echo = F}
+# Run simulation in parallel
+results <- foreach(j = 1:NSims, .packages = c("SHELF", "survival")) %dopar% {
 
-
-for (j in 1:NSims){
-  if (runif(1) > P_S){
-    #Curves do not separate
+  if (runif(1) > P_S) {
     delay_time <- 0
     post_delay_HR <- 1
   } else {
-    if (runif(1) > P_DTE){
-      #Curves separate with no delay
+    if (runif(1) > P_DTE) {
       delay_time <- 0
-      post_delay_HR_sample <- SHELF::sampleFit(post_delay_HR_SHELF, n = 1)
-      post_delay_HR <- post_delay_HR_sample[,post_delay_HR_dist]
-    } else{
-      #Curves separate with a delay
-      delay_time_sample <- SHELF::sampleFit(delay_time_SHELF, n = 1)
-      post_delay_HR_sample <- SHELF::sampleFit(post_delay_HR_SHELF, n = 1)
-      delay_time <- delay_time_sample[,delay_time_dist]
-      post_delay_HR <- post_delay_HR_sample[,post_delay_HR_dist]
+      post_delay_HR <- SHELF::sampleFit(post_delay_HR_SHELF, n = 1)[, post_delay_HR_dist]
+    } else {
+      delay_time <- SHELF::sampleFit(delay_time_SHELF, n = 1)[, delay_time_dist]
+      post_delay_HR <- SHELF::sampleFit(post_delay_HR_SHELF, n = 1)[, post_delay_HR_dist]
     }
   }
- 
-  delay_vec[j] <- delay_time
-  post_delay_HR_vec[j] <- post_delay_HR
- 
+
   data <- sim_dte(n_c, n_t, lambda_c, delay_time, post_delay_HR, dist = "Exponential")
- 
-  if (rec_method=="power"){
-    data <- add_recruitment_time(data, rec_method,
-                                 rec_period, rec_power)
+
+  if (rec_method == "power") {
+    data <- add_recruitment_time(data, rec_method, rec_period, rec_power)
+  } else if (rec_method == "PWC") {
+    data <- add_recruitment_time(data, rec_method, rec_rate, rec_duration)
   }
- 
-  if (rec_method == "PWC"){
-    data <- add_recruitment_time(data, rec_method,
-                                 rec_rate, rec_duration)
-  }
- 
- 
+
   final_data <- data
- 
-  for (k in 1:length(IF)){
+  z_scores <- duration <- ss <- numeric(length(IF))
+
+  for (k in seq_along(IF)) {
     data_after_cens <- cens_data(data = final_data, cens_method = cens_method,
-                                 cens_events = cens_events*IF[k])
-    data <- data_after_cens$data
-    coxmodel <- coxph(Surv(survival_time, status)~group, data = data)
-    deltad <- as.numeric(exp(coef(coxmodel)))
-    test <- survdiff(Surv(survival_time, status)~group, data = data)
-    z_scores_mat[k,j] <- -(coef(summary(coxmodel))[, 4])
-    duration_mat[k,j] <- data_after_cens$cens_time
-    ss_mat[k,j] <- data_after_cens$sample_size
+                                 cens_events = cens_events * IF[k])
+    data_k <- data_after_cens$data
+
+    coxmodel <- coxph(Surv(survival_time, status) ~ group, data = data_k)
+    z_scores[k] <- -coef(summary(coxmodel))[, 4]
+    duration[k] <- data_after_cens$cens_time
+    ss[k] <- data_after_cens$sample_size
   }
- 
+
+  list(
+    delay_time = delay_time,
+    post_delay_HR = post_delay_HR,
+    z_scores = z_scores,
+    duration = duration,
+    ss = ss
+  )
 }
+
+# Collect results
+for (j in 1:NSims) {
+  delay_vec[j] <- results[[j]]$delay_time
+  post_delay_HR_vec[j] <- results[[j]]$post_delay_HR
+  z_scores_mat[, j] <- results[[j]]$z_scores
+  duration_mat[, j] <- results[[j]]$duration
+  ss_mat[, j] <- results[[j]]$ss
+}
+
+stopCluster(cl)
 
 ```
 
