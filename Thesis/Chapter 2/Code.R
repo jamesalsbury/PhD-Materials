@@ -1,10 +1,10 @@
 sigma <- 10
 delta_0 <- 5
-alpha <- 0.05
+alpha <- 0.025
 beta <- 0.2
 
 
-n1 <- 2*sigma^2*(qnorm(alpha, lower.tail = F) + qnorm(beta, lower.tail = F))^2
+n1 <- 2*sigma^2*(qnorm(alpha) + qnorm(beta))^2
 n1 <- n1/(delta_0)^2
 
 n_0 <- 4
@@ -66,37 +66,48 @@ produce_plot(75)
 dev.off()
 
 
-sim_data_power <- function(n1){
-  placebo <- rbinom(1, n1, prob = 0.45)
-  moxo <- rbinom(1, n1, prob = 0.3)
-  M <- as.table(rbind(c(moxo, n1-moxo), c(placebo, n1-placebo)))
-  dimnames(M) <- list(group = c("M", "P"),
-                      Outcome = c("Raised","Not_Raised"))
-  test <- prop.test(M, correct = F)
-  test$p.value < 0.05
+
+
+simulate_data_power <- function(n) {
+    r_c <- rbinom(1, n, 0.45)
+    r_t <- rbinom(1, n, 0.3)
+    p_hat_c <- r_c / n
+    p_hat_t <- r_t / n
+    p_pool <- (r_c + r_t) / (2 * n)
+    se <- sqrt(2 * p_pool * (1 - p_pool) / n)
+    z <- (p_hat_c - p_hat_t) / se
+    z_crit <- qnorm(1 - 0.025)
+    z > z_crit
 }
 
-sim_data_ass <- function(n1, m, nu){
+
+
+sim_data_ass <- function(n, m, nu){
+  
   theta_c <- rbeta(1, 10.7, 13.1)
   rho <- truncnorm::rtruncnorm(1, mean = m, sd = sqrt(nu), a = (theta_c-1), b = theta_c)
   theta_t <- theta_c - rho #Treatment
-  placebo <- rbinom(1, n1, prob = theta_c)
-  moxo <- rbinom(1, n1, prob = theta_t)
-  M <- as.table(rbind(c(moxo, n1-moxo), c(placebo, n1-placebo)))
-  dimnames(M) <- list(group = c("M", "P"),
-                      Outcome = c("Raised","Not_Raised"))
-  test <- prop.test(M, correct = F)
-  test$p.value < 0.05
+  r_c <- rbinom(1, n, prob = theta_c)
+  r_t <- rbinom(1, n, prob = theta_t)
+  
+  p_hat_c <- r_c / n
+  p_hat_t <- r_t / n
+  p_pool <- (r_c + r_t) / (2 * n)
+  se <- sqrt(2 * p_pool * (1 - p_pool) / n)
+  z <- (p_hat_c - p_hat_t) / se
+  z_crit <- qnorm(1 - 0.025)
+  z > z_crit
 }
 
 png("Power_Assurance_Moxo.png", units="in", width=10, height=6, res=700)
 n1 <- 10:500
-power_estimates <- sapply(n1, function(n) mean(replicate(500, sim_data_power(n))))
+power_estimates <- sapply(n1, function(n) mean(replicate(500, simulate_data_power(n))))
 smooth_power <- loess(power_estimates~n1)
 plot(n1, predict(smooth_power, newdata = n1), type = "l",
      ylim = c(0,1), xlim = c(0, 500),
      ylab = "Power/Assurance",
-     xlab = "Number of Patients (in each group)")
+     xlab = "Number of Patients (in each group)",
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
 
 
 ass_estimates1 <- sapply(n1, function(n) mean(replicate(500, sim_data_ass(n, 0.15, 0.0001))))
