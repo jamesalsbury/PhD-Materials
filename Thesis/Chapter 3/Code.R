@@ -5,9 +5,10 @@ IPD_INTEREST_OS <- read.csv(file = "Thesis/Chapter 3/Data/IPD_INTEREST_OS.csv")
 IPD_ZODIAC_OS <- read.csv(file = "Thesis/Chapter 3/Data/IPD_ZODIAC_OS.csv")
 IPD_REVEL_OS <- read.csv(file = "Thesis/Chapter 3/Data/IPD_REVEL_OS.csv")
 
-#png("Doce_Surv.png", units="in", width=10, height=8, res=700)
+png("Doce_Surv.png", units="in", width=10, height=6, res=700)
 INTEREST_kmfit <- survfit(Surv(Survival.time, Status)~1, data = IPD_INTEREST_OS)
-plot(INTEREST_kmfit, xlim = c(0, 21), col = "blue", conf.int = F, ylab = "Overall Survival", xlab = "Time (months)")
+plot(INTEREST_kmfit, xlim = c(0, 21), col = "blue", conf.int = F, ylab = "Overall Survival",
+     xlab = "Time (months)", cex.axis=1.5, cex.lab=1.5, cex.main=2)
 INTEREST_myfit <- survreg(Surv(Survival.time, Status)~1, data = IPD_INTEREST_OS, dist = "exponential")
 INTEREST_lambda <- exp(-INTEREST_myfit$coefficients)
 time_seq <- seq(0, 21, by=0.01)
@@ -29,8 +30,8 @@ REVEL_lambda <- exp(-REVEL_myfit$coefficients)
 surv_probs <- exp(-REVEL_lambda*time_seq)
 #lines(time_seq, surv_probs, col= "green")
 
-legend("topright", legend = c("INTEREST", "ZODIAC", "REVEL"), col = c("blue", "red", "green"), lty = 1)
-
+legend("topright", legend = c("INTEREST", "ZODIAC", "REVEL"), col = c("blue", "red", "green"), lty = 1, cex = 1.5)
+dev.off()
 med_INTEREST <- summary(INTEREST_kmfit)$table["median"]
 med_ZODIAC <- summary(ZODIAC_kmfit)$table["median"]
 med_REVEL <- summary(REVEL_kmfit)$table["median"]
@@ -73,18 +74,22 @@ library(coda)
 combined_samples <- do.call(rbind, samples)
 lam_pred_all <- as.numeric(combined_samples[,1])
 
-
+png("Doce_Pred_Lambdac.png", units="in", width=10, height=6, res=700)
 # Plot histogram
 hist(lam_pred_all,
-     breaks = 5000,
+     breaks = 100000,
      main = "",
      xlim = c(0, 0.2),
      freq = F,
      ylim = c(0, 25),
-     xlab = expression("Predicted "*lambda[c])
-)
+     xlab = expression("Predicted "*lambda[c]),
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
+dev.off()
 
-plot(INTEREST_kmfit, xlim = c(0, 21), col = "blue", conf.int = F, ylab = "Overall Survival", xlab = "Time (months)")
+
+png("Doce_Surv_MAP.png", units="in", width=10, height=6, res=700)
+plot(INTEREST_kmfit, xlim = c(0, 21), col = "blue", conf.int = F,
+     ylab = "Overall Survival", xlab = "Time (months)", cex.axis=1.5, cex.lab=1.5, cex.main=2)
 lines(ZODIAC_kmfit, xlim = c(0, 21), col = "red", conf.int = F)
 lines(REVEL_kmfit, xlim = c(0, 21), col = "green", conf.int = F)
 Med <- exp(-quantile(lam_pred_all, 0.5)*time_seq)
@@ -96,6 +101,8 @@ lines(time_seq, UQ, lty = 2)
 
 legend("topright", legend = c("INTEREST", "ZODIAC", "REVEL", "MAP Prior", "90% Interval for MAP Prior"), 
        col = c("blue", "red", "green", "black", "black"), lty = c(1, 1, 1, 1, 2))
+
+dev.off()
 
 
 MCMC_sample <- read.csv(file = "Thesis/Chapter 3/Data/MCMC_sample.csv")
@@ -171,9 +178,10 @@ outcome_DF <- data.frame(N = seq(10, 1000, length = 10),
                           Power = sapply(Power_Calc, `[[`, 1),
                           Power_ND = sapply(Power_ND_Calc, `[[`, 1))
 
-png("PowerAss_Exp_Example.png", units="in", width=10, height=8, res=700)
+png("PowerAss_Exp_Example.png", units="in", width=10, height=6, res=700)
 plot(outcome_DF$N, outcome_DF$Ass, type= "l", ylim = c(0,1),
-     xlab = "Number of Patients", ylab = "Assurance/Power")
+     xlab = "Number of Patients", ylab = "Assurance/Power",
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
 lines(outcome_DF$N, outcome_DF$Power, type= "l", col = "blue", lty = 2)
 lines(outcome_DF$N, outcome_DF$Power_ND, type= "l", col = "red", lty = 3)
 
