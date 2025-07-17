@@ -104,7 +104,9 @@ legend("topright", legend = c("INTEREST", "ZODIAC", "REVEL", "MAP Prior", "90% I
 
 dev.off()
 
-
+############
+#First example
+###########
 MCMC_sample <- read.csv(file = "Thesis/Chapter 3/Data/MCMC_sample.csv")
 Assurance_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390, 445, 500),
                              n_t = c(5, 60, 115, 170, 225, 280, 335, 390, 445, 500),
@@ -118,7 +120,7 @@ Assurance_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390
                              post_delay_HR_dist = "gamma",  
                              P_S = 0.9,
                              P_DTE = 0.8,
-                             cens_method = "Events",
+                             cens_method = "IF",
                              cens_IF = 0.8,
                              rec_method = "power",
                              rec_period = 12,
@@ -126,7 +128,7 @@ Assurance_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390
                              analysis_method = "LRT",
                              alternative = "one.sided",
                              alpha = 0.025,
-                             nSims = 25)
+                             nSims = 25000)
 
 Power_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390, 445, 500),
                               n_t = c(5, 60, 115, 170, 225, 280, 335, 390, 445, 500),
@@ -140,7 +142,7 @@ Power_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390, 44
                               post_delay_HR_dist = "gamma",  
                               P_S = 1,
                               P_DTE = 1,
-                              cens_method = "Events",
+                              cens_method = "IF",
                               cens_IF = 0.8,
                               rec_method = "power",
                               rec_period = 12,
@@ -148,7 +150,7 @@ Power_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390, 44
                               analysis_method = "LRT",
                               alternative = "one.sided",
                               alpha = 0.025,
-                              nSims = 25)
+                              nSims = 25000)
 
 
 Power_ND_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390, 445, 500),
@@ -163,7 +165,7 @@ Power_ND_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390,
                               post_delay_HR_dist = "gamma",  
                               P_S = 1,
                               P_DTE = 0,
-                              cens_method = "Events",
+                              cens_method = "IF",
                               cens_IF = 0.8,
                               rec_method = "power",
                               rec_period = 12,
@@ -171,7 +173,7 @@ Power_ND_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390,
                               analysis_method = "LRT",
                               alternative = "one.sided",
                               alpha = 0.025,
-                              nSims = 25)
+                              nSims = 25000)
 
 outcome_DF <- data.frame(N = seq(10, 1000, length = 10),
                           Ass = sapply(Assurance_Calc, `[[`, 1),
@@ -180,18 +182,60 @@ outcome_DF <- data.frame(N = seq(10, 1000, length = 10),
 
 png("PowerAss_Exp_Example.png", units="in", width=10, height=6, res=700)
 plot(outcome_DF$N, outcome_DF$Ass, type= "l", ylim = c(0,1),
-     xlab = "Number of Patients", ylab = "Assurance/Power",
+     xlab = "Total number of patients", ylab = "Assurance/Power",
      cex.axis=1.5, cex.lab=1.5, cex.main=2)
 lines(outcome_DF$N, outcome_DF$Power, type= "l", col = "blue", lty = 2)
 lines(outcome_DF$N, outcome_DF$Power_ND, type= "l", col = "red", lty = 3)
-
 legend("bottomright", legend = c("Assurance", "Power", "Power assuming no delay"),
-       col = c("black", "blue", "red"), lty = 1:3)
+       col = c("black", "blue", "red"), lty = 1:3, cex = 1.5)
+dev.off()
+
+############
+#Second example
+###########
+
+
+Assurance_Calc <- calc_dte_assurance(n_c = c(3, 40, 77, 113, 150, 187, 223, 260, 297, 333), 
+                   n_t = c(7, 80, 153, 227, 300, 373, 447, 520, 593, 667), 
+                   control_dist = "Weibull", 
+                   control_parameters = "Distribution", 
+                   t1 = 6, 
+                   t2 = 12, 
+                   t1_Beta_a = 26.7, 
+                   t1_Beta_b = 11.6, 
+                   diff_Beta_a = 11.6, 
+                   diff_Beta_b = 26.7, 
+                   delay_time_SHELF = SHELF::fitdist(c(1,3,4), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 12), 
+                   delay_time_dist = "gamma", 
+                   post_delay_HR_SHELF = SHELF::fitdist(c(0.4, 0.5, 0.6), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1), 
+                   post_delay_HR_dist = "gamma",  
+                   P_S = 1, 
+                   P_DTE = 0.5, 
+                   cens_method = "Time", 
+                   cens_time = 60, 
+                   rec_method = "power", 
+                   rec_period = 6, 
+                   rec_power = 1, 
+                   analysis_method = "LRT", 
+                   alternative = "one.sided", 
+                   alpha = 0.025, 
+                   nSims = 25000)
+
+outcome_DF <- data.frame(N = seq(10, 1000, length = 10),
+                         Ass = sapply(Assurance_Calc, `[[`, 1))
+                         
+
+png("Ass_Weib_Example.png", units="in", width=10, height=6, res=700)
+plot(outcome_DF$N, outcome_DF$Ass, type= "l", ylim = c(0,1),
+     xlab = "Total number of patients", ylab = "Assurance/Power",
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
+legend("bottomright", legend = c("Assurance"),
+       col = c("black"), lty = 1, cex = 1.5)
 dev.off()
 
 
 ############
-#Simplifying invesitgation
+#Simplifying investigation
 ###########
 DTEDataSetsFunc <- function(author){
   
@@ -542,6 +586,9 @@ lines(trialtime, upperbound, lty=2)
 legend("topright", legend = c("Control", "Treatment", "Treatment CI"), lty = c(1, 1, 2), 
        col = c("blue", "red", "black"), cex = 1.5)
 dev.off()
+
+
+
 
 
 
