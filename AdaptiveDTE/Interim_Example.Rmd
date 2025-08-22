@@ -149,10 +149,10 @@ We are planning a trial in which we anticipate will be subject to a delayed trea
 
 ```{r parameters}
 lambda_c <- 0.08
-P_S <- 1
-P_DTE <- 1
-delay_time_SHELF <- SHELF::fitdist(c(2.99, 3, 3.01), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 10)
-post_delay_HR_SHELF <- SHELF::fitdist(c(0.549, 0.55, 0.551), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1.5)
+P_S <- 0.9
+P_DTE <- 0
+delay_time_SHELF <- SHELF::fitdist(c(3,4,5), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 10)
+post_delay_HR_SHELF <- SHELF::fitdist(c(0.55, 0.6, 0.7), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1.5)
 post_delay_HR_dist <- "gamma"
 delay_time_dist <- "gamma"
 
@@ -174,7 +174,7 @@ Here, we set the information fractions we will look at and the number of simulat
 
 ```{r sims}
 IF <- seq(0.1, 1, by=0.1)
-NSims <- 1e1
+NSims <- 10e3
 ```
 
 ```{r inits, echo=F}
@@ -561,7 +561,7 @@ png("DTE_Interim_Example.png", units="in", width=10, height=6, res=700)
 density_vals <- c(NA, 20, 50, 50, 20, NA)  
 angle_vals <- c(0, 45, -45, -45, 45, 0)     
 
-par(mar = c(5, 4, 4, 20))  # Increase right margin
+par(mar = c(5, 4, 4, 13))  # Increase right margin
 
 # Get bar heights to determine where to draw lines
 bar_heights <- apply(IF_outcomes_mat[1:3, ], 2, sum)
@@ -586,10 +586,11 @@ legend("topright",
        density = c(rev(density_vals), NA),
        angle = c(rev(angle_vals), NA),
        col = c(rep(NA, length(outcomes_decisions)), "black"),
-       cex = 0.6,
+       cex = 1,
        xpd = TRUE,
        inset = c(-0.4, 0),
        bty = "n")
+       
 
 
 
