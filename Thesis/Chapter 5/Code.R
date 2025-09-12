@@ -20,7 +20,7 @@ p_t_obs <- events_t_interim / n_t_interim
 p_c_obs <- events_c_interim / n_c_interim  
 
 # Simulation settings
-n_sim <- 10000000
+n_sim <- 1000000
 alpha <- 0.025
 
 CP_Func <- function(control_event_rate, treatment_event_rate){
@@ -57,8 +57,24 @@ CP_Func <- function(control_event_rate, treatment_event_rate){
 }
 
 
+theta_f <- seq(-5, 30, by=1)/100
+CP_Vec <- rep(NA, length(theta_f))
 
-CP_Func(0.35, 0.35)
+for (i in 1:length(CP_Vec)){
+  CP_Vec[i] <- CP_Func(0.45, 0.45 - theta_f[i])
+}
+
+png("CP_Moxo.png", units="in", width=10, height=6, res=700)
+plot(theta_f, CP_Vec, type = "l", 
+     xlab = expression(theta[f]), 
+     ylab= "Conditional Power", ylim = c(0,1))
+dev.off()
+
+xSeq <- seq(0, 1, by=0.01)
+plot(xSeq, dbeta(xSeq, 10.6875, 10.6875*11/9), type = "l", ylab = "Density", col = "blue", lwd = 2)
+lines(xSeq, dbeta(xSeq, 6, 14), col = "red", lwd = 2)
+legend("topright", legend = c(expression(theta[c] %~% Be(10.7, 13)),
+                              expression(theta[t] %~% Be(12, 15))), col = c("blue", "red"), lty = 1, lwd = 2)
 
 ######################################
 #Calculate the predictive power
@@ -92,7 +108,7 @@ stan_data <- list(
 )
 
 
-stan_model <- stan_model("Thesis/Chapter 4/stan_model_binary_outcome.stan")
+stan_model <- stan_model("Thesis/Chapter 5/stan_model_binary_outcome.stan")
 
 
 fit <- sampling(stan_model,

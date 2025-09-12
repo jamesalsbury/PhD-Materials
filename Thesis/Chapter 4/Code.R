@@ -260,10 +260,19 @@ DTEDataSetsFunc <- function(author){
                              status = c(controldata$Status, treatmentdata$Status), 
                              group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
   
-  # kmfit <- survfit(Surv(time, status)~group, data = combinedData)
-  # plot(kmfit, conf.int = F, col=c("blue", "red"), xlab = "Time (months)", ylab = ylabel, yaxt = "n",
-  #      cex.axis=1.5, cex.lab=1.5, cex.main=2)
-  # axis(2, at=seq(0, 1, by=0.2), labels=seq(0, 100, by=20))
+  png("KM_DTE.png", units="in", width=10, height=6, res=700)
+  kmfit <- survfit(Surv(time, status) ~ group, data = combinedData)
+  
+  plot(kmfit, conf.int = FALSE, col = c("blue", "red"), lty = 1,
+       xlab = "Time (months)", ylab = "Overall survival (%)",
+       xaxt = "n", yaxt = "n", bty = "l", xaxs = "i", yaxs = "i", cex.lab = 1.5, xlim = c(0,36))
+  
+  
+  # Custom axes
+  axis(1, at = seq(0, 36, by = 3), labels = seq(0, 36, by = 3), cex.axis = 1.5)
+  axis(2, at = seq(0, 1, by = 0.2), labels = seq(0, 100, by = 20), cex.axis = 1.5)
+  
+   dev.off()
   
   
   #Finding the Weibull parameters and plotting the line
