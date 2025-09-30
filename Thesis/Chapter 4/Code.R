@@ -104,9 +104,8 @@ legend("topright", legend = c("INTEREST", "ZODIAC", "REVEL", "MAP Prior", "90% I
 
 dev.off()
 
-############
-#First example
-###########
+# First example ----------------------------------------------------------------
+
 MCMC_sample <- read.csv(file = "Thesis/Chapter 3/Data/MCMC_sample.csv")
 Assurance_Calc <- calc_dte_assurance(n_c = c(5, 60, 115, 170, 225, 280, 335, 390, 445, 500),
                              n_t = c(5, 60, 115, 170, 225, 280, 335, 390, 445, 500),
@@ -190,54 +189,66 @@ legend("bottomright", legend = c("Assurance", "Power", "Power assuming no delay"
        col = c("black", "blue", "red"), lty = 1:3, cex = 1.5)
 dev.off()
 
-############
-#Second example
-###########
+# Second example ----------------------------------------------------------------
 
 
-Assurance_Calc <- calc_dte_assurance(n_c = c(3, 40, 77, 113, 150, 187, 223, 260, 297, 333), 
-                   n_t = c(7, 80, 153, 227, 300, 373, 447, 520, 593, 667), 
-                   control_dist = "Weibull", 
-                   control_parameters = "Distribution", 
-                   t1 = 6, 
-                   t2 = 12, 
-                   t1_Beta_a = 26.7, 
-                   t1_Beta_b = 11.6, 
-                   diff_Beta_a = 11.6, 
-                   diff_Beta_b = 26.7, 
-                   delay_time_SHELF = SHELF::fitdist(c(1,3,4), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 12), 
-                   delay_time_dist = "gamma", 
-                   post_delay_HR_SHELF = SHELF::fitdist(c(0.4, 0.5, 0.6), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1), 
-                   post_delay_HR_dist = "gamma",  
-                   P_S = 1, 
-                   P_DTE = 0.5, 
-                   cens_method = "Time", 
-                   cens_time = 60, 
-                   rec_method = "power", 
-                   rec_period = 6, 
-                   rec_power = 1, 
-                   analysis_method = "LRT", 
-                   alternative = "one.sided", 
-                   alpha = 0.025, 
-                   nSims = 25000)
+n <- seq(10, 1000, length = 20)
+n_c <- round(n/3)
+n_t <- round(2*n/3)
 
-outcome_DF <- data.frame(N = seq(10, 1000, length = 10),
-                         Ass = sapply(Assurance_Calc, `[[`, 1))
-                         
+control_model <- list(dist = "Weibull",
+                      parameter_mode = "Distribution",
+                      t1 = 6,
+                      t2 = 12,
+                      t1_Beta_a = 26.7,
+                      t1_Beta_b = 11.6,
+                      diff_Beta_a = 11.6,
+                      diff_Beta_b = 26.7)
+
+effect_model <- list(delay_SHELF = SHELF::fitdist(c(1, 3, 4), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 6),
+                     delay_dist = "gamma",
+                     HR_SHELF = SHELF::fitdist(c(0.4, 0.5, 0.6), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1.5),
+                     HR_dist = "gamma",
+                     P_S = 1,
+                     P_DTE = 0.5)
+
+censoring_model <- list(method = "IF",
+                        IF = 0.7)
+
+recruitment_model <- list(method = "power",
+                          period = 6,
+                          power = 1)
+
+analysis_model <- list(method = "LRT",
+                       alpha = 0.025,
+                       alternative_hypothesis = "one.sided")
+
+
+
+output <- DTEAssurance::calc_dte_assurance(n_c = n_c,
+                                           n_t = n_t,
+                                           control_model = control_model,
+                                           effect_model = effect_model,
+                                           censoring_model = censoring_model,
+                                           recruitment_model = recruitment_model,
+                                           analysis_model = analysis_model, 
+                                           n_sims = 1e3)
+
+ass_smooth <- loess(output$assurance~output$sample_size)
 
 png("Ass_Weib_Example.png", units="in", width=10, height=6, res=700)
-plot(outcome_DF$N, outcome_DF$Ass, type= "l", ylim = c(0,1),
-     xlab = "Total number of patients", ylab = "Assurance/Power",
-     cex.axis=1.5, cex.lab=1.5, cex.main=2)
-legend("bottomright", legend = c("Assurance"),
-       col = c("black"), lty = 1, cex = 1.5)
+
+plot(output$sample_size, predict(ass_smooth), type = "l", ylim = c(0,1), 
+     xlab = "Total number of patients",
+     ylab = "Assurance", cex.axis=1.5, cex.lab=1.5, cex.main=2)
 dev.off()
 
 
-############
-#Simplifying investigation
-###########
-DTEDataSetsFunc <- function(author){
+# Robustness of the simplification ----------------------------------------------------------------
+
+## Plotting the three KM plots ----------------------------------------------------------------
+
+Plot_DTE_Data_Sets <- function(author){
   
   if (author=="Brahmer"){
     trialLength <- 15
@@ -256,148 +267,267 @@ DTEDataSetsFunc <- function(author){
   controldata <- read.csv(file = paste0("Thesis/Chapter 4/Data/", author, "/IPD-control.csv"))
   treatmentdata <- read.csv(file = paste0("Thesis/Chapter 4/Data/", author, "/IPD-treatment.csv"))
   
-  combinedData <- data.frame(time = c(controldata$Survival.time, treatmentdata$Survival.time), 
-                             status = c(controldata$Status, treatmentdata$Status), 
-                             group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata))))
+  combinedData <- data.frame(
+    time = c(controldata$Survival.time, treatmentdata$Survival.time), 
+    status = c(controldata$Status, treatmentdata$Status), 
+    group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata)))
+  )
   
-  png("KM_DTE.png", units="in", width=10, height=6, res=700)
   kmfit <- survfit(Surv(time, status) ~ group, data = combinedData)
   
   plot(kmfit, conf.int = FALSE, col = c("blue", "red"), lty = 1,
-       xlab = "Time (months)", ylab = "Overall survival (%)",
-       xaxt = "n", yaxt = "n", bty = "l", xaxs = "i", yaxs = "i", cex.lab = 1.5, xlim = c(0,36))
-  
+       xlab = "Time (months)", ylab = ylabel,
+       xaxt = "n", yaxt = "n", xaxs = "i", yaxs = "i", cex.lab = 1.5,
+       xlim = c(0, trialLength), lwd = 2)
   
   # Custom axes
-  axis(1, at = seq(0, 36, by = 3), labels = seq(0, 36, by = 3), cex.axis = 1.5)
+  axis(1, at = seq(0, trialLength, by = 3), labels = seq(0, trialLength, by = 3), cex.axis = 1.5)
   axis(2, at = seq(0, 1, by = 0.2), labels = seq(0, 100, by = 20), cex.axis = 1.5)
   
-   dev.off()
+  legend("topright", legend = c("Control", "Treatment"), lty = 1, col = c("blue", "red"), lwd = 2)
   
   
-  #Finding the Weibull parameters and plotting the line
+}
+
+png("KM_All_3.png", units="in", width=15, height=5, res=700)
+par(mfrow=c(1,3))
+Plot_DTE_Data_Sets("Brahmer")
+Plot_DTE_Data_Sets("Yen")
+Plot_DTE_Data_Sets("Borghaei")
+dev.off()
+
+## Finding the MLEs ----------------------------------------------------------------
+
+Find_MLE_DTE_Data_Sets <- function(author){
+  
+  if (author=="Brahmer"){
+    trialLength <- 15
+    THat <- 3
+    ylabel <- "Progression free survival (% of patients)"
+  } else if (author=="Yen"){
+    trialLength <- 30
+    THat <- 3.5
+    ylabel <- "Overall survival (%)"
+  } else if (author=="Borghaei"){
+    trialLength <- 60
+    THat <- 6
+    ylabel <- "Overall survival (%)"
+  }
+  
+  
+  controldata <- read.csv(file = paste0("Thesis/Chapter 4/Data/", author, "/IPD-control.csv"))
+  treatmentdata <- read.csv(file = paste0("Thesis/Chapter 4/Data/", author, "/IPD-treatment.csv"))
+  
+  combinedData <- data.frame(
+    time = c(controldata$Survival.time, treatmentdata$Survival.time), 
+    status = c(controldata$Status, treatmentdata$Status), 
+    group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata)))
+  )
+  
+  kmfit <- survfit(Surv(time, status) ~ group, data = combinedData)
+  
+  plot(kmfit, conf.int = FALSE, col = c("blue", "red"), lty = 1,
+       xlab = "Time (months)", ylab = ylabel,
+       xaxt = "n", yaxt = "n", xaxs = "i", yaxs = "i", cex.lab = 1.5,
+       xlim = c(0, trialLength), lwd = 2)
+  
+  # Custom axes
+  axis(1, at = seq(0, trialLength, by = 3), labels = seq(0, trialLength, by = 3), cex.axis = 1.5)
+  axis(2, at = seq(0, 1, by = 0.2), labels = seq(0, 100, by = 20), cex.axis = 1.5)
+  
+  
+  #Finding the Weibull parameters for the control group 
   weibfit <- survreg(Surv(time, status)~1, data = combinedData[combinedData$group=="Control",], dist = "weibull")
   gammac <- as.numeric(exp(-weibfit$icoef[2]))
   lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
+  
+  #Plotting these parameters for the control group
   controltime <- seq(0, trialLength, by=0.01)
   controlsurv <- exp(-(lambdac*controltime)^gammac)
-  #lines(controltime, controlsurv, col="blue")
+  lines(controltime, controlsurv, col = "darkblue", lty = 2, lwd = 2)
   
-  #Now we look at the treatment curve
-  #Need to find a least squares estimate for this Weibull parameterisation
-  
-  kmfit <- survfit(Surv(time, status)~1, data = combinedData[combinedData$group=="Treatment",])
-  treatmenttime <- seq(0, THat, by=0.01)
-  treatmentsurv <- controlsurv <- exp(-(lambdac*treatmenttime)^gammac)
-  #lines(treatmenttime, treatmentsurv, col="red")
+  #Now we look at the two different Methods
+  #Method A (simplification):
   
   treatmenttime1 <- seq(THat, trialLength, by=0.01)
   
-  #Scenario 1
-
-  optimfunc1 <- function(par){
-    diff <- 0
+  optimfunc1 <- function(lambda_t){
     gammat <- gammac
-    for (i in 1:length(treatmenttime1)){
-      y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-      treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^gammat*(treatmenttime1[i]^gammat-THat^gammat))
-      diff <- diff + (y-treatmentsurv)^2
-    }
-    return(diff)
+    idx <- sapply(treatmenttime1, function(t) max(which(kmfit$time <= t)))
+    y <- kmfit$surv[idx]
+    treatmentsurv <- exp(-(lambdac*THat)^gammac - lambda_t^gammat*(treatmenttime1^gammat - THat^gammat))
+    sum((y - treatmentsurv)^2)
   }
-
+  
   s1gammat <- gammac
-  s1lambdat <- optimize(optimfunc1, c(0, 2))$minimum
+  s1lambdat <- optimize(optimfunc1, c(0.001, 1))$minimum
   treatmentsurv1 <- exp(-(lambdac*THat)^gammac - s1lambdat^s1gammat*(treatmenttime1^s1gammat-THat^s1gammat))
- # lines(treatmenttime1, treatmentsurv1, col="red", lty=1)
-
-
-  #Scenario 2
-
-
+  lines(treatmenttime1, treatmentsurv1, col="darkred", lty=2, lwd = 2)
+  
+  
+  #Method B (full model):
   optimfunc2 <- function(par){
-    diff <- 0
-    for (i in 1:length(treatmenttime1)){
-      y <-  kmfit$surv[sum(kmfit$time<treatmenttime1[i])]
-      treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^par[2]*(treatmenttime1[i]^par[2]-THat^par[2]))
-      diff <- diff + (y-treatmentsurv)^2
-    }
-    return(diff)
+    idx <- sapply(treatmenttime1, function(t) max(which(kmfit$time <= t)))
+    y <- kmfit$surv[idx]
+    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^par[2]*(treatmenttime1^par[2] - THat^par[2]))
+    sum((y - treatmentsurv)^2)
   }
-
-  optimoutput <-  optim(par = c(0.2, 1), fn = optimfunc2)
-  s2lambdat <- optimoutput$par[1]
-  s2gammat <- optimoutput$par[2]
+  
+  
+  fit <- optim(
+    par = c(0.1, 1),
+    fn = optimfunc2,
+    method = "L-BFGS-B",
+    lower = c(0, 0),
+    upper = c(Inf, Inf),
+    control = list(maxit = 1000)
+  )
+  
+  s2lambdat <- fit$par[1]
+  s2gammat <- fit$par[2]
   treatmentsurv1 <- exp(-(lambdac*THat)^gammac - s2lambdat^s2gammat*(treatmenttime1^s2gammat-THat^s2gammat))
-  #lines(treatmenttime1, treatmentsurv1, col="red", lty=2)
+  lines(treatmenttime1, treatmentsurv1, col="darkred", lty=3, lwd = 2)
+
+  legend("topright", legend = c("Control KM", "Treatment KM", "Estimated Control", "Method A", "Method B"),
+         col = c("blue", "red", "darkblue", "darkred", "darkred"), lty = c(1, 1, 2, 2, 3), lwd = 2)
   
-  
-  #Plotting horizontal lines to indicate the delay
-  # y <- seq(0, 1, by=0.01)
-  # x <- rep(THat, length(y))
-  # lines(x,y, lty = 2)
-  # text(x = THat, y = 0.9, labels = paste0("Delay = ", THat, "months"), pos = 4, cex = 1.5)
-  
-  # legend("topright", legend = c("Control", "Method A", "Method B"), col=c("blue", "red", "red"), lty=c(1, 1,2),
-  #        cex = 1.5)
-  
-  # legend("topright", legend = c("Control", "Treatment"), col=c("blue", "red"), lty=c(1, 1),
-  #        cex = 1.5)
-  
-  #Now look at calculating power under the two different scenarios
-  
-  powerfunc <- function(n, lambdat, gammat){
-    powervec <- rep(NA, 1000)
-    for (i in 1:length(powervec)){
-      #Simulating control times
-      u <- runif(n)
-      controltimes <- (1/lambdac)*(-log(u))^(1/gammac)
-
-      #Simulating treatment times
-      u <- runif(n)
-      CP <- exp(-(lambdac*THat)^gammac)
-      treatmenttimes <- ifelse(u>=CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*THat)^gammat-log(u)-(lambdac*THat)^gammac))^(1/gammat))
-
-      #combining control and treatment
-      combinedDataPower <- data.frame(time = c(controltimes, treatmenttimes),
-                                      status = rep(1, 2*n), group = c(rep("Control", n), rep("Treatment", n)))
-
-      test <- survdiff(Surv(time, status)~group, data = combinedDataPower)
-
-
-      #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
-      powervec[i] <- test$chisq > qchisq(0.95, 1)
-    }
-
-    return(mean(powervec))
-  }
-  
-  
-  nvec <- round(seq(10, 500, length = 30))
-  powervecs1 <- mapply(powerfunc, nvec, s1lambdat, s1gammat)
-  powervecs2 <- mapply(powerfunc, nvec, s2lambdat, s2gammat)
-
-  powers1smooth <- loess(powervecs1~nvec)
-   powers2smooth <- loess(powervecs2~nvec)
-
-   plot(nvec*2, predict(powers1smooth), type="l", col="red", ylim=c(0, 1), xlab = "Total sample size", ylab = "Power",
-        cex.axis=1.5, cex.lab=1.5, cex.main=2)
-   lines(nvec*2, predict(powers2smooth), col="blue", lty=2)
-
-  legend("bottomright", legend = c("Method A", "Method B"), col = c("red", "blue"), lty=1:2, cex = 1.5)
 }
-
-png("KM_Power.png", units="in", width=15, height=5, res=700)
+  
+png("KM_All_3_Estimates.png", units="in", width=15, height=5, res=700)
 par(mfrow=c(1,3))
-DTEDataSetsFunc("Brahmer")
-DTEDataSetsFunc("Yen")
-DTEDataSetsFunc("Borghaei")
+Find_MLE_DTE_Data_Sets("Brahmer")
+Find_MLE_DTE_Data_Sets("Yen")
+Find_MLE_DTE_Data_Sets("Borghaei")
 dev.off()
 
 
-##################
-#Doing Flex_Seq
-##################
+## Calculting Power using these MLEs ----------------------------------------------------------------
+
+Calc_Power_DTE_Data_Sets <- function(author){
+  
+  if (author=="Brahmer"){
+    trialLength <- 15
+    THat <- 3
+    ylabel <- "Progression free survival (% of patients)"
+  } else if (author=="Yen"){
+    trialLength <- 30
+    THat <- 3.5
+    ylabel <- "Overall survival (%)"
+  } else if (author=="Borghaei"){
+    trialLength <- 60
+    THat <- 6
+    ylabel <- "Overall survival (%)"
+  }
+  
+  
+  controldata <- read.csv(file = paste0("Thesis/Chapter 4/Data/", author, "/IPD-control.csv"))
+  treatmentdata <- read.csv(file = paste0("Thesis/Chapter 4/Data/", author, "/IPD-treatment.csv"))
+  
+  combinedData <- data.frame(
+    time = c(controldata$Survival.time, treatmentdata$Survival.time), 
+    status = c(controldata$Status, treatmentdata$Status), 
+    group = c(rep("Control", nrow(controldata)), rep("Treatment", nrow(treatmentdata)))
+  )
+  
+  kmfit <- survfit(Surv(time, status) ~ group, data = combinedData)
+  
+  
+  #Finding the Weibull parameters for the control group 
+  weibfit <- survreg(Surv(time, status)~1, data = combinedData[combinedData$group=="Control",], dist = "weibull")
+  gammac <- as.numeric(exp(-weibfit$icoef[2]))
+  lambdac <- as.numeric(1/(exp(weibfit$icoef[1])))
+  
+  #Now we look at the two different Methods
+  #Method A (simplification):
+  
+  treatmenttime1 <- seq(THat, trialLength, by=0.01)
+  
+  optimfunc1 <- function(lambda_t){
+    gammat <- gammac
+    idx <- sapply(treatmenttime1, function(t) max(which(kmfit$time <= t)))
+    y <- kmfit$surv[idx]
+    treatmentsurv <- exp(-(lambdac*THat)^gammac - lambda_t^gammat*(treatmenttime1^gammat - THat^gammat))
+    sum((y - treatmentsurv)^2)
+  }
+  
+  s1gammat <- gammac
+  s1lambdat <- optimize(optimfunc1, c(0.001, 1))$minimum
+  
+  
+  #Method B (full model):
+  optimfunc2 <- function(par){
+    idx <- sapply(treatmenttime1, function(t) max(which(kmfit$time <= t)))
+    y <- kmfit$surv[idx]
+    treatmentsurv <- exp(-(lambdac*THat)^gammac - par[1]^par[2]*(treatmenttime1^par[2] - THat^par[2]))
+    sum((y - treatmentsurv)^2)
+  }
+  
+  
+  fit <- optim(
+    par = c(0.1, 1),
+    fn = optimfunc2,
+    method = "L-BFGS-B",
+    lower = c(0, 0),
+    upper = c(Inf, Inf),
+    control = list(maxit = 1000)
+  )
+  
+  s2lambdat <- fit$par[1]
+  s2gammat <- fit$par[2]
+  
+  
+  Calc_Power <- function(num_patients, lambdat, gammat){
+    power_vec <- rep(NA, 1000)
+    for (i in 1:length(power_vec)){
+      #Simulating control times
+      u <- runif(num_patients)
+      controltimes <- (1/lambdac)*(-log(u))^(1/gammac)
+      
+      #Simulating treatment times
+      u <- runif(num_patients)
+      CP <- exp(-(lambdac*THat)^gammac)
+      treatmenttimes <- ifelse(u>=CP, (1/lambdac)*(-log(u))^(1/gammac), (1/(lambdat^gammat)*((lambdat*THat)^gammat-log(u)-(lambdac*THat)^gammac))^(1/gammat))
+      
+      #combining control and treatment
+      combinedDataPower <- data.frame(time = c(controltimes, treatmenttimes),
+                                      status = rep(1, 2*num_patients), 
+                                      group = c(rep("Control", num_patients), rep("Treatment", num_patients)))
+      
+      test <- survdiff(Surv(time, status)~group, data = combinedDataPower)
+      
+      #If the p-value of the test is less than 0.05 then assvec = 1, 0 otherwise
+      power_vec[i] <- test$chisq > qchisq(0.95, 1)
+    }
+    return(mean(power_vec))
+  }
+  
+  
+  n_patients_vec <- round(seq(10, 500, length = 30))
+  power_method_A <- mapply(Calc_Power, n_patients_vec, s1lambdat, s1gammat)
+  power_method_B <- mapply(Calc_Power, n_patients_vec, s2lambdat, s2gammat)
+  
+  smooth_method_A <- loess(power_method_A~n_patients_vec)
+  smooth_method_B <- loess(power_method_B~n_patients_vec)
+  
+  
+  plot(n_patients_vec*2, predict(smooth_method_A), type="l", col="red", ylim=c(0, 1), xlab = "Total sample size", ylab = "Power",
+       cex.axis=1.5, cex.lab=1.5, cex.main=2)
+  lines(n_patients_vec*2, predict(smooth_method_B), col="blue", lty=2)
+  
+  legend("bottomright", legend = c("Method A", "Method B"), col = c("red", "blue"), lty=1:2, cex = 1.5)
+  
+}
+
+
+png("KM_Power.png", units="in", width=15, height=5, res=700)
+par(mfrow=c(1,3))
+Calc_Power_DTE_Data_Sets("Brahmer")
+Calc_Power_DTE_Data_Sets("Yen")
+Calc_Power_DTE_Data_Sets("Borghaei")
+dev.off()
+
+# Flexible Algorithm ----------------------------------------------------------------
+
 gammac <- 0.8
 gammat <- 0.8
 lambdac <- 0.08
@@ -463,11 +593,7 @@ legend("topright", legend = c("Control Curve", "Sampled Points", "Treatment Curv
 dev.off()
 
 
-
-#############
-#Flexible survival curves
-#############
-
+# Flexible survival curves ----------------------------------------------------------------
 
 
 png("Flexible_Surv_Curves.png", units="in", width=14, height=12, res=700)
