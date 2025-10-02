@@ -76,6 +76,137 @@ lines(xSeq, dbeta(xSeq, 6, 14), col = "red", lwd = 2)
 legend("topright", legend = c(expression(theta[c] %~% Be(10.7, 13)),
                               expression(theta[t] %~% Be(12, 15))), col = c("blue", "red"), lty = 1, lwd = 2)
 
+
+######################################
+#Do conjugate updating for theta_c
+######################################
+
+# Parameters
+alpha_prior <- 10.7
+beta_prior  <- 13.1
+
+x <- 23
+n <- 63
+
+# Posterior parameters
+alpha_post <- alpha_prior + x
+beta_post  <- beta_prior + n - x
+
+# Sequence of theta values
+theta <- seq(0, 1, length.out = 1000)
+
+# Prior density
+prior <- dbeta(theta, alpha_prior, beta_prior)
+
+# Likelihood (Binomial likelihood scaled for plotting)
+likelihood <- dbinom(x, n, theta)
+likelihood <- likelihood / max(likelihood) * max(prior)  # scale to match prior for visualization
+
+# Posterior density
+posterior <- dbeta(theta, alpha_post, beta_post)
+
+png("Theta_c_Dens.png", units="in", width=10, height=6, res=700)
+
+# Plot
+plot(theta, prior, type="l", lwd=2, col="blue", ylim=c(0, max(prior, posterior)),
+     ylab="Density", xlab=expression(theta[c]), cex.axis=1.5, cex.lab=1.5, cex.main=2)
+
+lines(theta, likelihood, lwd=2, col="green", lty=2)
+lines(theta, posterior, lwd=2, col="red")
+
+legend("topright", legend=c("Prior", "Likelihood", "Posterior"),
+       col=c("blue","green","red"), lwd=2, lty=c(1,2,1))
+
+
+dev.off()
+
+
+######################################
+#Do conjugate updating for theta_t
+######################################
+
+# Parameters
+alpha_prior_scen1<- 5.93
+beta_prior_scen1  <- 13.87
+
+alpha_prior_scen2 <- 2.95
+beta_prior_scen2  <- 6.86
+
+alpha_prior_scen3 <- 3.68
+beta_prior_scen3  <- 6.83
+
+
+x <- 31
+n <- 78
+
+# Posterior parameters
+alpha_post_scen1 <- alpha_prior_scen1 + x
+beta_post_scen1  <- beta_prior_scen1 + n - x
+
+alpha_post_scen2 <- alpha_prior_scen2 + x
+beta_post_scen2 <- beta_prior_scen2 + n - x
+
+alpha_post_scen3 <- alpha_prior_scen3 + x
+beta_post_scen3  <- beta_prior_scen3 + n - x
+
+# Sequence of theta values
+theta <- seq(0, 1, length.out = 1000)
+
+# Prior density
+prior_scen1 <- dbeta(theta, alpha_prior_scen1, beta_prior_scen1)
+prior_scen2 <- dbeta(theta, alpha_prior_scen2, beta_prior_scen2)
+prior_scen3 <- dbeta(theta, alpha_prior_scen3, beta_prior_scen3)
+
+
+
+# Likelihood (Binomial likelihood scaled for plotting)
+likelihood <- dbinom(x, n, theta)
+likelihood <- likelihood / max(likelihood) * max(prior)  # scale to match prior for visualization
+
+# Posterior density
+posterior_scen1 <- dbeta(theta, alpha_post_scen1, beta_post_scen1)
+posterior_scen2 <- dbeta(theta, alpha_post_scen2, beta_post_scen2)
+posterior_scen3 <- dbeta(theta, alpha_post_scen3, beta_post_scen3)
+
+
+png("Theta_t_Dens.png", units="in", width=10, height=6, res=700)
+
+# Plot
+plot(theta, prior_scen1, type="l", lwd=2, col="blue", ylim=c(0, max(prior_scen1, posterior_scen1)),
+     ylab="Density", xlab=expression(theta[c]), cex.axis=1.5, cex.lab=1.5, cex.main=2)
+
+lines(theta, posterior_scen1, lwd=2, col="blue", lty = 2)
+
+
+lines(theta, prior_scen2, lwd=2, col="red", lty = 1)
+lines(theta, posterior_scen2, lwd=2, col="red", lty = 2)
+
+lines(theta, prior_scen3, lwd=2, col="green", lty = 1)
+lines(theta, posterior_scen3, lwd=2, col="green", lty = 2)
+
+
+legend("topright",
+       legend=c("Scenario 1", "Scenario 2", "Scenario 3", "Likelihood"),
+       col=c("blue", "red", "green", "black"),
+       lwd=2,
+       lty=c(1,1,1,3),
+       title="Models",
+       cex=1)
+
+legend("right",
+       legend=c("Prior", "Posterior"),
+       col="black",
+       lwd=2,
+       lty=c(1,2),
+       title="Line type",
+       cex=1,
+       inset=c(-0.05,0))   # pushes to the side
+
+
+
+dev.off()
+
+
 ######################################
 #Calculate the predictive power
 ######################################
