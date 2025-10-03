@@ -173,7 +173,7 @@ png("Theta_t_Dens.png", units="in", width=10, height=6, res=700)
 
 # Plot
 plot(theta, prior_scen1, type="l", lwd=2, col="blue", ylim=c(0, max(prior_scen1, posterior_scen1)),
-     ylab="Density", xlab=expression(theta[c]), cex.axis=1.5, cex.lab=1.5, cex.main=2)
+     ylab="Density", xlab=expression(theta[t]), cex.axis=1.5, cex.lab=1.5, cex.main=2)
 
 lines(theta, posterior_scen1, lwd=2, col="blue", lty = 2)
 
@@ -186,11 +186,11 @@ lines(theta, posterior_scen3, lwd=2, col="green", lty = 2)
 
 
 legend("topright",
-       legend=c("Scenario 1", "Scenario 2", "Scenario 3", "Likelihood"),
-       col=c("blue", "red", "green", "black"),
+       legend=c("Scenario 1", "Scenario 2", "Scenario 3"),
+       col=c("blue", "red", "green"),
        lwd=2,
-       lty=c(1,1,1,3),
-       title="Models",
+       lty=c(1,1,1),
+       title="Scenario",
        cex=1)
 
 legend("right",
@@ -200,8 +200,7 @@ legend("right",
        lty=c(1,2),
        title="Line type",
        cex=1,
-       inset=c(-0.05,0))   # pushes to the side
-
+       inset=c(0,0))   # pushes to the side
 
 
 dev.off()
@@ -265,5 +264,131 @@ mcmc_dens(fit, pars = c("p_C", "d"),
 # Extract posterior samples
 posterior_samples <- as.data.frame(fit)
 
+
+######################################
+#Plotting GSD boundaries - Pocock and OBF
+######################################
+
+Pocock_Design <- rpact::getDesignGroupSequential(kMax = 4,
+                                                 alpha = 0.025,
+                                                 sided = 1,
+                                                 typeOfDesign = "P",
+                                                 informationRates = c(0.25, 0.5, 0.75, 1))
+
+OBF_Design <- rpact::getDesignGroupSequential(kMax = 4,
+                                              alpha = 0.025,
+                                              sided = 1,
+                                              typeOfDesign = "OF",
+                                              informationRates = c(0.25, 0.5, 0.75, 1))
+
+# Information fractions
+IF <- seq(0.25, 1, by = 0.25)
+
+
+png("Pocock_OBF_Boundaries.png", units="in", width=10, height=6, res=700)
+# Plot Pocock boundaries without default x-axis
+plot(IF, Pocock_Design$criticalValues, type = "b", pch = 16, lty = 1, col = "blue",
+     ylim = c(0, 5), xlim = c(0, 1),
+     ylab = "Standardized Z Statistic", xlab = "Information Fraction",
+     xaxt = "n")
+
+# Add custom x-axis ticks at 0, 0.25, 0.5, 0.75, 1
+axis(1, at = seq(0, 1, by = 0.25), labels = seq(0, 1, by = 0.25))
+
+# Add O'Brien–Fleming boundaries
+lines(IF, OBF_Design$criticalValues, type = "b", pch = 17, lty = 2, col = "red")
+
+# Add grid for readability
+grid(nx = NA, ny = NULL, col = "gray80", lty = "dotted")
+
+# Add legend
+legend("topright", legend = c("Pocock", "O'Brien–Fleming"),
+       col = c("blue", "red"), lty = c(1, 2), pch = c(16, 17), bty = "n")
+dev.off()
+
+
+######################################
+#Plotting GSD boundaries - Wang-Tsiatis
+######################################
+
+WT_Design_1 <- rpact::getDesignGroupSequential(kMax = 4, alpha = 0.025, sided = 1, typeOfDesign = "WT", informationRates = c(0.25, 0.5, 0.75, 1), deltaWT = 0) 
+WT_Design_2 <- rpact::getDesignGroupSequential(kMax = 4, alpha = 0.025, sided = 1, typeOfDesign = "WT", informationRates = c(0.25, 0.5, 0.75, 1), deltaWT = 0.25) 
+WT_Design_3 <- rpact::getDesignGroupSequential(kMax = 4, alpha = 0.025, sided = 1, typeOfDesign = "WT", informationRates = c(0.25, 0.5, 0.75, 1), deltaWT = 0.5)
+
+# Information fractions
+IF <- seq(0.25, 1, by = 0.25)
+
+png("WT_Boundaries.png", units="in", width=10, height=6, res=700)
+
+# Plot WT design (delta = 0)
+plot(IF, WT_Design_1$criticalValues, type = "b", pch = 16, lty = 1, col = "blue",
+     ylim = c(0, 5), xlim = c(0, 1),
+     ylab = "Standardized Z Statistic", xlab = "Information Fraction",
+     xaxt = "n")
+
+# Add custom x-axis ticks at 0, 0.25, 0.5, 0.75, 1
+axis(1, at = seq(0, 1, by = 0.25), labels = seq(0, 1, by = 0.25))
+
+# Add other WT designs with different delta
+lines(IF, WT_Design_2$criticalValues, type = "b", pch = 17, lty = 2, col = "red")
+lines(IF, WT_Design_3$criticalValues, type = "b", pch = 15, lty = 3, col = "darkgreen")
+
+# Add grid for readability
+grid(nx = NA, ny = NULL, col = "gray80", lty = "dotted")
+
+# Add legend with correct labels
+legend("topright",
+       legend = c(expression("WT, " * Delta * " = 0"),
+                  expression("WT, " * Delta * " = 0.25"),
+                  expression("WT, " * Delta * " = 0.5")),
+       col = c("blue", "red", "darkgreen"),
+       lty = c(1, 2, 3),
+       pch = c(16, 17, 15),
+       bty = "n")
+
+dev.off()
+
+######################################
+#GSD Example
+######################################
+
+Pocock_Design <- rpact::getDesignGroupSequential(kMax = 2,
+                                                 informationRates = c(0.5, 1),
+                                                 typeOfDesign = "P", alpha = 0.025,
+                                                 sided = 1, beta = 0.1)
+
+
+OF_Design <- rpact::getDesignGroupSequential(kMax = 2,
+                                             informationRates = c(0.5, 1),
+                                             typeOfDesign = "OF", alpha = 0.025,
+                                             sided = 1, beta = 0.1)
+
+WT_Design <- rpact::getDesignGroupSequential(kMax = 2,
+                                informationRates = c(0.5, 1),
+                                typeOfDesign = "WT", alpha = 0.025,
+                                sided = 1, deltaWT = 0.25, beta = 0.1)
+
+# ESS_Pocock <- rpact::getSampleSizeMeans(
+#   design = Pocock_Design,
+#   groups = 2,
+#   alternative = 5,
+#   stDev = 10
+# )
+# 
+# 
+# ESS_OF <- rpact::getSampleSizeMeans(
+#   design = OF_Design,
+#   groups = 2,
+#   alternative = 5,
+#   stDev = 10
+# )
+# 
+# 
+# ESS_WT <- rpact::getSampleSizeMeans(
+#   design = WT_Design,
+#   groups = 2,
+#   alternative = 5,
+#   stDev = 10
+# )
 
 
