@@ -52,8 +52,7 @@ CP_Func <- function(control_event_rate, treatment_event_rate){
   conditional_power <- mean(z>qnorm(1 - 0.025))
   
   conditional_power
-  # Output
-  #cat("Conditional Power (simulated):", round(conditional_power * 100, 4), "%\n")
+  
 }
 
 
@@ -205,9 +204,84 @@ legend("right",
 
 dev.off()
 
+######################################
+#Calculate the predictive power - Conjugate updating
+######################################
+
+# Interim data
+n_t_interim <- 78
+n_c_interim <- 63
+events_t_interim <- 31
+events_c_interim <- 23
+
+# Remaining patients
+n_t_total <- 162
+n_c_total <- 162
+n_t_remaining <- n_t_total - n_t_interim  
+n_c_remaining <- n_c_total - n_c_interim  
+
+# Observed event rates
+p_t_obs <- events_t_interim / n_t_interim  
+p_c_obs <- events_c_interim / n_c_interim  
+
+# Parameters
+theta_c_alpha_prior <- 10.7
+theta_c_beta_prior  <- 13.1
+theta_t_alpha_prior <- 5.93
+theta_t_beta_prior  <- 13.87
+
+
+# Posterior parameters
+theta_c_alpha_post <- theta_c_alpha_prior + events_c_interim
+theta_c_beta_post  <- theta_c_beta_prior + n_c_interim - events_c_interim
+theta_t_alpha_post <- theta_t_alpha_prior + events_t_interim
+theta_t_beta_post  <- theta_t_beta_prior + n_t_interim - events_t_interim
+
+
+n_sims <- 1000
+ass_vec <- rep(NA, n_sims)
+
+for (i in 1:n_sims){
+  control_event_rate <- rbeta(1, theta_c_alpha_post, theta_c_beta_post)
+  treatment_event_rate <- rbeta(1, theta_c_alpha_post, theta_c_beta_post)
+  ass_vec[i] <- BPP_Func(...)
+}
+
+
+
+BPP_Func <- function(control_event_rate, treatment_event_rate){
+  
+  
+  # Simulate future outcomes
+  treatment_sim <- rbinom(1, n_t_remaining, treatment_event_rate)
+  control_sim <- rbinom(1, n_c_remaining, control_event_rate)
+  
+  # Total events
+  treatment_total <- treatment_sim + events_t_interim
+  control_total <- control_sim + events_c_interim
+  
+  # Final sample sizes
+  n_t_final <- n_t_interim + n_t_remaining
+  n_c_final <- n_c_interim + n_c_remaining
+  
+  # Proportions
+  p_t_final <- treatment_total / n_t_final
+  p_c_final <- control_total / n_c_final
+  
+  p_pool <- (control_total + treatment_total) / (2 * n_t_total)
+  se <- sqrt(2 * p_pool * (1 - p_pool) / n_t_total)
+  
+  
+  # Z-statistics
+  z <- (p_c_final - p_t_final)  / se
+  
+  return(z>qnorm(1 - 0.025))
+  
+}
+
 
 ######################################
-#Calculate the predictive power
+#Calculate the predictive power - MCMC
 ######################################
 
 
@@ -352,43 +426,113 @@ dev.off()
 #GSD Example
 ######################################
 
-Pocock_Design <- rpact::getDesignGroupSequential(kMax = 2,
-                                                 informationRates = c(0.5, 1),
-                                                 typeOfDesign = "P", alpha = 0.025,
-                                                 sided = 1, beta = 0.1)
+
+Pocock_Design <- gsDesign(
+  k = 2,                     # Number of analyses
+  alpha = 0.025,             # One-sided Type I error
+  beta = 0.1,   # Type II error
+  delta = 0.5,             # Standardized effect size
+  sfu = "Pocock", 
+  test.type = 1,             # One-sided test
+  n.fix = 85*2,  # Fix max sample size per group
+  timing = c(0.5, 1)
+)
 
 
-OF_Design <- rpact::getDesignGroupSequential(kMax = 2,
-                                             informationRates = c(0.5, 1),
-                                             typeOfDesign = "OF", alpha = 0.025,
-                                             sided = 1, beta = 0.1)
+OBF_Design <- gsDesign(
+  k = 2,                     # Number of analyses
+  alpha = 0.025,             # One-sided Type I error
+  beta = 0.1,   # Type II error
+  delta = 0.5,             # Standardized effect size
+  sfu = "OF", 
+  test.type = 1,             # One-sided test
+  n.fix = 85*2,  # Fix max sample size per group
+  timing = c(0.5, 1)
+)
 
-WT_Design <- rpact::getDesignGroupSequential(kMax = 2,
-                                informationRates = c(0.5, 1),
-                                typeOfDesign = "WT", alpha = 0.025,
-                                sided = 1, deltaWT = 0.25, beta = 0.1)
+WT_Design <- gsDesign(
+  k = 2,                     # Number of analyses
+  alpha = 0.025,             # One-sided Type I error
+  beta = 0.1,   # Type II error
+  delta = 0.5,             # Standardized effect size
+  sfu = "WT",
+  sfupar = 0.25,
+  test.type = 1,             # One-sided test
+  n.fix = 85*2,  # Fix max sample size per group
+  timing = c(0.5, 1)
+)
 
-# ESS_Pocock <- rpact::getSampleSizeMeans(
-#   design = Pocock_Design,
-#   groups = 2,
-#   alternative = 5,
-#   stDev = 10
-# )
-# 
-# 
-# ESS_OF <- rpact::getSampleSizeMeans(
-#   design = OF_Design,
-#   groups = 2,
-#   alternative = 5,
-#   stDev = 10
-# )
-# 
-# 
-# ESS_WT <- rpact::getSampleSizeMeans(
-#   design = WT_Design,
-#   groups = 2,
-#   alternative = 5,
-#   stDev = 10
-# )
+simulate_gsd_power <- function(
+    gsd,
+    mu_control = 120,
+    mu_treat = 125,
+    sigma = 10,
+    n_per_group_fixed = 85,
+    n_sim = 200000
+) {
+  k <- gsd$k
+  bounds <- gsd$upper$bound
+  
+  # Sample sizes per group at each look
+  n_looks <- c(round(n_per_group_fixed * 0.5), n_per_group_fixed)  # e.g. 43, 85
+  total_n <- n_per_group_fixed
+  
+  success <- 0
+  sample_sizes <- numeric(n_sim)
+  stop_counts <- integer(k)
+  
+  for (i in 1:n_sim) {
+    # Generate interim data
+    n1 <- n_looks[1]
+    x_control_1 <- rnorm(n1, mean = mu_control, sd = sigma)
+    x_treat_1 <- rnorm(n1, mean = mu_treat, sd = sigma)
+    
+    # Interim analysis
+    s2_control_1 <- var(x_control_1)
+    s2_treat_1 <- var(x_treat_1)
+    pooled_var_1 <- ((n1 - 1) * s2_control_1 + (n1 - 1) * s2_treat_1) / (2 * n1 - 2)
+    se_1 <- sqrt(pooled_var_1 * (2 / n1))
+    z_1 <- (mean(x_treat_1) - mean(x_control_1)) / se_1
+    
+    if (z_1 > bounds[1]) {
+      success <- success + 1
+      sample_sizes[i] <- 2 * n1
+      stop_counts[1] <- stop_counts[1] + 1
+      next
+    }
+    
+    # Generate additional data for final analysis
+    n2 <- n_looks[2] - n1
+    x_control_2 <- rnorm(n2, mean = mu_control, sd = sigma)
+    x_treat_2 <- rnorm(n2, mean = mu_treat, sd = sigma)
+    
+    # Combine data
+    x_control <- c(x_control_1, x_control_2)
+    x_treat <- c(x_treat_1, x_treat_2)
+    
+    s2_control <- var(x_control)
+    s2_treat <- var(x_treat)
+    pooled_var <- ((total_n - 1) * s2_control + (total_n - 1) * s2_treat) / (2 * total_n - 2)
+    se <- sqrt(pooled_var * (2 / total_n))
+    z <- (mean(x_treat) - mean(x_control)) / se
+    
+    if (z > bounds[2]) {
+      success <- success + 1
+    }
+    sample_sizes[i] <- 2 * total_n
+    stop_counts[2] <- stop_counts[2] + 1
+  }
+  
+  list(
+    power = success / n_sim,
+    expected_sample_size = mean(sample_sizes),
+    max_sample_size = 2 * total_n,
+    stop_distribution = stop_counts / n_sim
+  )
+}
+
+
+results <- simulate_gsd_power(gsd)
+print(results)
 
 
