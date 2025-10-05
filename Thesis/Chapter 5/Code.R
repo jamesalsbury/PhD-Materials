@@ -1,7 +1,5 @@
 
-######################################
-#Calculate the conditional power
-######################################
+# Calculate the conditional power ----------------------------------------------------------------
 
 # Interim data
 n_t_interim <- 78
@@ -76,9 +74,7 @@ legend("topright", legend = c(expression(theta[c] %~% Be(10.7, 13)),
                               expression(theta[t] %~% Be(12, 15))), col = c("blue", "red"), lty = 1, lwd = 2)
 
 
-######################################
-#Do conjugate updating for theta_c
-######################################
+# Do conjugate updating for theta_c ----------------------------------------------------------------
 
 # Parameters
 alpha_prior <- 10.7
@@ -120,9 +116,8 @@ legend("topright", legend=c("Prior", "Likelihood", "Posterior"),
 dev.off()
 
 
-######################################
-#Do conjugate updating for theta_t
-######################################
+# Do conjugate updating for theta_t ----------------------------------------------------------------
+
 
 # Parameters
 alpha_prior_scen1<- 5.93
@@ -204,9 +199,8 @@ legend("right",
 
 dev.off()
 
-######################################
-#Calculate the predictive power - Conjugate updating
-######################################
+
+# Calculate the predictive power - Conjugate updating ----------------------------------------------------------------
 
 # Interim data
 n_t_interim <- 78
@@ -227,8 +221,8 @@ p_c_obs <- events_c_interim / n_c_interim
 # Parameters
 theta_c_alpha_prior <- 10.7
 theta_c_beta_prior  <- 13.1
-theta_t_alpha_prior <- 5.93
-theta_t_beta_prior  <- 13.87
+theta_t_alpha_prior <- 2.95
+theta_t_beta_prior  <- 6.86
 
 
 # Posterior parameters
@@ -238,15 +232,17 @@ theta_t_alpha_post <- theta_t_alpha_prior + events_t_interim
 theta_t_beta_post  <- theta_t_beta_prior + n_t_interim - events_t_interim
 
 
-n_sims <- 1000
+n_sims <- 10000
 ass_vec <- rep(NA, n_sims)
 
 for (i in 1:n_sims){
   control_event_rate <- rbeta(1, theta_c_alpha_post, theta_c_beta_post)
-  treatment_event_rate <- rbeta(1, theta_c_alpha_post, theta_c_beta_post)
-  ass_vec[i] <- BPP_Func(...)
+  treatment_event_rate <- rbeta(1, theta_t_alpha_post, theta_t_beta_post)
+  ass_vec[i] <- BPP_Func(control_event_rate = control_event_rate,
+                         treatment_event_rate = treatment_event_rate)
 }
 
+mean(ass_vec)
 
 
 BPP_Func <- function(control_event_rate, treatment_event_rate){
@@ -280,49 +276,39 @@ BPP_Func <- function(control_event_rate, treatment_event_rate){
 }
 
 
-######################################
-#Calculate the predictive power - MCMC
-######################################
+# Calculate the predictive power - MCMC ----------------------------------------------------------------
 
 
+# Priors + data
 alpha_C_prior <- 10.7
 beta_C_prior <- 13.1
-
-
 mu_d_prior <- 0.15
 sigma_d_prior <- 1000 
 
-N_C_interim <- 63 # Number of patients in control group at interim
-Y_C_interim <- 23  # Number of events in control group at interim (e.g., 6/50 = 12%)
-
-N_T_interim <- 78 # Number of patients in treatment group at interim
-Y_T_interim <- 31  # Number of events in treatment group at interim (e.g., 3/50 = 6%)
-
-
-# --- 3. Prepare data for Stan ---
 stan_data <- list(
-  N_C = N_C_interim,
-  Y_C = Y_C_interim,
-  N_T = N_T_interim,
-  Y_T = Y_T_interim,
+  N_C = 63,
+  Y_C = 23,
+  N_T = 78,
+  Y_T = 31,
   alpha_C_prior = alpha_C_prior,
   beta_C_prior = beta_C_prior,
   mu_d_prior = mu_d_prior,
   sigma_d_prior = sigma_d_prior
 )
 
+# Compile Stan model
+mod <- stan_model("Thesis/Chapter 5/stan_model_binary_outcome.stan")
 
-stan_model <- stan_model("Thesis/Chapter 5/stan_model_binary_outcome.stan")
-
-
-fit <- sampling(stan_model,
+# Sample
+fit <- sampling(mod,
                 data = stan_data,
-                chains = 4,      # Number of MCMC chains
-                iter = 2000,     # Total iterations per chain (includes warmup)
-                warmup = 1000,   # Warmup iterations per chain
-                thin = 1,        # Thinning rate (1 means no thinning)
-                seed = 1234      # For reproducibility
-)
+                chains = 4,
+                iter = 2000,
+                warmup = 1000,
+                seed = 1234)
+
+# Look at results
+print(fit)
 
 
 
@@ -338,10 +324,7 @@ mcmc_dens(fit, pars = c("p_C", "d"),
 # Extract posterior samples
 posterior_samples <- as.data.frame(fit)
 
-
-######################################
-#Plotting GSD boundaries - Pocock and OBF
-######################################
+# Plotting GSD boundaries - Pocock and OBF ----------------------------------------------------------------
 
 Pocock_Design <- rpact::getDesignGroupSequential(kMax = 4,
                                                  alpha = 0.025,
@@ -381,9 +364,7 @@ legend("topright", legend = c("Pocock", "O'Brien–Fleming"),
 dev.off()
 
 
-######################################
-#Plotting GSD boundaries - Wang-Tsiatis
-######################################
+# Plotting GSD boundaries - Wang-Tsiatis ----------------------------------------------------------------
 
 WT_Design_1 <- rpact::getDesignGroupSequential(kMax = 4, alpha = 0.025, sided = 1, typeOfDesign = "WT", informationRates = c(0.25, 0.5, 0.75, 1), deltaWT = 0) 
 WT_Design_2 <- rpact::getDesignGroupSequential(kMax = 4, alpha = 0.025, sided = 1, typeOfDesign = "WT", informationRates = c(0.25, 0.5, 0.75, 1), deltaWT = 0.25) 
@@ -422,9 +403,7 @@ legend("topright",
 
 dev.off()
 
-######################################
-#GSD Example
-######################################
+# GSD Example ----------------------------------------------------------------
 
 
 Pocock_Design <- gsDesign(

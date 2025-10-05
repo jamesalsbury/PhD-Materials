@@ -48,19 +48,3 @@ model {
   Y_T ~ binomial(N_T, p_T);
 }
 
-generated quantities {
-  // You can generate any quantities of interest here, e.g., relative risk, odds ratio
-  real RR; // Relative Risk
-  real OR; // Odds Ratio
-
-  // It's good practice to ensure p_T and p_C are within bounds for these calculations
-  // before division to prevent NaNs or Infs, though the model should mostly prevent this.
-  if (p_C > 0 && p_T > 0 && p_T < 1) { // Added p_T < 1 for OR denominator
-    RR = p_T / p_C;
-    OR = (p_T / (1 - p_T)) / (p_C / (1 - p_C));
-  } else {
-    // Assign a sensible default or indicator for undefined cases
-    RR = -1; // Indicate a problematic value
-    OR = -1; // Indicate a problematic value
-  }
-}
