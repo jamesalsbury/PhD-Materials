@@ -54,7 +54,7 @@ CP_Func <- function(control_event_rate, treatment_event_rate){
 }
 
 
-theta_f <- seq(-5, 30, by=1)/100
+theta_f <- seq(-10, 30, by=1)/100
 CP_Vec <- rep(NA, length(theta_f))
 
 for (i in 1:length(CP_Vec)){
@@ -62,59 +62,96 @@ for (i in 1:length(CP_Vec)){
 }
 
 png("CP_Moxo.png", units="in", width=10, height=6, res=700)
-plot(theta_f, CP_Vec, type = "l", 
+plot(theta_f, CP_Vec, type = "l", lwd = 2, col = "steelblue",
      xlab = expression(theta[f]), 
-     ylab= "Conditional Power", ylim = c(0,1))
+     ylab = "Conditional Power", ylim = c(0,1),
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
+
+theta_obs <- p_c_obs - p_t_obs
+
+# Observed effect
+abline(v = theta_obs, col = "#8A2BE2", lty = 3, lwd = 2)  # a brighter purple
+text(theta_obs, 0.6, expression(theta[f] == hat(theta)[t]), col = "#8A2BE2", pos =2)
+
+# Null effect
+abline(v = 0, col = "#D62728", lty = 2, lwd = 2)  # a softer red (less harsh)
+text(0, 0.55, expression(theta[f] == 0), col = "#D62728", pos = 4)
+
+# Clinically relevant effect
+abline(v = 0.15, col = "#FF7F0E", lty = 1, lwd = 2)  # warm orange
+text(0.15, 0.5, expression(theta[f] == theta[delta]), col = "#FF7F0E", pos = 4)
+
+
 dev.off()
 
-xSeq <- seq(0, 1, by=0.01)
-plot(xSeq, dbeta(xSeq, 10.6875, 10.6875*11/9), type = "l", ylab = "Density", col = "blue", lwd = 2)
-lines(xSeq, dbeta(xSeq, 6, 14), col = "red", lwd = 2)
-legend("topright", legend = c(expression(theta[c] %~% Be(10.7, 13)),
-                              expression(theta[t] %~% Be(12, 15))), col = c("blue", "red"), lty = 1, lwd = 2)
 
+# Do conjugate updating for theta_c and theta_t ----------------------------------------------------------------
 
-# Do conjugate updating for theta_c ----------------------------------------------------------------
+# Priors for theta_c and theta_t
+theta_c_alpha_prior <- 10.7
+theta_c_beta_prior  <- 13.1
 
-# Parameters
-alpha_prior <- 10.7
-beta_prior  <- 13.1
+theta_t_alpha_prior <- 6
+theta_t_beta_prior  <- 14
 
-x <- 23
-n <- 63
+#Interim data
+c_x <- 23
+c_n <- 63
+t_x <- 31
+t_n <- 78
 
-# Posterior parameters
-alpha_post <- alpha_prior + x
-beta_post  <- beta_prior + n - x
+# Posteriors for theta_c and theta_t
+theta_c_alpha_post <- theta_c_alpha_prior + c_x
+theta_c_beta_post  <- theta_c_beta_prior + c_n - c_x
+theta_t_alpha_post <- theta_t_alpha_prior + t_x
+theta_t_beta_post  <- theta_t_beta_prior + t_n - t_x
+
 
 # Sequence of theta values
 theta <- seq(0, 1, length.out = 1000)
 
-# Prior density
-prior <- dbeta(theta, alpha_prior, beta_prior)
+# Prior densities
+theta_c_prior <- dbeta(theta, theta_c_alpha_prior, theta_c_beta_prior)
+theta_t_prior <- dbeta(theta, theta_t_alpha_prior, theta_t_beta_prior)
 
-# Likelihood (Binomial likelihood scaled for plotting)
-likelihood <- dbinom(x, n, theta)
-likelihood <- likelihood / max(likelihood) * max(prior)  # scale to match prior for visualization
+# Likelihoods (Binomial likelihood scaled for plotting)
+# theta_c_likelihood <- dbinom(c_x, c_n, theta)
+# theta_c_likelihood <- theta_c_likelihood / max(theta_c_likelihood) * max(theta_c_prior)
+# theta_t_likelihood <- dbinom(t_x, t_n, theta)
+# theta_t_likelihood <- theta_t_likelihood / max(theta_t_likelihood) * max(theta_t_prior) 
 
-# Posterior density
-posterior <- dbeta(theta, alpha_post, beta_post)
+# Posterior densities
+theta_c_posterior <- dbeta(theta, theta_c_alpha_post, theta_c_beta_post)
+theta_t_posterior <- dbeta(theta, theta_t_alpha_post, theta_t_beta_post)
 
-png("Theta_c_Dens.png", units="in", width=10, height=6, res=700)
 
-# Plot
-plot(theta, prior, type="l", lwd=2, col="blue", ylim=c(0, max(prior, posterior)),
-     ylab="Density", xlab=expression(theta[c]), cex.axis=1.5, cex.lab=1.5, cex.main=2)
+# Start high-quality PNG
+png("Moxo_conj_dists.png", units="in", width=10, height=6, res=700)
 
-lines(theta, likelihood, lwd=2, col="green", lty=2)
-lines(theta, posterior, lwd=2, col="red")
+# Set plotting range
+ylim_max <- max(theta_c_prior, theta_t_prior, theta_c_posterior, theta_t_posterior)
 
-legend("topright", legend=c("Prior", "Likelihood", "Posterior"),
-       col=c("blue","green","red"), lwd=2, lty=c(1,2,1))
+# Plot priors and posteriors
+plot(theta, theta_c_prior, type="l", lwd=2, col="blue",
+     ylim=c(0, ylim_max),
+     ylab="Density",
+     xlab=expression(theta),
+     cex.axis=1.5, cex.lab=1.5, cex.main=1.5)
 
+lines(theta, theta_c_posterior, lwd=2, col="blue", lty=2)
+lines(theta, theta_t_prior, lwd=2, col="red")
+lines(theta, theta_t_posterior, lwd=2, col="red", lty=2)
+
+legend("topright",
+       legend=c(expression("Prior " * theta[c]),
+                expression("Posterior " * theta[c]),
+                expression("Prior " * theta[t]),
+                expression("Posterior " * theta[t])),
+       col=c("blue", "blue", "red", "red"),
+       lwd=2, lty=c(1,2,1,2),
+       bty="n", cex=1.2)
 
 dev.off()
-
 
 # Do conjugate updating for theta_t ----------------------------------------------------------------
 
