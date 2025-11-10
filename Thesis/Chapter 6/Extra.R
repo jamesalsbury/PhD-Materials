@@ -169,7 +169,7 @@ n_c <- 340
 rec_duration <- 0
 
 x1 <- propEventFunc(lambda_c,
-                   HR1, 
+                    HR1, 
                     delay, 
                     HR2,
                     n_c, 
