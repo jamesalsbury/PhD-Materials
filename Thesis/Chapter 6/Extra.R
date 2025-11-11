@@ -120,8 +120,8 @@ events_v_prop_func <- function(scenario, rec_duration){
        col = "red", 
        main = paste0("Scenario ", scenario, ", Recruitment: ", rec_duration), 
        cex.axis=1.5, cex.lab=1.5, cex.main=2)
-  lines(x1$eventVec, eventMean + 1.96 * eventSE, lty = 2, col = "gray")
-  lines(x1$eventVec, eventMean - 1.96 * eventSE, lty = 2, col = "gray")
+  lines(x1$eventVec, x1$eventMean + 1.96 * x1$eventSE, lty = 2, col = "gray")
+  lines(x1$eventVec, x1$eventMean - 1.96 * x1$eventSE, lty = 2, col = "gray")
   #points(x1$eventVec[plotEvents], x1$eventProp[plotEvents])
   abline(h = 2/3, lty = 2)
   abline(v = 512 * 0.5, lty = 3)
@@ -153,20 +153,17 @@ dev.off()
 
 
 
-
-
-
 #############
 #Finding parameters that 'break' it
 ##############
 
 
-lambda_c <- log(2)/18
-HR1 <- 1.3
-HR2 <- 0.6
-delay <- 5 
+lambda_c <- log(2)/15
+HR1 <- 0.7
+HR2 <- 1.1
+delay <- 6 
 n_c <- 340
-rec_duration <- 0
+rec_duration <- 12
 
 x1 <- propEventFunc(lambda_c,
                     HR1, 
@@ -178,14 +175,17 @@ x1 <- propEventFunc(lambda_c,
 plotTime <- seq(1, max(x1$calTime), by = 6)
 plotEvents <- sapply(plotTime, function(pt) sum(x1$calTime < pt))
 
+#png("Break_Scen2.png", units="in", width=12, height=5, res=700)
+#par(mfrow=c(1,2))
 plot(x1$eventVec, x1$eventProp, type = "l", ylim = c(0, 1),
      xlab = "Number of events", ylab = "Proportion of events > 3 months",
      col = "red", 
+     main = "Scenario A, Recruitment: 34",
      #main = paste0("Scenario ", scenario, ", Recruitment: ", rec_duration), 
      cex.axis=1.5, cex.lab=1.5, cex.main=2)
-lines(x1$eventVec, x1$eventMean + 1.96 * x1$eventSE, lty = 2, col = "gray")
-lines(x1$eventVec, x1$eventMean - 1.96 * x1$eventSE, lty = 2, col = "gray")
-points(x1$eventVec[plotEvents], x1$eventProp[plotEvents])
+#lines(x1$eventVec, x1$eventMean + 1.96 * x1$eventSE, lty = 2, col = "gray")
+#lines(x1$eventVec, x1$eventMean - 1.96 * x1$eventSE, lty = 2, col = "gray")
+#points(x1$eventVec[plotEvents], x1$eventProp[plotEvents])
 abline(h = 2/3, lty = 2)
 abline(v = 512 * 0.5, lty = 3)
 abline(v = 512 * 0.75, lty = 3)
@@ -193,8 +193,10 @@ abline(v = 512, lty = 3)
 
 
 print(which(x1$eventProp > (2/3))[1])
-IA_Time <- max(x1$calTime[which(x1$eventProp > (2/3))[1]], x1$calTime[256])
-print(IA_Time)
+IA_Time1 <- min(max(x1$calTime[which(x1$eventProp > (2/3))[1]], x1$calTime[256]), x1$calTime[512])
+IA_Time2 <- min(max(x1$calTime[which(x1$eventProp > (2/3))[1]], x1$calTime[384]), x1$calTime[512])
+print(IA_Time1)
+print(IA_Time2)
 Final_Time <- x1$calTime[512]
 print(Final_Time)
 
@@ -211,13 +213,19 @@ treatmentSurv2 <- exp(-lambda_c*delay*HR1 - lambda_c*HR2*(treatmentTime2-delay))
 
 
 # Plotting
-plot(controlTime1, controlSurv1, type = "l", ylim = c(0,1), xlim = c(0,60), xlab = "Time", ylab = "Survival", col = "blue")
-lines(treatmentTime1, treatmentSurv1, col = "red", lty = 2)
-lines(treatmentTime2, treatmentSurv2, col = "red", lty = 2)
-legend("topright", legend = c("Control", "Treatment"), lty = 1:2, col = c("blue", "red"))
-abline(v = IA_Time)
-abline(v = Final_Time)
-
+plot(controlTime1, controlSurv1, type = "l", ylim = c(0,1),
+     xlim = c(0,60), xlab = "Time",
+     ylab = "Survival", col = "blue",
+     cex.axis=1.5, cex.lab=1.5, cex.main=2)
+lines(treatmentTime1, treatmentSurv1, col = "red", lty = 1)
+lines(treatmentTime2, treatmentSurv2, col = "red", lty = 1)
+legend("topright", legend = c("Control", "Treatment", "Interim Analysis 1", "Final Analysis"),
+       lty = c(1, 1, 2, 3), 
+       col = c("blue", "red", "black", "black"))
+abline(v = IA_Time1, lty = 2)
+abline(v = IA_Time2, lty = 2)
+abline(v = Final_Time, lty = 3)
+#dev.off()
 
 
 

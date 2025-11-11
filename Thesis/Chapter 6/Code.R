@@ -37,19 +37,16 @@ wieand_func <- function(df){
   df1$event <- df1$psuedo_time <= interim1_time
   df1$obs_time <- pmin(df1$time, interim1_time - df1$rec_time)
   
-  early_stop <- FALSE
   fit1 <- coxph(Surv(obs_time, event) ~ group, data = df1)
   hr1 <- exp(coef(fit1))
   if (hr1 > 1){
-    early_stop <- TRUE
-    power <- 0
-    duration <- interim1_time
-    ss <- nrow(df1)
+    return(list(power = 0, duration = interim1_time, ss = nrow(df1),
+                interim = 1))
     
   }
   
   # Evaluate at second interim if not stopped
-  if (!early_stop) {
+
     df2 <- df[df$rec_time <= interim2_time, ]
     df2$event <- df2$psuedo_time <= interim2_time
     df2$obs_time <- pmin(df2$time, interim2_time - df2$rec_time)
@@ -57,16 +54,14 @@ wieand_func <- function(df){
     fit2 <- coxph(Surv(obs_time, event) ~ group, data = df2)
     hr2 <- exp(coef(fit2))
     if (hr2 > 1){
-      early_stop <- TRUE
-      power <- 0
-      duration <- interim2_time
-      ss <- nrow(df2)
+      return(list(power = 0,  duration = interim2_time, ss = nrow(df2),
+                  interim = 2))
     }
-  }
+
   
   
   # Evaluate at final analysis if not stopped
-  if (!early_stop) {
+  
     
     df_final <- df[df$rec_time <= final_time, ]
     df_final$event <- df_final$psuedo_time <= final_time
@@ -80,16 +75,11 @@ wieand_func <- function(df){
     duration <- final_time
     ss <- nrow(df_final)
     
-    
-  }
   
   
   return(list(power = power,
               duration = duration,
-              ss = ss,
-              interim1_time = interim1_time,
-              interim2_time = interim2_time,
-              final_time = final_time))
+              ss = ss, interim = 3))
   
 }
 
@@ -106,19 +96,19 @@ OBF_func <- function(df){
   df1$event <- df1$psuedo_time <= interim1_time
   df1$obs_time <- pmin(df1$time, interim1_time - df1$rec_time)
   
-  early_stop <- FALSE
   fit1 <- coxph(Surv(obs_time, event) ~ group, data = df1)
   hr1 <- exp(coef(fit1))
+  
+  
+  
   if (hr1 > 0.998){
-    early_stop <- TRUE
-    power <- 0
-    duration <- interim1_time
-    ss <- nrow(df1)
+    return(list(power = 0, duration = interim1_time, ss = nrow(df1),
+                interim = 1))
     
   }
   
   # Evaluate at second interim if not stopped
-  if (!early_stop) {
+  
     df2 <- df[df$rec_time <= interim2_time, ]
     df2$event <- df2$psuedo_time <= interim2_time
     df2$obs_time <- pmin(df2$time, interim2_time - df2$rec_time)
@@ -126,16 +116,14 @@ OBF_func <- function(df){
     fit2 <- coxph(Surv(obs_time, event) ~ group, data = df2)
     hr2 <- exp(coef(fit2))
     if (hr2 > 0.913){
-      early_stop <- TRUE
-      power <- 0
-      duration <- interim2_time
-      ss <- nrow(df2)
+      return(list(power = 0, duration = interim2_time, ss = nrow(df2),
+                  interim = 2))
     }
-  }
+  
   
   
   # Evaluate at final analysis if not stopped
-  if (!early_stop) {
+  
     
     df_final <- df[df$rec_time <= final_time, ]
     df_final$event <- df_final$psuedo_time <= final_time
@@ -149,13 +137,11 @@ OBF_func <- function(df){
     duration <- final_time
     ss <- nrow(df_final)
     
-    
-  }
   
   
   return(list(power = power,
               duration = duration,
-              ss = ss))
+              ss = ss, interim = 3))
 }
 
 
@@ -185,11 +171,9 @@ proposed_func <- function(df) {
     return(NULL)
   }
   
-  early_stop <- FALSE
-  
   # ---- Interim 1 ----
   ia1 <- find_earliest_time(df, target1)
-  if (!is.null(ia1)) {
+  if (!is.null(ia1) && ia1$time <= final_time) {
     interim1_time <- ia1$time
     df1 <- df[df$rec_time <= interim1_time, ]
     df1$event <- df1$psuedo_time <= interim1_time
@@ -206,7 +190,7 @@ proposed_func <- function(df) {
   
   # ---- Interim 2 ----
   ia2 <- find_earliest_time(df, target2)
-  if (!is.null(ia2)) {
+  if (!is.null(ia2) && ia2$time <= final_time) {
     interim2_time <- ia2$time
     df2 <- df[df$rec_time <= interim2_time, ]
     df2$event <- df2$psuedo_time <= interim2_time
@@ -217,7 +201,7 @@ proposed_func <- function(df) {
     
     if (hr2 > 1) {
       return(list(power = 0, duration = interim2_time, ss = nrow(df2),
-                  interim = 2, hr = hr2, prop_delayed = ia2$prop_delayed))
+                  interim = 2))
     }
   }
   
@@ -234,45 +218,53 @@ proposed_func <- function(df) {
   duration <- final_time
   ss <- nrow(df_final)
   
-  return(list(power = power, duration = duration, ss = ss,
-              interim = "final", hr = observed_HR,
-              interim1_time = interim1_time,
-              interim2_time = interim2_time,
-              final_time = final_time))
+  return(list(power = power, duration = duration, ss = ss, interim = 3))
 }
 
 
 
 ##Reproduce the results from in the paper
 
-lambda_c <- log(2)/18
 n_c <- 340
 n_t <- 340
 num_events <- 512
 
 scen_list <- list(A = list(HR1 = 0.75,
                            HR2 = 0.75,
-                           delay = 0),
+                           delay = 0,
+                           lambda_c = log(2)/12),
                   B = list(HR1 = 1,
                            HR2 = 1,
-                           delay = 0),
+                           delay = 0,
+                           lambda_c = log(2)/12),
                   C = list(HR1 = 1.3,
                            HR2 = 1.3,
-                           delay = 0),
+                           delay = 0,
+                           lambda_c = log(2)/12),
                   D = list(HR1 = 1,
                            HR2 = 0.693,
-                           delay = 3),
+                           delay = 3,
+                           lambda_c = log(2)/12),
                   E = list(HR1 = 1,
                            HR2 = 0.620,
-                           delay = 6),
+                           delay = 6,
+                           lambda_c = log(2)/12),
                   F = list(HR1 = 1.3,
                            HR2 = 0.628,
-                           delay = 3),
+                           delay = 3,
+                           lambda_c = log(2)/12),
                   G = list(HR1 = 1.3,
-                           HR2 = 0.6, 
-                           delay = 5)
-)
-
+                           HR2 = 0.65, 
+                           delay = 6,
+                           lambda_c = log(2)/18),
+                  H = list(HR1 = 1.3,
+                           HR2 = 1.3, 
+                           delay = 0,
+                           lambda_c = log(2)/6),
+                  I = list(HR1 = 0.7,
+                           HR2 = 1.1,
+                           delay = 6,
+                           lambda_c = log(2)/15))
 
 
 
@@ -280,20 +272,20 @@ scen_list <- list(A = list(HR1 = 0.75,
 reproduce_func <- function(scenario, rec_duration, n_sims) {
   
   wieand_list <- vector("list", length = n_sims)
-  #OBF_list <- vector("list", length = n_sims)
+  OBF_list <- vector("list", length = n_sims)
   no_IA_list <- vector("list", length = n_sims)
   proposed_list <- vector("list", length = n_sims)
   
   for (i in 1:n_sims) {
     u <- runif(n_c)
-    control_times <- -log(u) / lambda_c
+    control_times <- -log(u) / scen_list[[scenario]]$lambda_c
     
     u <- runif(n_t)
-    CP <- exp(-lambda_c * scen_list[[scenario]]$HR1* scen_list[[scenario]]$delay)
+    CP <- exp(-scen_list[[scenario]]$lambda_c * scen_list[[scenario]]$HR1* scen_list[[scenario]]$delay)
     treatment_times <- ifelse(
       u > CP,
-      -log(u) / (lambda_c * scen_list[[scenario]]$HR1),
-      (1 / (lambda_c * scen_list[[scenario]]$HR2)) * (lambda_c*scen_list[[scenario]]$HR2*scen_list[[scenario]]$delay -log(u) - lambda_c * scen_list[[scenario]]$HR1 * scen_list[[scenario]]$delay)
+      -log(u) / (scen_list[[scenario]]$lambda_c * scen_list[[scenario]]$HR1),
+      (1 / (scen_list[[scenario]]$lambda_c * scen_list[[scenario]]$HR2)) * (scen_list[[scenario]]$lambda_c*scen_list[[scenario]]$HR2*scen_list[[scenario]]$delay -log(u) - scen_list[[scenario]]$lambda_c * scen_list[[scenario]]$HR1 * scen_list[[scenario]]$delay)
     )
     
     df <- data.frame(
@@ -305,15 +297,17 @@ reproduce_func <- function(scenario, rec_duration, n_sims) {
     df$psuedo_time <- df$time + df$rec_time
     
     wieand_list[[i]] <- wieand_func(df)
-    #OBF_list[[i]] <- OBF_func(df)
+    OBF_list[[i]] <- OBF_func(df)
     no_IA_list[[i]] <- no_IA_func(df)
     proposed_list[[i]] <- proposed_func(df)
+
     
+
   }
   
   return(list(no_IA_list = no_IA_list,
               wieand_list = wieand_list,
-              #OBF_list = OBF_list,
+              OBF_list = OBF_list,
               proposed_list = proposed_list))
   
 }
@@ -322,40 +316,46 @@ reproduce_func <- function(scenario, rec_duration, n_sims) {
 outcome_df <- data.frame(matrix(nrow = 12, ncol = 12))
 
 for (i in 1:6){
-  result <- reproduce_func(i, rec_duration = 34, n_sims = 1000)
+  result <- reproduce_func(i, rec_duration = 34, n_sims = 100)
   
   outcome_df[i,1] <- mean(sapply(result$no_IA_list, function(x) x$power))
   outcome_df[i,2] <- mean(sapply(result$no_IA_list, function(x) x$duration))
   outcome_df[i,3] <- mean(sapply(result$no_IA_list, function(x) x$ss))
   
-  #outcome_df[i,4] <- mean(sapply(result$wieand_list, function(x) x$power))
-  #outcome_df[i,5] <- mean(sapply(result$wieand_list, function(x) x$duration))
-  #outcome_df[i,6] <- mean(sapply(result$wieand_list, function(x) x$ss))
   
-  #outcome_df[i,7] <- mean(sapply(result$OBF_list, function(x) x$power))
-  #outcome_df[i,8] <- mean(sapply(result$OBF_list, function(x) x$duration))
-  #outcome_df[i,9] <- mean(sapply(result$OBF_list, function(x) x$ss))
+  outcome_df[i,4] <- mean(sapply(result$wieand_list, function(x) x$power))
+  outcome_df[i,5] <- mean(sapply(result$wieand_list, function(x) x$duration))
+  outcome_df[i,6] <- mean(sapply(result$wieand_list, function(x) x$ss))
+  sapply(result$wieand_list, function(x) x$interim)
+  
+  outcome_df[i,7] <- mean(sapply(result$OBF_list, function(x) x$power))
+  outcome_df[i,8] <- mean(sapply(result$OBF_list, function(x) x$duration))
+  outcome_df[i,9] <- mean(sapply(result$OBF_list, function(x) x$ss))
+  sapply(result$OBF_list, function(x) x$interim)
   
   outcome_df[i,10] <- mean(sapply(result$proposed_list, function(x) x$power))
   outcome_df[i,11] <-  mean(sapply(result$proposed_list, function(x) x$duration))
   outcome_df[i,12] <-  mean(sapply(result$proposed_list, function(x) x$ss))
+  sapply(result$proposed_list, function(x) x$interim)
+  
   
 }
 
 for (i in 1:6){
-  result <- reproduce_func(i, rec_duration = 12, n_sims = 1000)
+  result <- reproduce_func(i, rec_duration = 12, n_sims = 100)
   
   outcome_df[i+6,1] <- mean(sapply(result$no_IA_list, function(x) x$power))
   outcome_df[i+6,2] <- mean(sapply(result$no_IA_list, function(x) x$duration))
   outcome_df[i+6,3] <- mean(sapply(result$no_IA_list, function(x) x$ss))
   
-  # outcome_df[i+6,4] <- mean(sapply(result$wieand_list, function(x) x$power))
-  # outcome_df[i+6,5] <- mean(sapply(result$wieand_list, function(x) x$duration))
-  # outcome_df[i+6,6] <- mean(sapply(result$wieand_list, function(x) x$ss))
-  # 
-  # outcome_df[i+6,7] <- mean(sapply(result$OBF_list, function(x) x$power))
-  # outcome_df[i+6,8] <- mean(sapply(result$OBF_list, function(x) x$duration))
-  # outcome_df[i+6,9] <- mean(sapply(result$OBF_list, function(x) x$ss))
+  
+  outcome_df[i+6,4] <- mean(sapply(result$wieand_list, function(x) x$power))
+  outcome_df[i+6,5] <- mean(sapply(result$wieand_list, function(x) x$duration))
+  outcome_df[i+6,6] <- mean(sapply(result$wieand_list, function(x) x$ss))
+
+  outcome_df[i+6,7] <- mean(sapply(result$OBF_list, function(x) x$power))
+  outcome_df[i+6,8] <- mean(sapply(result$OBF_list, function(x) x$duration))
+  outcome_df[i+6,9] <- mean(sapply(result$OBF_list, function(x) x$ss))
   
   outcome_df[i+6,10] <- mean(sapply(result$proposed_list, function(x) x$power))
   outcome_df[i+6,11] <-  mean(sapply(result$proposed_list, function(x) x$duration))
@@ -396,4 +396,6 @@ paper_df <- data.frame(
 paper_df - outcome_df
 
 
-result <- reproduce_func(7, rec_duration = 0, n_sims = 200)
+result <- reproduce_func(9, rec_duration = 12, n_sims = 100)
+
+
