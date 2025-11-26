@@ -5,7 +5,7 @@ T2 <- 7
 HR2 <- 2.5
 recTime <- 0
 
-numPatients <- 340
+
 
 #Control survival lines
 controlTime1 <- seq(0, T1, by=0.01)
