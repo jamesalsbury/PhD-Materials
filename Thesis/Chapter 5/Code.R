@@ -214,9 +214,6 @@ n_c_total <- 162
 n_t_remaining <- n_t_total - n_t_interim  
 n_c_remaining <- n_c_total - n_c_interim  
 
-# Observed event rates
-p_t_obs <- events_t_interim / n_t_interim  
-p_c_obs <- events_c_interim / n_c_interim  
 
 # Parameters
 theta_c_alpha_prior <- 10.7
@@ -277,52 +274,167 @@ BPP_Func <- function(control_event_rate, treatment_event_rate){
 
 
 # Calculate the predictive power - MCMC ----------------------------------------------------------------
-
-
-# Priors + data
-alpha_C_prior <- 10.7
-beta_C_prior <- 13.1
-mu_d_prior <- 0.15
-sigma_d_prior <- 1000 
-
-stan_data <- list(
-  N_C = 63,
-  Y_C = 23,
-  N_T = 78,
-  Y_T = 31,
-  alpha_C_prior = alpha_C_prior,
-  beta_C_prior = beta_C_prior,
-  mu_d_prior = mu_d_prior,
-  sigma_d_prior = sigma_d_prior
-)
-
-# Compile Stan model
-mod <- stan_model("Thesis/Chapter 5/stan_model_binary_outcome.stan")
-
-# Sample
-fit <- sampling(mod,
-                data = stan_data,
-                chains = 4,
-                iter = 2000,
-                warmup = 1000,
-                seed = 1234)
-
-# Look at results
-print(fit)
+png("Non_conjugate_prior_rho.png", units="in", width=10, height=6, res=700)
+# Define grid of rho values
+rho_vec <- seq(-0.2, 0.5, length = 1000)
 
 
 
-print(fit, pars = c("p_C", "d"),
-      probs = c(0.025, 0.5, 0.975)) # 2.5%, 50% (median), 97.5% quantiles for 95% CI
+# Compute prior densities for each scenario
+dens1 <- dnorm(rho_vec, mean = 0.15, sd = sqrt(0.0001))  # Scenario 1
+dens2 <- dnorm(rho_vec, mean = 0.15, sd = sqrt(0.01))    # Scenario 2
+dens3 <- dnorm(rho_vec, mean = 0.10, sd = sqrt(0.01))    # Scenario 3
+
+# Plot priors
+plot(rho_vec, dens1, type = "l", lty = 1, col = "blue",
+     ylab = "Density",
+     xlab = expression(rho),
+     lwd = 2, ylim = c(0, max(dens1, dens2, dens3)))
+
+# Add the other priors
+lines(rho_vec, dens2, lty = 2, col = "green", lwd = 2)
+lines(rho_vec, dens3, lty = 3, col = "red", lwd = 2)
+
+# Add legend
+legend("topright",
+       legend = c("Scenario 1: N(0.15, 0.0001)",
+                  "Scenario 2: N(0.15, 0.01)",
+                  "Scenario 3: N(0.10, 0.01)"),
+       col = c("blue", "green", "red"),
+       lty = 1:3, lwd = 2, bty = "n")
+dev.off()
+
+MCMC_Func <- function(mu, sd){
+  
+  # Priors + data
+  alpha_C_prior <- 10.7
+  beta_C_prior <- 13.1
+  mu_d_prior <- mu
+  sigma_d_prior <- sqrt(sd) 
+  
+  stan_data <- list(
+    N_C = 63,
+    Y_C = 23,
+    N_T = 78,
+    Y_T = 31,
+    alpha_C_prior = alpha_C_prior,
+    beta_C_prior = beta_C_prior,
+    mu_d_prior = mu_d_prior,
+    sigma_d_prior = sigma_d_prior
+  )
+  
+  # Compile Stan model
+  mod <- stan_model("Thesis/Chapter 5/stan_model_binary_outcome.stan")
+  
+  # Sample
+  fit <- sampling(mod,
+                  data = stan_data,
+                  chains = 4,
+                  iter = 2000,
+                  warmup = 1000)
+  
+  
+  posterior <- rstan::extract(fit)
+  return(posterior)
+}
 
 
-mcmc_dens(fit, pars = c("p_C", "d"),
-          prob_outer = 0.95) + # Show 95% credible interval
-  vline_at(0, linetype = 2, color = "red") # Add a vertical line at d=0 for the difference
+d_post_scen1 <- MCMC_Func(mu = 0.15, sd = 0.0001)$d
+d_post_scen2 <- MCMC_Func(mu = 0.15, sd = 0.01)$d
+d_post_scen3 <- MCMC_Func(mu = 0.10, sd = 0.01)$d
 
 
-# Extract posterior samples
-posterior_samples <- as.data.frame(fit)
+# Compute histogram data without plotting
+h1 <- hist(d_post_scen1, breaks = 20, plot = FALSE)
+h2 <- hist(d_post_scen2, breaks = 20, plot = FALSE)
+h3 <- hist(d_post_scen3, breaks = 20, plot = FALSE)
+
+png("Non_conjugate_dists_rho.png", units="in", width=15, height=6, res=700)
+
+par(mfrow = c(1, 2))
+
+# Plot as a line
+plot(rho_vec, dens1, type = "l", lty = 1, col = "blue",
+     ylab = "Density",
+     xlab = expression(rho),
+     lwd = 2, ylim = c(0, 40),
+     xlim = c(0.1, 0.2))
+lines(h1$mids, h1$density, lwd = 2, col = "blue", lty = 2)
+
+legend("topright", legend = c("Scenario 1: Prior", "Scenario 1: Posterior"), col = "blue", lty = 1:2)
+
+# Plot as a line
+plot(rho_vec, dens2, type = "l", lty = 1, col = "green",
+     ylab = "Density",
+     xlab = expression(rho),
+     lwd = 2)
+lines(rho_vec, dens3, col = "red")
+lines(h2$mids, h2$density, lwd = 2, col = "green", lty = 2)
+lines(h3$mids, h3$density, lwd = 2, col = "red", lty = 2)
+
+legend("topright", legend = c("Scenario 2: Prior", "Scenario 2: Posterior",
+                              "Scenario 3: Prior", "Scenario 3: Posterior"), 
+       col = c("green", "green", "red", "red"), lty = 1:2)
+
+dev.off()
+
+
+#Calculating BPP for scenario 1:
+
+
+
+n_t_interim <- 78
+n_c_interim <- 63
+events_t_interim <- 31
+events_c_interim <- 23
+
+# Remaining patients
+n_t_total <- 162
+n_c_total <- 162
+n_t_remaining <- n_t_total - n_t_interim  
+n_c_remaining <- n_c_total - n_c_interim  
+
+
+S1 <- MCMC_Func(mu = 0.15, sd = 0.0001)
+
+n_sims <- 100000
+BPP_vec <- rep(NA, n_sims)
+
+for (i in 1:n_sims){
+  control_event_rate <- sample(S1$p_C, size = 1)
+  treatment_event_rate <- max(0, control_event_rate - sample(S1$d, size = 1))
+  BPP_vec[i] <- BPP_Func(control_event_rate = control_event_rate,
+                         treatment_event_rate = treatment_event_rate)
+}
+
+mean(BPP_vec)
+
+S2 <- MCMC_Func(mu = 0.1, sd = 0.01)
+
+n_sims <- 10000
+BPP_vec <- rep(NA, n_sims)
+control_event_rate_vec <- rep(NA, n_sims)
+treatment_event_rate_vec <- rep(NA, n_sims)
+
+
+for (i in 1:n_sims){
+  control_event_rate <- sample(S2$p_C, size = 1)
+  treatment_event_rate <- control_event_rate - sample(S2$d, size = 1)
+  control_event_rate_vec[i] <- control_event_rate
+  treatment_event_rate_vec[i] <- treatment_event_rate
+  BPP_vec[i] <- BPP_Func(control_event_rate = control_event_rate,
+                         treatment_event_rate = treatment_event_rate)
+}
+
+mean(na.omit(BPP_vec))
+
+
+control_event_rate_vec[which(is.na(BPP_vec))]
+treatment_event_rate_vec[which(is.na(BPP_vec))]
+
+
+
+
 
 # Plotting GSD boundaries - Pocock and OBF ----------------------------------------------------------------
 
