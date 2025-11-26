@@ -9,7 +9,7 @@ library(SHELF)
 
 args <- commandArgs(trailingOnly = TRUE)
 if(length(args) != 2) {
-  stop("Usage: Rscript run_assurance_batch.R <n_sims> <seed>")
+  stop("Usage: Rscript Scenario1_Design1.R <n_sims> <seed>")
 }
 
 n_sims <- as.numeric(args[1])
@@ -26,24 +26,17 @@ n_t <- 400
 
 control_model <- list(
   dist = "Exponential",
-  parameter_mode = "Distribution",
-  t1 = 12,
-  t1_Beta_a = 10.2,
-  t1_Beta_b = 15.1
-)
+  parameter_mode = "Fixed",
+  fixed_type = "Parameters",
+  lambda = log(2)/9)
 
-effect_model <- list(
-  delay_SHELF = SHELF::fitdist(c(3, 4, 5),
-                               probs = c(0.25, 0.5, 0.75),
-                               lower = 0, upper = 12),
-  delay_dist = "gamma",
-  HR_SHELF   = SHELF::fitdist(c(0.55, 0.6, 0.7),
-                              probs = c(0.25, 0.5, 0.75),
-                              lower = 0, upper = 1),
-  HR_dist = "gamma",
-  P_S = 0.9,
-  P_DTE = 0.8
-)
+
+effect_model <- list(delay_SHELF = SHELF::fitdist(c(3.99, 4, 4.1), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 12),
+                     delay_dist = "gamma",
+                     HR_SHELF = SHELF::fitdist(c(0.599, 0.6, 0.601), probs = c(0.25, 0.5, 0.75), lower = 0, upper = 1),
+                     HR_dist = "gamma",  
+                     P_S = 1,
+                     P_DTE = 0)
 
 censoring_model <- list(
   method = "Events",
@@ -81,5 +74,5 @@ res <- calc_dte_assurance(
 # Save output
 # ---------------------
 
-outname <- sprintf("assurance_batch_%04d.json", seed)
-write_json(res, outname, pretty = TRUE)
+outname <- sprintf("assurance_batch_%04d.rds", seed)
+saveRDS(res, outname)
