@@ -197,30 +197,70 @@ for (i in 1:3){
 
 # Code for the example -------------------------
 
-Scenario1_Design1 <- readRDS("Thesis/Chapter 6/data/Scenario1_Design1.rds")
-Scenario1_Design2 <- readRDS("Thesis/Chapter 6/data/Scenario1_Design2.rds")
-Scenario1_Design3 <- readRDS("Thesis/Chapter 6/data/Scenario1_Design3.rds")
-Scenario2_Design1 <- readRDS("Thesis/Chapter 6/data/Scenario2_Design1.rds")
-Scenario2_Design2 <- readRDS("Thesis/Chapter 6/data/Scenario2_Design2.rds")
-Scenario2_Design3 <- readRDS("Thesis/Chapter 6/data/Scenario2_Design3.rds")
-Scenario3_Design1 <- readRDS("Thesis/Chapter 6/data/Scenario3_Design1.rds")
-Scenario3_Design2 <- readRDS("Thesis/Chapter 6/data/Scenario3_Design2.rds")
-Scenario3_Design3 <- readRDS("Thesis/Chapter 6/data/Scenario3_Design3.rds")
-Scenario4_Design1 <- readRDS("Thesis/Chapter 6/data/Scenario4_Design1.rds")
-Scenario4_Design2 <- readRDS("Thesis/Chapter 6/data/Scenario4_Design2.rds")
-Scenario4_Design3 <- readRDS("Thesis/Chapter 6/data/Scenario4_Design3.rds")
+scenarios <- 1:4
+designs   <- 1:4
 
-results_table <- data.frame(Scenario = rep(1:4, each = 4),
-                            Design = rep(c(1,2,3,4), each = 4),
-                            Power = numeric(16),
-                            Prob_Early_Fut = numeric(16),
-                            Prob_Early_Eff = numeric(16),
-                            E_SS = numeric(16),
-                            E_Dur
-                            ation = numeric(16))
+# Ensure correct row ordering
+df <- expand.grid(Scenario = scenarios, Design = designs)
+df <- df[order(df$Scenario, df$Design), ]
 
-results_table$Power[1] = Scenario1_Design1$assurance
-results_table$Power[2] = mean(Scenario1_Design2$Decision %in% c("Stop for efficacy", "Successful at final"))
+files <- sprintf("Thesis/Chapter 6/data/Scenario%d_Design%d.rds",
+                 df$Scenario, df$Design)
+objects <- lapply(files, readRDS)
+
+extract_metrics <- function(obj, scenario, design) {
+  
+  power <- if (design == 1) {
+    obj$assurance
+  } else {
+    mean(obj$Decision %in% c("Stop for efficacy", "Successful at final"))
+  }
+  
+  futility_labels <- c(
+    `3` = "Stop for futility",
+    `4` = if (scenario == 4) "Stop for futility (BPP)" else "Stop for futility (beta)"
+  )
+  prob_fut <- if (design %in% c(3,4)) {
+    mean(obj$Decision == futility_labels[as.character(design)])
+  } else {
+    NA
+  }
+  
+  prob_eff <- if (design %in% c(2,3,4)) {
+    mean(obj$Decision == "Stop for efficacy")
+  } else {
+    NA
+  }
+  
+  ess <- if (design == 1) obj$sample_size else mean(obj$SampleSize)
+  
+  duration <- if (design == 1) obj$duration else mean(obj$StopTime)
+  
+  list(
+    Power = power,
+    Prob_Early_Fut = prob_fut,
+    Prob_Early_Eff = prob_eff,
+    E_SS = ess,
+    E_Duration = duration
+  )
+}
+
+metrics <- mapply(
+  extract_metrics,
+  obj      = objects,
+  scenario = df$Scenario,
+  design   = df$Design,
+  SIMPLIFY = FALSE
+)
+
+metric_df <- do.call(rbind, lapply(metrics, as.data.frame))
+
+results_table <- cbind(df, metric_df)
+
+results_table
+
+
+
 
 
 
