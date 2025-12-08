@@ -341,44 +341,83 @@ legend("topright",
        lty = 1:3, lwd = 2, bty = "n")
 dev.off()
 
-MCMC_Func <- function(mu, sd){
+MCMC_Func <- function(mu, nu){
   
-  # Priors + data
-  alpha_C_prior <- 10.7
-  beta_C_prior <- 13.1
-  mu_d_prior <- mu
-  sigma_d_prior <- sqrt(sd) 
+  modelstring = "
+
+model {
+  # Likelihood
+  x_c ~ dbin(theta_c, n_c)
+  x_t ~ dbin(theta_t, n_t)
   
-  stan_data <- list(
-    N_C = 63,
-    Y_C = 23,
-    N_T = 78,
-    Y_T = 31,
-    alpha_C_prior = alpha_C_prior,
-    beta_C_prior = beta_C_prior,
-    mu_d_prior = mu_d_prior,
-    sigma_d_prior = sigma_d_prior
-  )
+  # Priors
+  theta_c ~ dbeta(a_c, b_c)
   
-  # Compile Stan model
-  mod <- stan_model("Thesis/Chapter 5/stan_model_binary_outcome.stan")
+  # Treatment effect parameterisation
+  rho ~ dnorm(mu_rho, tau_rho) T(lower_rho, upper_rho)
   
-  # Sample
-  fit <- sampling(mod,
-                  data = stan_data,
-                  chains = 4,
-                  iter = 2000,
-                  warmup = 1000)
+  theta_t <- theta_c - rho
   
-  
-  posterior <- rstan::extract(fit)
-  return(posterior)
+  # Constraints ensure theta_t is valid probability
+  lower_rho <- theta_c - 1
+  upper_rho <- theta_c
+}
+"
+
+# Interim data
+x_c <- 23
+n_c <- 63
+x_t <- 31
+n_t <- 78
+
+# Priors
+a_c <- 10.7
+b_c <- 13.1
+
+# Prior on rho (treatment effect = θ_c - θ_t)
+# You may choose different hyperparameters depending on elicitation
+mu_rho  <- mu     # no a priori difference
+sd_rho  <- sqrt(nu)   # relatively weak prior
+tau_rho <- 1 / sd_rho^2
+
+# Bundle for JAGS
+data_list <- list(
+  x_c = x_c,
+  n_c = n_c,
+  x_t = x_t,
+  n_t = n_t,
+  a_c = a_c,
+  b_c = b_c,
+  mu_rho = mu_rho,
+  tau_rho = tau_rho
+)
+
+# Initial values
+inits <- function() {
+  list(theta_c = 0.4,
+       rho = 0.0)
 }
 
+# Parameters to monitor
+params <- c("theta_c", "theta_t", "rho")
 
-d_post_scen1 <- MCMC_Func(mu = 0.15, sd = 0.0001)$d
-d_post_scen2 <- MCMC_Func(mu = 0.15, sd = 0.01)$d
-d_post_scen3 <- MCMC_Func(mu = 0.10, sd = 0.01)$d
+model = jags.model(textConnection(modelstring), data = data_list, quiet = T)
+
+
+
+update(model, 5000)  # burn-in
+
+samples <- coda.samples(model,
+                        variable.names = params,
+                        n.iter = 20000)
+
+return(list(samples = samples))
+
+}
+
+d_post_scen1 <- unlist(MCMC_Func(0.15, 0.0001)$samples[,1])
+d_post_scen2 <- unlist(MCMC_Func(0.15, 0.01)$samples[,1])
+d_post_scen3 <- unlist(MCMC_Func(0.10, 0.01)$samples[,1])
 
 
 # Compute histogram data without plotting
@@ -404,7 +443,7 @@ legend("topright", legend = c("Scenario 1: Prior", "Scenario 1: Posterior"), col
 plot(rho_vec, dens2, type = "l", lty = 1, col = "green",
      ylab = "Density",
      xlab = expression(rho),
-     lwd = 2)
+     lwd = 2, ylim = c(0, max(dens2, dens3, h2$density, h3$density)))
 lines(rho_vec, dens3, col = "red")
 lines(h2$mids, h2$density, lwd = 2, col = "green", lty = 2)
 lines(h3$mids, h3$density, lwd = 2, col = "red", lty = 2)
@@ -419,7 +458,6 @@ dev.off()
 #Calculating BPP for scenario 1:
 
 
-
 n_t_interim <- 78
 n_c_interim <- 63
 events_t_interim <- 31
@@ -431,22 +469,22 @@ n_c_total <- 162
 n_t_remaining <- n_t_total - n_t_interim  
 n_c_remaining <- n_c_total - n_c_interim  
 
-
-S1 <- MCMC_Func(mu = 0.15, sd = 0.0001)
+S1 <- MCMC_Func(0.15, 0.0001)$samples
 
 n_sims <- 100000
 BPP_vec <- rep(NA, n_sims)
 
 for (i in 1:n_sims){
-  control_event_rate <- sample(S1$p_C, size = 1)
-  treatment_event_rate <- max(0, control_event_rate - sample(S1$d, size = 1))
+  j <- sample(1:length(unlist(S1[,1])), size = 1)
+  control_event_rate <- unlist(S1[j,2])
+  treatment_event_rate <- unlist(S1[j,3])
   BPP_vec[i] <- BPP_Func(control_event_rate = control_event_rate,
                          treatment_event_rate = treatment_event_rate)
 }
 
 mean(BPP_vec)
 
-S2 <- MCMC_Func(mu = 0.1, sd = 0.01)
+S2 <- MCMC_Func(0.15, 0.01)$samples
 
 n_sims <- 10000
 BPP_vec <- rep(NA, n_sims)
@@ -455,19 +493,31 @@ treatment_event_rate_vec <- rep(NA, n_sims)
 
 
 for (i in 1:n_sims){
-  control_event_rate <- sample(S2$p_C, size = 1)
-  treatment_event_rate <- control_event_rate - sample(S2$d, size = 1)
-  control_event_rate_vec[i] <- control_event_rate
-  treatment_event_rate_vec[i] <- treatment_event_rate
+  j <- sample(1:length(unlist(S2[,1])), size = 1)
+  control_event_rate <- unlist(S2[j,2])
+  treatment_event_rate <- unlist(S2[j,3])
   BPP_vec[i] <- BPP_Func(control_event_rate = control_event_rate,
                          treatment_event_rate = treatment_event_rate)
 }
 
-mean(na.omit(BPP_vec))
+mean(BPP_vec)
+
+S3 <- MCMC_Func(0.1, 0.01)$samples
+
+n_sims <- 1000
+BPP_vec <- rep(NA, n_sims)
+
+for (i in 1:n_sims){
+  j <- sample(1:length(unlist(S3[,1])), size = 1)
+  control_event_rate <- unlist(S3[j,2])
+  treatment_event_rate <- unlist(S3[j,3])
+  BPP_vec[i] <- BPP_Func(control_event_rate = control_event_rate,
+                         treatment_event_rate = treatment_event_rate)
+}
+
+mean(BPP_vec)
 
 
-control_event_rate_vec[which(is.na(BPP_vec))]
-treatment_event_rate_vec[which(is.na(BPP_vec))]
 
 
 
