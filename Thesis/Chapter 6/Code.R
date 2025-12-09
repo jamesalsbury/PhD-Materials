@@ -134,11 +134,11 @@ paper_df - outcome_df
 
 # Plotting number of events v proportion of events > 3 months
 
-#png("Events_Prop_Scen1.png", units="in", width=12, height=5, res=700)
-#par(mfrow=c(1,2))
-#events_v_prop_func(1, 34)
-#events_v_prop_func(1, 12)
-#dev.off()
+png("Events_Prop_Scen1.png", units="in", width=12, height=5, res=700)
+par(mfrow=c(1,2))
+plot_events_v_prop_func(1, 34)
+plot_events_v_prop_func(1, 12)
+dev.off()
 
 # Find the situations which 'break' the rule -------------------------
 
@@ -260,6 +260,18 @@ results_table <- cbind(df, metric_df)
 results_table
 
 
+
+png("Break_ScenA.png", units="in", width=12, height=5, res=700)
+plot_break_scenarios(7, 0)
+dev.off()
+
+png("Break_ScenB.png", units="in", width=12, height=5, res=700)
+plot_break_scenarios(8, 34)
+dev.off()
+
+png("Break_ScenC.png", units="in", width=12, height=5, res=700)
+plot_break_scenarios(9, 12)
+dev.off()
 
 
 

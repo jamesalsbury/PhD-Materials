@@ -524,7 +524,7 @@ reproduce_func <- function(scenario, rec_duration, n_sims) {
 plot_events_v_prop_func <- function(scenario, rec_duration){
   
   # Example run
-  x1 <- propEventFunc(lambda_c,
+  x1 <- propEventFunc(scen_list[[scenario]]$lambda_c,
                       scen_list[[scenario]]$HR1, 
                       scen_list[[scenario]]$delay, 
                       scen_list[[scenario]]$HR2,
@@ -534,8 +534,8 @@ plot_events_v_prop_func <- function(scenario, rec_duration){
   plot(x1$eventVec, x1$eventProp, type = "l", ylim = c(0, 1),
        xlab = "Number of events", ylab = "Proportion of events > 3 months",
        col = "red", 
-       main = paste0("Scenario ", scenario, ", Recruitment: ", rec_duration), 
-       cex.axis=1.5, cex.lab=1.5, cex.main=2)
+       main = paste0("Scenario ", scenario, ", Recruitment: ", rec_duration, " months"), 
+       cex.axis=1.5, cex.lab=1.5, cex.main=1.5)
   abline(h = 2/3, lty = 2)
   abline(v = 512 * 0.5, lty = 3)
   abline(v = 512 * 0.75, lty = 3)
@@ -551,13 +551,25 @@ plot_break_scenarios <- function(scenario, rec_duration){
                       n_c, 
                       rec_duration)
   
+  if (scenario == 7){
+    scen_equiv <- "A"
+  }
+  
+  if (scenario == 8){
+    scen_equiv <- "B"
+  }
+  
+  if (scenario == 9){
+    scen_equiv <- "C"
+  }
+  
   
   par(mfrow = c(1,2))
   plot(x1$eventVec, x1$eventProp, type = "l", ylim = c(0, 1),
        xlab = "Number of events", ylab = "Proportion of events > 3 months",
        col = "red", 
-       #main = paste0("Scenario ", scenario, ", Recruitment: ", rec_duration), 
-       cex.axis=1.5, cex.lab=1.5, cex.main=2)
+       main = paste0("Scenario ", scen_equiv, ", Recruitment: ", rec_duration, " months"), 
+       cex.axis=1.5, cex.lab=1.5, cex.main=1.5)
   abline(h = 2/3, lty = 2)
   abline(v = 512 * 0.5, lty = 3)
   abline(v = 512 * 0.75, lty = 3)

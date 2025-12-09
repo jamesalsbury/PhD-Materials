@@ -486,7 +486,7 @@ mean(BPP_vec)
 
 S2 <- MCMC_Func(0.15, 0.01)$samples
 
-n_sims <- 10000
+n_sims <- 100000
 BPP_vec <- rep(NA, n_sims)
 control_event_rate_vec <- rep(NA, n_sims)
 treatment_event_rate_vec <- rep(NA, n_sims)
@@ -504,7 +504,7 @@ mean(BPP_vec)
 
 S3 <- MCMC_Func(0.1, 0.01)$samples
 
-n_sims <- 1000
+n_sims <- 100000
 BPP_vec <- rep(NA, n_sims)
 
 for (i in 1:n_sims){
@@ -643,10 +643,10 @@ WT_Design <- gsDesign(
 simulate_gsd_power <- function(
     gsd,
     mu_control = 120,
-    mu_treat = 125,
+    mu_treat = 120,
     sigma = 10,
     n_per_group_fixed = 85,
-    n_sim = 200000
+    n_sim = 500000
 ) {
   k <- gsd$k
   bounds <- gsd$upper$bound
@@ -710,7 +710,7 @@ simulate_gsd_power <- function(
 }
 
 
-results <- simulate_gsd_power(gsd)
+results <- simulate_gsd_power(OBF_Design)
 print(results)
 
 
